@@ -1,0 +1,10 @@
+.vs
+*.tlog
+*.exe.recipe
+*.ilk
+*.log
+*.obj
+*.pdb
+*.idb
+*.FileListAbsolute.txt
+*.vcxproj.user

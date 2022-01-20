@@ -1,20 +1,20 @@
-#include "lib/raylib.h"
+#include "basic.h"
 
 #ifdef __EMSCRIPTEN__
 #   include <emscripten/emscripten.h>
 #endif
 
-void game_init(void);
-void game_loop_one_iteration(void);
+void GameInit(void);
+void GameLoopOneIteration(void);
 
 int main(void)
 {
-    game_init();
+    GameInit();
 
     #ifndef __EMSCRIPTEN__
     while (!WindowShouldClose())
-        game_loop_one_iteration();
+        GameLoopOneIteration();
     #else
-    emscripten_set_main_loop(game_loop_one_iteration, 0, 1);
+    emscripten_set_main_loop(GameLoopOneIteration, 0, 1);
     #endif
 }

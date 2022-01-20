@@ -13,7 +13,7 @@ call emsdk install latest
 call emsdk activate latest
 
 REM # Compile and link
-call emcc -o %@output% -Os -Wall -L./lib -lraylib -s USE_GLFW=3 -s TOTAL_MEMORY=134217728 --shell-file bin/web/shell.html %@input%
+call emcc -o %@output% -Os -Wall -L./lib -lraylib -s USE_GLFW=3 -s TOTAL_MEMORY=134217728 --shell-file bin/web/shell.html --preload-file res %@input%
 
 REM # Run
 call emrun %@output%

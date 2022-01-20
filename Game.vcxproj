@@ -108,6 +108,7 @@
     <Library Include="lib\raylib.lib" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\basic.c" />
     <ClCompile Include="src\game.c">
       <SubType>
       </SubType>
@@ -122,16 +123,19 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\basic.h" />
     <ClInclude Include="src\lib\raygui.h" />
     <ClInclude Include="src\lib\raylib.h" />
     <ClInclude Include="src\lib\raymath.h" />
-    <ClInclude Include="src\lib\rlgl.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
     <None Include="LICENSE" />
     <None Include="README.md" />
     <None Include="webbuild.bat" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\test.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

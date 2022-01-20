@@ -1,19 +1,27 @@
 @echo off
-REM # Compile for the web using Emscripten.
-REM # Assumes that emsdk is on you PATH.
-REM # https://github.com/raysan5/raylib/wiki/Working-for-Web-(HTML5)
+setlocal EnableDelayedExpansion
 
-REM # Config
-set @input=src/main.c src/game.c src/lib/raygui.c
-set @output=bin/web/index.html
+rem # Compile for the web using Emscripten.
+rem # Assumes that emsdk is on you PATH.
+rem # https://github.com/raysan5/raylib/wiki/Working-for-Web-(HTML5)
 
-REM # Setup emsdk crap
+rem # Setup emsdk crap
 call emsdk update
 call emsdk install latest
 call emsdk activate latest
 
-REM # Compile and link
-call emcc -o %@output% -Os -Wall -L./lib -lraylib -s USE_GLFW=3 -s TOTAL_MEMORY=134217728 --shell-file bin/web/shell.html --preload-file res %@input%
+rem # Collect all .c files for compilation into the 'input' variable.
+for /f %%a in ('forfiles /s /m *.c /c "cmd /c echo @relpath"') do set input=!input! "%%~a"
 
-REM # Run
-call emrun %@output%
+rem # Compile and link
+call emcc -o bin/web/index.html -Os -Wall -L./lib -lraylib -s USE_GLFW=3 -s TOTAL_MEMORY=134217728 --shell-file webshell.html --preload-file res %input%
+
+rem # Make sure .data is smaller than 32MB
+for /F "usebackq" %%A in ('bin/web/index.data') do set size=%%~zA
+if %size% geq 33554432 (
+	echo WARNING!
+	echo index.data is larger than 32MB!
+	pause
+)
+
+rem # Run with: $ emrun bin/web/index.html

@@ -113,10 +113,6 @@
       <SubType>
       </SubType>
     </ClCompile>
-    <ClCompile Include="src\lib\raygui.c">
-      <SubType>
-      </SubType>
-    </ClCompile>
     <ClCompile Include="src\main.c">
       <SubType>
       </SubType>
@@ -124,15 +120,23 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\basic.h" />
+    <ClInclude Include="src\lib\easings.h" />
+    <ClInclude Include="src\lib\physac.h" />
     <ClInclude Include="src\lib\raygui.h" />
     <ClInclude Include="src\lib\raylib.h" />
     <ClInclude Include="src\lib\raymath.h" />
+    <ClInclude Include="src\lib\rcamera.h" />
+    <ClInclude Include="src\lib\rgestures.h" />
+    <ClInclude Include="src\lib\rlgl.h" />
+    <ClInclude Include="src\lib\rmem.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
     <None Include="LICENSE" />
     <None Include="README.md" />
     <None Include="webbuild.bat" />
+    <None Include="webrun.bat" />
+    <None Include="webshell.html" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\test.png" />

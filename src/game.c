@@ -4,25 +4,31 @@ Texture2D texture;
 
 void GameInit(void)
 {
-    InitWindow(900, 450, "Raylib Test");
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    InitWindow(900, 600, "Raylib Test");
     texture = LoadTexture("res/test.png");
 }
 void GameLoopOneIteration(void)
 {
-    Vector3 x = { 0 };
-    Vector3Barycenter(x, x, x, x);
-
     BeginDrawing();
     {
         ClearBackground(RAYWHITE);
 
-        DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
-        static bool active = false;
-        active = GuiToggle((Rectangle) { .x = 50, .y = 50, .width = 100, .height = 30 }, "Test Button", active);
-        if (active)
-            DrawText("You are pushing the button!", 190, 250, 20, LIGHTGRAY);
+        rlBegin(RL_TRIANGLES);
+        {
+            rlColor3f(1, 0, 0); rlVertex2f(+100.f, +100.f);
+            rlColor3f(0, 0, 1); rlVertex2f(+300.f, +300.f);
+            rlColor3f(0, 1, 0); rlVertex2f(+500.f, +100.f);
+        }
+        rlEnd();
 
-        DrawTexture(texture, 0, 300, WHITE);
+        static bool active = false;
+        active = GuiToggle((Rectangle) { 500, 300, 200, 50 }, active ? "On" : "Off", active);
+        if (active)
+            DrawText("Hi There", 400, 10, 24, DARKGRAY);
+
+        DrawTexture(texture, 100, 400, WHITE);
+        DrawFPS(10, 10);
     }
     EndDrawing();
 }

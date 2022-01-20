@@ -5,11 +5,17 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <math.h>
 #include "lib/raylib.h"
 #include "lib/raygui.h"
 #include "lib/raymath.h"
+#include "lib/rgestures.h"
+#include "lib/rcamera.h"
+#include "lib/physac.h"
+#include "lib/easings.h"
+#include "lib/rlgl.h"
 
 #ifdef _MSC_VER
 #	define FORMAT_STRING _Printf_format_string_ const char *
@@ -32,8 +38,7 @@ typedef uintptr_t uptr;
 typedef unsigned int uint;
 
 void *TempAlloc(uptr size);
-uptr TempMark(void);
-void TempReset(uptr mark);
+void TempReset(void);
 
 void *TempCopy(const void *data, uptr size);
 char *TempString(const char *str);
@@ -52,3 +57,25 @@ Vector4 Vec4Broadcast(float xyzw);
 Rectangle Rect(float x, float y, float width, float height);
 Rectangle RectVec(Vector2 pos, Vector2 size); 
 Rectangle RectMinMax(Vector2 min, Vector2 max);
+
+typedef u64 Random;
+Random SeedRandom(u64 seed);
+uint RandomUint(Random *rand);
+int RandomInt(Random *rand, int min, int max);
+float RandomFloat(Random *rand, float min, float max);
+bool RandomProbability(Random *rand, float prob);
+void RandomShuffle(Random *rand, void *data, uptr elementCount, uptr elementSize);
+
+typedef struct StringBuilder
+{
+	char *buffer;
+	uptr capacity;
+	uptr cursor;
+	uptr bytesNeeded;
+} StringBuilder;
+StringBuilder CreateStringBuilder(char *buffer, uptr capacity);
+void StringAppendString(StringBuilder *builder, const char *str);
+void StringAppendBytes(StringBuilder *builder, const void *bytes, uptr size);
+void StringAppendChar(StringBuilder *builder, char c);
+void PrintToString(StringBuilder *builder, FORMAT_STRING format, ...);
+void PrintvToString(StringBuilder *builder, FORMAT_STRING format, va_list args);

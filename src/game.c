@@ -9,15 +9,11 @@ Music music;
 
 void GameInit(void)
 {
-    InitAudioDevice();
-
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(WIDTH, HEIGHT, "Raylib Test");
-
-    texture = LoadTexture("res/test.png");
+    SetTargetFPS(60);
+    InitAudioDevice();
     sound = LoadSound("res/test.wav");
     music = LoadMusicStream("res/test.ogg");
-
     PlayMusicStream(music);
 }
 void GameLoopOneIteration(void)

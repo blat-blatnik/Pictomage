@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <math.h>
 #include "lib/raylib.h"
@@ -16,11 +18,20 @@
 #include "lib/physac.h"
 #include "lib/easings.h"
 #include "lib/rlgl.h"
+#include "lib/rmem.h"
 
 #ifdef _MSC_VER
 #	define FORMAT_STRING _Printf_format_string_ const char *
+#	define ASSERT(condition)do{\
+		if (!(condition)){\
+			__debugbreak();\
+			TraceLog(LOG_FATAL,"Assertion failed! '%s' in %s(), file %s, line %d.",#condition,__func__,__FILE__,__LINE__);\
+			abort();\
+		}\
+	}while(0)
 #else
 #	define FORMAT_STRING const char *
+#	define ASSERT(condition) assert(condition)
 #endif
 
 #define COUNTOF(array) (sizeof(array)/sizeof(array[0]))
@@ -60,11 +71,17 @@ Rectangle RectMinMax(Vector2 min, Vector2 max);
 
 typedef u64 Random;
 Random SeedRandom(u64 seed);
-uint RandomUint(Random *rand);
-int RandomInt(Random *rand, int min, int max);
-float RandomFloat(Random *rand, float min, float max);
+u32 Random32(Random *rand);
+uint RandomUint(Random *rand, uint inclusiveMin, uint exclusiveMax);
+int RandomInt(Random *rand, int inclusiveMin, int exclusiveMax);
+float RandomFloat(Random *rand, float inclusiveMin, float exclusiveMax);
+float RandomFloat01(Random *rand);
 bool RandomProbability(Random *rand, float prob);
-void RandomShuffle(Random *rand, void *data, uptr elementCount, uptr elementSize);
+void RandomShuffle(Random *rand, void *items, uptr elementCount, uptr elementSize);
+
+float NoiseX(uint seed, int x);
+float NoiseXY(uint seed, int x, int y);
+float NoiseXYZ(uint seed, int x, int y, int z);
 
 typedef struct StringBuilder
 {

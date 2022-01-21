@@ -216,6 +216,7 @@ static void __InsertMemNodeBefore(AllocList *const list, MemNode *const insert, 
     curr->prev = insert;
 }
 
+/* [blat-blatnik] This is aparently unused and generating warnings.
 static void __ReplaceMemNode(MemNode *const old, MemNode *const replace)
 {
     replace->prev = old->prev;
@@ -225,6 +226,7 @@ static void __ReplaceMemNode(MemNode *const old, MemNode *const replace)
     if( old->next != NULL )
         old->next->prev = replace;
 }
+*/
 
 
 static MemNode *__RemoveMemNode(AllocList *const list, MemNode *const node)

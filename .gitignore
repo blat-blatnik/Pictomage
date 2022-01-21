@@ -8,3 +8,4 @@
 *.idb
 *.FileListAbsolute.txt
 *.vcxproj.user
+*.obj.enc

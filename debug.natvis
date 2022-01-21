@@ -87,7 +87,7 @@
 
 	<Type Name="Matrix">
 		<DisplayString>[[{m0,g} {m4,g} {m8,g} {m12,g}] [{m1,g} {m5,g} {m9,g} {m13,g}] [{m2,g} {m6,g} {m10,g} {m14,g}] [{m3,g} {m7,g} {m11,g} {m15,g}]]</DisplayString>
-		<Expand HideRawView="1">
+		<Expand HideRawView="0">
 			<!-- display matrix in row major order -->
 			<Synthetic Name="row 1">
 				<DisplayString>[{m0,g} {m4,g} {m8,g} {m12,g}]</DisplayString>

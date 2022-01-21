@@ -97,3 +97,8 @@ void StringAppendBytes(StringBuilder *builder, const void *bytes, uptr size);
 void StringAppendChar(StringBuilder *builder, char c);
 void PrintToString(StringBuilder *builder, FORMAT_STRING format, ...);
 void PrintvToString(StringBuilder *builder, FORMAT_STRING format, va_list args);
+
+void DrawDebugText(FORMAT_STRING format, ...);
+void DrawTextFormat(float x, float y, float fontSize, Color color, FORMAT_STRING format, ...);
+void DrawTextFormatv(float x, float y, float fontSize, Color color, FORMAT_STRING format, va_list args);
+void DrawRectangleVCentered(Vector2 center, Vector2 size, Color color);

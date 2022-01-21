@@ -137,19 +137,15 @@
     <None Include=".gitignore" />
     <None Include="LICENSE" />
     <None Include="README.md" />
-    <None Include="res\test.ogg" />
     <None Include="webbuild.bat" />
     <None Include="webrun.bat" />
     <None Include="webshell.html" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="res\test.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <Media Include="res\test.wav" />
-  </ItemGroup>
-  <ItemGroup>
     <Natvis Include="debug.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="res\snap.wav" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

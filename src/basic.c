@@ -15,6 +15,8 @@ void *TempAlloc(uptr size)
 	void *result = BiStackAllocFront(&TempStorageAllocator, size);
 	if (!result)
 		TraceLog(LOG_WARNING, "Temporary storage was full when trying to allocate %zu bytes.", size);
+	else
+		memset(result, 0, size);
 	return result;
 }
 void TempReset(void)
@@ -57,7 +59,7 @@ char *TempPrintv(FORMAT_STRING format, va_list args)
 	
 	va_list argsCopy;
 	va_copy(argsCopy, args);
-	int neededLength = snprintf(NULL, 0, format, argsCopy);
+	int neededLength = vsnprintf(NULL, 0, format, argsCopy);
 	va_end(argsCopy);
 	if (neededLength < 0)
 		return TempString("[FORMAT ERROR]");
@@ -67,7 +69,7 @@ char *TempPrintv(FORMAT_STRING format, va_list args)
 	if (!result)
 		return NULL;
 
-	snprintf(result, neededBytes, format, args);
+	vsnprintf(result, neededBytes, format, args);
 	return result;
 }
 
@@ -273,4 +275,29 @@ void PrintvToString(StringBuilder *builder, FORMAT_STRING format, va_list args)
 	uptr charsWritten = (uptr)len;
 	builder->cursor += charsWritten;
 	builder->bytesNeeded += charsWritten;
+}
+
+void DrawDebugText(FORMAT_STRING format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	DrawTextFormatv(GetMouseX() + 10, GetMouseY() - 30, 20, GRAY, format, args);
+	va_end(args);
+}
+void DrawTextFormat(float x, float y, float fontSize, Color color, FORMAT_STRING format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	DrawTextFormatv(x, y, fontSize, color, format, args);
+	va_end(args);
+}
+void DrawTextFormatv(float x, float y, float fontSize, Color color, FORMAT_STRING format, va_list args)
+{
+	char *text = TempPrintv(format, args);
+	DrawTextEx(GuiGetFont(), text, Vec2(x, y), fontSize, 1, color);
+}
+void DrawRectangleVCentered(Vector2 center, Vector2 size, Color color)
+{
+	Vector2 pos = { center.x - size.x / 2, center.y - size.y / 2 };
+	DrawRectangleV(pos, size, color);
 }

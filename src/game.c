@@ -1,47 +1,62 @@
 #include "basic.h"
 
-#define WIDTH 900
-#define HEIGHT 600
+#define SCREEN_WIDTH 900
+#define SCREEN_HEIGHT 600
+#define FPS 60
+#define DELTA_TIME (1.0f/FPS)
 
-Texture2D texture;
-Sound sound;
-Music music;
+typedef struct Player
+{
+    Vector2 pos;
+} Player;
+
+Player player = {
+    .pos = { SCREEN_WIDTH / 2.f, SCREEN_HEIGHT / 2.f }
+};
 
 void GameInit(void)
 {
-    InitWindow(WIDTH, HEIGHT, "Raylib Test");
-    SetTargetFPS(60);
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Raylib Test");
+    SetTargetFPS(FPS);
     InitAudioDevice();
-    sound = LoadSound("res/test.wav");
-    music = LoadMusicStream("res/test.ogg");
-    PlayMusicStream(music);
 }
 void GameLoopOneIteration(void)
 {
-    UpdateMusicStream(music);
+    Vector2 playerMove = Vec2Broadcast(0);
+    if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
+        playerMove.y += 1;
+    if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
+        playerMove.y -= 1;
+    if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
+        playerMove.x -= 1;
+    if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
+        playerMove.x += 1;
+    
+    if (playerMove.x != 0 || playerMove.y != 0)
+    {
+        const float playerSpeed = 1000;
+        playerMove = Vector2Normalize(playerMove);
+        playerMove = Vector2Scale(playerMove, playerSpeed * DELTA_TIME);
+        player.pos = Vector2Add(player.pos, playerMove);
+    }
 
     BeginDrawing();
     {
         ClearBackground(RAYWHITE);
-
-        rlBegin(RL_TRIANGLES);
+        rlPushMatrix();
         {
-            rlColor3f(1, 0, 0); rlVertex2f(+100.f, +100.f);
-            rlColor3f(0, 0, 1); rlVertex2f(+300.f, +300.f);
-            rlColor3f(0, 1, 0); rlVertex2f(+500.f, +100.f);
+            Color c = RAYWHITE;
+            rlDisableBackfaceCulling();
+            rlMatrixMode(RL_PROJECTION);
+            rlLoadIdentity();
+            Matrix m = rlGetMatrixProjection();
+            rlOrtho(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT, 0.001, 1000);
+            m = rlGetMatrixProjection();
+            DrawRectangleV(Vec2(-0.5, -0.5), Vec2(+1, +1), BLACK);
+            m = rlGetMatrixProjection();
+            int x = 123;
         }
-        rlEnd();
-
-        if (GuiButton((Rectangle) { 500, 200, 200, 40 }, "Play Sound"))
-            PlaySound(sound);
-
-        static bool active = false;
-        active = GuiToggle((Rectangle) { 500, 250, 200, 40 }, active ? "On" : "Off", active);
-        if (active)
-            DrawText("Hi There", 400, 10, 24, DARKGRAY);
-
-        DrawTexture(texture, 100, 400, WHITE);
-        DrawFPS(10, 10);
+        rlPopMatrix();
     }
     EndDrawing();
 }

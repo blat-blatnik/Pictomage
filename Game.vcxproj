@@ -148,6 +148,9 @@
   <ItemGroup>
     <Media Include="res\test.wav" />
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="debug.natvis" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

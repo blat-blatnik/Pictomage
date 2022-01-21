@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="Vector2">
+		<DisplayString>[{x,g} {y,g}]</DisplayString>
+		<Expand HideRawView="1">
+			<CustomListItems MaxItemsPerView="1">
+				<!-- calculate length using fast inverse sqrt -->
+				<Variable Name="k" InitialValue="x*x+y*y"/>
+				<Variable Name="n" InitialValue="k/2"/>
+				<Variable Name="i" InitialValue="0x5F3759DF - ((*(int *)&amp;k) &gt;&gt; 1)"/>
+				<If Condition="k != 0">
+					<Exec>k = *(float *)&amp;i</Exec>
+					<Exec>k = k * (1.5f - (n * k * k))</Exec>
+					<Exec>k = k * (1.5f - (n * k * k))</Exec>
+					<Exec>k = k * (1.5f - (n * k * k))</Exec>
+					<Item Name="[len]">1/k,g</Item>
+				</If>
+				<If Condition="k == 0">
+					<Item Name="[len]">0.0f,g</Item>
+				</If>
+			</CustomListItems>
+			<Item Name="x">x,g</Item>
+			<Item Name="y">y,g</Item>
+		</Expand>
+	</Type>
+
+	<Type Name="Vector3">
+		<DisplayString>[{x,g} {y,g} {z,g}]</DisplayString>
+		<Expand HideRawView="1">
+			<CustomListItems MaxItemsPerView="1">
+				<!-- calculate length using fast inverse sqrt -->
+				<Variable Name="k" InitialValue="x*x+y*y+z*z"/>
+				<Variable Name="n" InitialValue="k/2"/>
+				<Variable Name="i" InitialValue="0x5F3759DF - ((*(int *)&amp;k) &gt;&gt; 1)"/>
+				<If Condition="k != 0">
+					<Exec>k = *(float *)&amp;i</Exec>
+					<Exec>k = k * (1.5f - (n * k * k))</Exec>
+					<Exec>k = k * (1.5f - (n * k * k))</Exec>
+					<Exec>k = k * (1.5f - (n * k * k))</Exec>
+					<Item Name="[len]">1/k,g</Item>
+				</If>
+				<If Condition="k == 0">
+					<Item Name="[len]">0.0f,g</Item>
+				</If>
+			</CustomListItems>
+			<Item Name="x">x,g</Item>
+			<Item Name="y">y,g</Item>
+			<Item Name="z">z,g</Item>
+		</Expand>
+	</Type>
+
+	<Type Name="Vector4">
+		<DisplayString>[{x,g} {y,g} {z,g} {w,g}]</DisplayString>
+		<Expand HideRawView="1">
+			<CustomListItems MaxItemsPerView="1">
+				<!-- calculate length using fast inverse sqrt -->
+				<Variable Name="k" InitialValue="x*x+y*y+z*z+w*w"/>
+				<Variable Name="n" InitialValue="k/2"/>
+				<Variable Name="i" InitialValue="0x5F3759DF - ((*(int *)&amp;k) &gt;&gt; 1)"/>
+				<If Condition="k != 0">
+					<Exec>k = *(float *)&amp;i</Exec>
+					<Exec>k = k * (1.5f - (n * k * k))</Exec>
+					<Exec>k = k * (1.5f - (n * k * k))</Exec>
+					<Exec>k = k * (1.5f - (n * k * k))</Exec>
+					<Item Name="[len]">1/k,g</Item>
+				</If>
+				<If Condition="k == 0">
+					<Item Name="[len]">0.0f,g</Item>
+				</If>
+			</CustomListItems>
+			<Item Name="x">x,g</Item>
+			<Item Name="y">y,g</Item>
+			<Item Name="z">z,g</Item>
+			<Item Name="w">w,g</Item>
+		</Expand>
+	</Type>
+
+	<Type Name="Color">
+		<DisplayString>[{(int)r} {(int)g} {(int)b} {(int)a}]</DisplayString>
+		<Expand HideRawView="1">
+			<Item Name="R">(int)r</Item>
+			<Item Name="G">(int)g</Item>
+			<Item Name="B">(int)b</Item>
+			<Item Name="A">(int)a</Item>
+		</Expand>
+	</Type>
+
+	<Type Name="Matrix">
+		<DisplayString>[[{m0,g} {m4,g} {m8,g} {m12,g}] [{m1,g} {m5,g} {m9,g} {m13,g}] [{m2,g} {m6,g} {m10,g} {m14,g}] [{m3,g} {m7,g} {m11,g} {m15,g}]]</DisplayString>
+		<Expand HideRawView="1">
+			<!-- display matrix in row major order -->
+			<Synthetic Name="row 1">
+				<DisplayString>[{m0,g} {m4,g} {m8,g} {m12,g}]</DisplayString>
+			</Synthetic>
+			<Synthetic Name="row 2">
+				<DisplayString>[{m1,g} {m5,g} {m9,g} {m13,g}]</DisplayString>
+			</Synthetic>
+			<Synthetic Name="row 3">
+				<DisplayString>[{m2,g} {m6,g} {m10,g} {m14,g}]</DisplayString>
+			</Synthetic>
+			<Synthetic Name="row 4">
+				<DisplayString>[{m3,g} {m7,g} {m11,g} {m15,g}]</DisplayString>
+			</Synthetic>
+		</Expand>
+	</Type>
+</AutoVisualizer>

@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
 #include "lib/raylib.h"
 #include "lib/raygui.h"
 #include "lib/raymath.h"

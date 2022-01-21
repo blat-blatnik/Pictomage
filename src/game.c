@@ -1,15 +1,29 @@
 #include "basic.h"
 
+#define WIDTH 900
+#define HEIGHT 600
+
 Texture2D texture;
+Sound sound;
+Music music;
 
 void GameInit(void)
 {
+    InitAudioDevice();
+
     SetConfigFlags(FLAG_MSAA_4X_HINT);
-    InitWindow(900, 600, "Raylib Test");
+    InitWindow(WIDTH, HEIGHT, "Raylib Test");
+
     texture = LoadTexture("res/test.png");
+    sound = LoadSound("res/test.wav");
+    music = LoadMusicStream("res/test.ogg");
+
+    PlayMusicStream(music);
 }
 void GameLoopOneIteration(void)
 {
+    UpdateMusicStream(music);
+
     BeginDrawing();
     {
         ClearBackground(RAYWHITE);
@@ -22,8 +36,11 @@ void GameLoopOneIteration(void)
         }
         rlEnd();
 
+        if (GuiButton((Rectangle) { 500, 200, 200, 40 }, "Play Sound"))
+            PlaySound(sound);
+
         static bool active = false;
-        active = GuiToggle((Rectangle) { 500, 300, 200, 50 }, active ? "On" : "Off", active);
+        active = GuiToggle((Rectangle) { 500, 250, 200, 40 }, active ? "On" : "Off", active);
         if (active)
             DrawText("Hi There", 400, 10, 24, DARKGRAY);
 

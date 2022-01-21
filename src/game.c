@@ -6,24 +6,27 @@ Texture2D texture;
 void GameInit(void)
 {
     Random r = SeedRandom(time(NULL));
-    float one_minus_epsilon = nextafterf(1, 0);
-    u64 total = 0;
-    u64 zero_count = 0;
-    u64 one_count = 0;
-    while (true)
+    u64 bit_counts[20] = {0};
+    u64 total_count = 0;
+    for (u64 i = 0;; ++i)
     {
-        ++total;
-        float f = RandomFloat01(&r);
-        ASSERT(f >= 0.0f && f < 1.0f);
-        if (f == 0.0f)
+        u32 r = (u32)RandomInt(&r, 0, 1 << 20);
+        total_count++;
+        u32 bit = 1;
+        for (int j = 0; j < 20; ++j)
         {
-            zero_count++;
-            printf("0 ~ every %g calls\n", total / (double)zero_count);
+            if (r & bit)
+                bit_counts[j]++;
+            bit <<= 1;
         }
-        else if (f == one_minus_epsilon)
+        if (i % 1000000000 == 0)
         {
-            one_count++;
-            printf("1 ~ every %g calls\n", total / (double)one_count);
+            for (int i = 19; i >= 0; --i)
+                printf("[%4d] ", i);
+            printf("\n");
+            for (int i = 19; i >= 0; --i)
+                printf("%.4f ", bit_counts[i] / (double)total_count);
+            printf("\n\n");
         }
     }
 

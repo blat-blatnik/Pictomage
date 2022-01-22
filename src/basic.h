@@ -59,7 +59,12 @@ char *TempPrintv(FORMAT_STRING format, va_list args);
 
 u64 HashBytes(const void *bytes, uptr size);
 u64 HashString(const char *str);
+void SwapMemory(void *a, void *b, uptr size);
 
+float Wrap(float x, float max); // x -> [0, max)
+float WrapMinMax(float x, float min, float max); // x -> [min, max)
+bool IsAngleBetween(float target, float angle1, float angle2);
+float AngleBetween(Vector2 a, Vector2 b);
 Vector2 Vec2(float x, float y);
 Vector3 Vec3(float x, float y, float z);
 Vector4 Vec4(float x, float y, float z, float w);
@@ -69,6 +74,10 @@ Vector4 Vec4Broadcast(float xyzw);
 Rectangle Rect(float x, float y, float width, float height);
 Rectangle RectVec(Vector2 pos, Vector2 size); 
 Rectangle RectMinMax(Vector2 min, Vector2 max);
+Rectangle ExpandRectangle(Rectangle rect, float expansion);
+Rectangle ExpandRectangleEx(Rectangle rect, float left, float right, float up, float down);
+
+float ToRaylibDegrees(float radians);
 
 typedef u64 Random;
 Random SeedRandom(u64 seed);
@@ -79,10 +88,6 @@ float RandomFloat(Random *rand, float inclusiveMin, float exclusiveMax);
 float RandomFloat01(Random *rand);
 bool RandomProbability(Random *rand, float prob);
 void RandomShuffle(Random *rand, void *items, uptr elementCount, uptr elementSize);
-
-float NoiseX(uint seed, int x);
-float NoiseXY(uint seed, int x, int y);
-float NoiseXYZ(uint seed, int x, int y, int z);
 
 typedef struct StringBuilder
 {
@@ -97,6 +102,11 @@ void StringAppendBytes(StringBuilder *builder, const void *bytes, uptr size);
 void StringAppendChar(StringBuilder *builder, char c);
 void PrintToString(StringBuilder *builder, FORMAT_STRING format, ...);
 void PrintvToString(StringBuilder *builder, FORMAT_STRING format, va_list args);
+
+void rlColor(Color color);
+void rlVertex2fv(Vector2 v);
+
+bool CheckCollisionConeCircle(Vector2 coneCenter, float coneRadius, float coneAngleStart, float coneAngleEnd, Vector2 circleCenter, float circleRadius);
 
 void DrawDebugText(FORMAT_STRING format, ...);
 void DrawTextFormat(float x, float y, float fontSize, Color color, FORMAT_STRING format, ...);

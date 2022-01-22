@@ -85,6 +85,18 @@
 		</Expand>
 	</Type>
 
+	<Type Name="Rectangle">
+		<DisplayString>[{x,g} {y,g}] {width,g} x {height,g}</DisplayString>
+		<Expand HideRawView="1">
+			<Item Name="[center x]">x + width/2,g</Item>
+			<Item Name="[center y]">y + height/2,g</Item>
+			<Item Name="x">x,g</Item>
+			<Item Name="y">y,g</Item>
+			<Item Name="width">width,g</Item>
+			<Item Name="height">height,g</Item>
+		</Expand>
+	</Type>
+
 	<Type Name="Matrix">
 		<DisplayString>[[{m0,g} {m4,g} {m8,g} {m12,g}] [{m1,g} {m5,g} {m9,g} {m13,g}] [{m2,g} {m6,g} {m10,g} {m14,g}] [{m3,g} {m7,g} {m11,g} {m15,g}]]</DisplayString>
 		<Expand HideRawView="0">

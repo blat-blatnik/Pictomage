@@ -12,6 +12,7 @@ This all assumes you are using Windows 10. You will need the Emscripten SDK:
 6. Press `New`, and type out the path to the `Emscripten` folder (e.g. `C:\dev\Emscripten`).
 7. Press `Ok` to close all the open windows.
 8. To make sure everything worked, open up a new command prompt, and run `emsdk`. It should say `Missing command; Type 'emsdk help'..`
+8. In the same command prompt, run `emsdk update` followed by `emsdk install latest`. 
 9. You can now just run `webbuild.bat` inside this project to build the game. The output goes into `bin/web/`.
 10. Run `webrun.bat` to run the game in your browser.
 

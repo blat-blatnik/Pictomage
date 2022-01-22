@@ -94,7 +94,46 @@ u64 HashString(const char *str)
 		hash = (hash * 1099511628211u) ^ (u8)str[i];
 	return hash;
 }
+void SwapMemory(void *a, void *b, uptr size)
+{
+	ASSERT((a && b) || size == 0);
+	u8 *bytesA = a;
+	u8 *bytesB = b;
+	for (uptr i = 0; i < size; ++i)
+	{
+		u8 temp = bytesA[i];
+		bytesA[i] = bytesB[i];
+		bytesB[i] = temp;
+	}
+}
 
+float Wrap(float x, float max)
+{
+	return fmodf(max + fmodf(x, max), max);
+}
+float WrapMinMax(float x, float min, float max)
+{
+	ASSERT(max > min);
+	return min + Wrap(x - min, max - min);
+}
+bool IsAngleBetween(float target, float angle1, float angle2)
+{
+	float a = WrapMinMax(angle1 - target, -PI, +PI);
+	float b = WrapMinMax(angle2 - target, -PI, +PI);
+	if (a * b >= 0)
+		return false;
+	return fabsf(a - b) < PI;
+}
+float AngleBetween(Vector2 a, Vector2 b)
+{
+	//         b
+	//       .   \
+	//     .      \
+	//   .   angle \
+	// a  .  .  .  .
+	Vector2 d = Vector2Subtract(b, a);
+	return atan2f(d.y, d.x);
+}
 Vector2 Vec2(float x, float y)
 {
 	return (Vector2) { x, y };
@@ -136,6 +175,27 @@ Rectangle RectMinMax(Vector2 min, Vector2 max)
 		max.y - min.y
 	};
 	return result;
+}
+Rectangle ExpandRectangle(Rectangle rect, float expansion)
+{
+	rect.x -= expansion;
+	rect.y -= expansion;
+	rect.width += (expansion + expansion);
+	rect.height += (expansion + expansion);
+	return rect;
+}
+Rectangle ExpandRectangleEx(Rectangle rect, float left, float right, float up, float down)
+{
+	rect.x -= left;
+	rect.y -= down;
+	rect.width += (left + right);
+	rect.height += (up + down);
+	return rect;
+}
+
+float ToRaylibDegrees(float radians)
+{
+	return (RAD2DEG * (-radians)) + 90;
 }
 
 Random SeedRandom(u64 seed)
@@ -275,6 +335,25 @@ void PrintvToString(StringBuilder *builder, FORMAT_STRING format, va_list args)
 	uptr charsWritten = (uptr)len;
 	builder->cursor += charsWritten;
 	builder->bytesNeeded += charsWritten;
+}
+
+void rlColor(Color color)
+{
+	rlColor4ub(color.r, color.g, color.b, color.a);
+}
+void rlVertex2fv(Vector2 v)
+{
+	rlVertex2f(v.x, v.y);
+}
+
+bool CheckCollisionConeCircle(Vector2 coneCenter, float coneRadius, float coneAngleStart, float coneAngleEnd, Vector2 circleCenter, float circleRadius)
+{
+	if (!CheckCollisionCircles(coneCenter, coneRadius, circleCenter, circleRadius))
+		return false;
+
+	Vector2 dp = Vector2Subtract(circleCenter, coneCenter);
+	float angle = atan2f(dp.y, dp.x);
+	return IsAngleBetween(angle, coneAngleStart, coneAngleEnd);
 }
 
 void DrawDebugText(FORMAT_STRING format, ...)

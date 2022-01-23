@@ -134,6 +134,10 @@ float AngleBetween(Vector2 a, Vector2 b)
 	Vector2 d = Vector2Subtract(b, a);
 	return atan2f(d.y, d.x);
 }
+int ClampInt(int x, int min, int max)
+{
+	return x < min ? min : (x > max ? max : x);
+}
 Vector2 Vec2(float x, float y)
 {
 	return (Vector2) { x, y };
@@ -158,6 +162,26 @@ Vector4 Vec4Broadcast(float xyzw)
 {
 	return (Vector4) { xyzw, xyzw, xyzw, xyzw };
 }
+Color FloatRGBA(float r, float g, float b, float a)
+{
+	Color result = {
+		(u8)(255.5f * Clamp(r, 0, 1)),
+		(u8)(255.5f * Clamp(g, 0, 1)),
+		(u8)(255.5f * Clamp(b, 0, 1)),
+		(u8)(255.5f * Clamp(a, 0, 1)),
+	};
+	return result;
+}
+Color RGBA8(int r, int g, int b, int a)
+{
+	Color result = {
+		(u8)(ClampInt(r, 0, 255)),
+		(u8)(ClampInt(g, 0, 255)),
+		(u8)(ClampInt(b, 0, 255)),
+		(u8)(ClampInt(a, 0, 255)),
+	};
+	return result;
+}
 Rectangle Rect(float x, float y, float width, float height)
 {
 	return (Rectangle) { x, y, width, height };
@@ -175,6 +199,14 @@ Rectangle RectMinMax(Vector2 min, Vector2 max)
 		max.y - min.y
 	};
 	return result;
+}
+Vector2 RectangleCenter(Rectangle rect)
+{
+	Vector2 center = {
+		rect.x + rect.width / 2,
+		rect.y + rect.height / 2
+	};
+	return center;
 }
 Rectangle ExpandRectangle(Rectangle rect, float expansion)
 {

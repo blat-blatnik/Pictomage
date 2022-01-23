@@ -65,15 +65,19 @@ float Wrap(float x, float max); // x -> [0, max)
 float WrapMinMax(float x, float min, float max); // x -> [min, max)
 bool IsAngleBetween(float target, float angle1, float angle2);
 float AngleBetween(Vector2 a, Vector2 b);
+int ClampInt(int x, int min, int max);
 Vector2 Vec2(float x, float y);
 Vector3 Vec3(float x, float y, float z);
 Vector4 Vec4(float x, float y, float z, float w);
 Vector2 Vec2Broadcast(float xy);
 Vector3 Vec3Broadcast(float xyz);
 Vector4 Vec4Broadcast(float xyzw);
+Color FloatRGBA(float r, float g, float b, float a);
+Color RGBA8(int r, int g, int b, int a);
 Rectangle Rect(float x, float y, float width, float height);
 Rectangle RectVec(Vector2 pos, Vector2 size); 
 Rectangle RectMinMax(Vector2 min, Vector2 max);
+Vector2 RectangleCenter(Rectangle rect);
 Rectangle ExpandRectangle(Rectangle rect, float expansion);
 Rectangle ExpandRectangleEx(Rectangle rect, float left, float right, float up, float down);
 

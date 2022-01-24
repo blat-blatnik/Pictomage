@@ -16,15 +16,15 @@
 #define MAX_DOORS_PER_ROOM 4
 #define MAX_ROOM_FILE_NAME 64
 
-#define PLAYER_SPEED 400.0f
-#define PLAYER_RADIUS 20.0f
-#define BULLET_SPEED 1000.0f
-#define BULLET_RADIUS 5.0f
-#define TURRET_RADIUS 25.0f
+#define PLAYER_SPEED 10.0f
+#define PLAYER_RADIUS 0.5f
+#define BULLET_SPEED 30.0f
+#define BULLET_RADIUS 0.2f
+#define TURRET_RADIUS 1.0f
 #define TURRET_TURN_SPEED (30.0f*DEG2RAD)
 #define TURRET_FIRE_RATE 1.5f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
-#define PLAYER_CAPTURE_CONE_RADIUS 120.0f
+#define PLAYER_CAPTURE_CONE_RADIUS 3.0f
 
 // *---=======---*
 // |/   Types   \|
@@ -118,26 +118,34 @@ typedef struct EditorSelection
 	};
 } EditorSelection;
 
+// *---========---*
+// |/   Camera   \|
+// *---========---*
+
+float cameraZoom = 1;
+Vector2 cameraPos; // In tiles.
+
+void ZoomInToPoint(Vector2 screenPoint, float newZoom)
+{
+	float s = newZoom / cameraZoom;
+	Vector2 p = screenPoint;
+	p.y = SCREEN_HEIGHT - p.y - 1;
+	p = Vector2Multiply(p, Vec2((float)MAX_TILES_X / SCREEN_WIDTH, (float)MAX_TILES_Y / SCREEN_HEIGHT));
+	Vector2 d = Vector2Scale(Vector2Subtract(p, cameraPos), 1 - s);
+	cameraPos = Vector2Add(cameraPos, d);
+	cameraZoom = newZoom;
+}
+
 // *---=========---*
 // |/   Globals   \|
 // *---=========---*
 
-int zoomPower; // zoom = pow(1.1, zoomPower)
-float zoom = 1;
-float tileSizeInPixels;
-void SetZoomPower(int newZoomPower)
-{
-	zoomPower = newZoomPower;
-	zoom = powf(1.1f, zoomPower);
-	tileSizeInPixels = TILE_SIZE * zoom;
-}
-
 const bool devMode = true; //@TODO: Disable this for release.
+const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
 GameState gameState = GAME_STATE_START_MENU;
 Random rng;
-float offsetX;
-float offsetY;
 Sound flashSound;
 Sound longShotSound;
 Player player;
@@ -148,20 +156,32 @@ Bullet capturedBullets[MAX_BULLETS];
 int numTurrets;
 Turret turrets[MAX_TURRETS];
 
-//Vector2 ScreenToTile(Vector2 screenPos)
-//{
-//	float x = screenPos.x;
-//	float y = SCREEN_HEIGHT - screenPos.y - 1;
-//	float tileWidth 
-//}
-//Vector2 TileToScreen(Vector2 tilePos)
-//{
-//
-//}
-Vector2 GetMousePosWithInvertedY(void)
+float PixelsToTiles(float pixels)
 {
-	Vector2 p = GetMousePosition();
-	return Vec2(p.x, SCREEN_HEIGHT - p.y - 1);
+	return pixels / TILE_SIZE;
+}
+Vector2 PixelsToTiles2(float pixelsX, float pixelsY)
+{
+	Vector2 result = {
+		PixelsToTiles(pixelsX),
+		PixelsToTiles(pixelsY),
+	};
+	return result;
+}
+Vector2 ScreenToTile(Vector2 screenPos)
+{
+	screenPos.y = SCREEN_HEIGHT - screenPos.y - 1;
+	Vector2 p = Vector2Multiply(screenPos, Vec2((float)MAX_TILES_X / SCREEN_WIDTH, (float)MAX_TILES_Y / SCREEN_HEIGHT));
+	p = Vector2Subtract(p, cameraPos);
+	return Vector2Scale(p, 1 / cameraZoom);
+}
+Vector2 TileToScreen(Vector2 tilePos)
+{
+	Vector2 p = Vector2Scale(tilePos, cameraZoom);
+	p = Vector2Add(p, cameraPos);
+	p = Vector2Multiply(p, Vec2(SCREEN_WIDTH / (float)MAX_TILES_X, SCREEN_HEIGHT / (float)MAX_TILES_Y));
+	p.y = SCREEN_HEIGHT - p.y - 1;
+	return p;
 }
 
 int SpawnBullet(Vector2 pos, Vector2 vel)
@@ -313,7 +333,8 @@ void SaveRoom(const Room *room, const char *filename)
 
 void Playing_Init(GameState oldState)
 {
-	SetZoomPower(0);
+	cameraZoom = 1;
+	cameraPos = Vector2Zero();
 }
 GameState Playing_Update(void)
 {
@@ -321,6 +342,8 @@ GameState Playing_Update(void)
 		return GAME_STATE_LEVEL_EDITOR;
 	if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER))
 		return GAME_STATE_PAUSED;
+
+	Vector2 mousePos = ScreenToTile(GetMousePosition());
 
 	// Update player
 	{
@@ -341,7 +364,6 @@ GameState Playing_Update(void)
 			player.pos = Vector2Add(player.pos, Vector2Scale(player.vel, DELTA_TIME));
 		}
 
-		Vector2 mousePos = GetMousePosWithInvertedY();
 		player.lookAngle = AngleBetween(player.pos, mousePos);
 		player.justSnapped = false; // Reset from previous frame.
 
@@ -386,7 +408,7 @@ GameState Playing_Update(void)
 			}
 			else
 			{
-				player.releasePos = GetMousePosWithInvertedY();
+				player.releasePos = mousePos;
 				player.isReleasingCapture = true;
 			}
 		}
@@ -414,7 +436,7 @@ GameState Playing_Update(void)
 			float releaseSpeed = Vector2Length(releaseDir);
 			releaseDir = Vector2Scale(releaseDir, 1 / releaseSpeed);
 
-			Vector2 bulletReleaseVel = Vector2Scale(releaseDir, fmaxf(5 * releaseSpeed, 200));
+			Vector2 bulletReleaseVel = Vector2Scale(releaseDir, fmaxf(5 * releaseSpeed, 30));
 			for (int i = 0; i < numCapturedBullets; ++i)
 			{
 				Bullet b = capturedBullets[i];
@@ -429,7 +451,7 @@ GameState Playing_Update(void)
 	{
 		Bullet *b = &bullets[i];
 		b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME));
-		if (!CheckCollisionCircleRec(b->pos, BULLET_RADIUS, ExpandRectangle(screenRect, 1000)))
+		if (!CheckCollisionCircleRec(b->pos, BULLET_RADIUS, ExpandRectangle(screenRectTiles, 30)))
 		{
 			RemoveBulletFromGlobalList(i);
 			--i;
@@ -465,8 +487,8 @@ GameState Playing_Update(void)
 				float s = sinf(t->lookAngle);
 				float c = cosf(t->lookAngle);
 				Vector2 bulletPos = {
-					t->pos.x + (TURRET_RADIUS + 15) * c,
-					t->pos.y + (TURRET_RADIUS + 15) * s
+					t->pos.x + (TURRET_RADIUS + PixelsToTiles(15)) * c,
+					t->pos.y + (TURRET_RADIUS + PixelsToTiles(15)) * s
 				};
 				Vector2 bulletVel = {
 					BULLET_SPEED * c,
@@ -494,20 +516,14 @@ void Playing_Draw(void)
 
 	rlMatrixMode(RL_PROJECTION);
 	rlLoadIdentity();
-	rlOrtho(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT, 0, 1);
-	rlTranslatef(offsetX, offsetY, 0);
-	rlTranslatef(-SCREEN_WIDTH / 2, -SCREEN_HEIGHT / 2, 0);
-	rlScalef(zoom, zoom, 1);
-	float zoomFactor = (2 / zoom - 1); // I don't quite know why this formula works, but it does..
-	rlTranslatef(zoomFactor * SCREEN_WIDTH / 2, zoomFactor * SCREEN_HEIGHT / 2, 0);
+	rlOrtho(0, MAX_TILES_X, 0, MAX_TILES_Y, 0, 1);
+	rlTranslatef(cameraPos.x, cameraPos.y, 0);
+	rlScalef(cameraZoom, cameraZoom, 0);
+	rlGetMatrixProjection();
 	{
-		for (int i = 0, y = 0; y < SCREEN_HEIGHT; ++i, y += 30)
-		{
-			for (int j = 0, x = 0; x < SCREEN_WIDTH; ++j, x += 30)
-			{
-				DrawRectangle(x, y, 30, 30, (i + j) % 2 ? FloatRGBA(0.95f, 0.95f, 0.95f, 1) : FloatRGBA(0.9f, 0.9f, 0.9f, 1));
-			}
-		}
+		for (int y = 0; y < MAX_TILES_Y; ++y)
+			for (int x = 0; x < MAX_TILES_X; ++x)
+				DrawRectangle(x, y, 1, 1, (x + y) % 2 ? FloatRGBA(0.95f, 0.95f, 0.95f, 1) : FloatRGBA(0.9f, 0.9f, 0.9f, 1));
 
 		DrawCircleV(player.pos, PLAYER_RADIUS, DARKGREEN);
 
@@ -515,11 +531,11 @@ void Playing_Draw(void)
 		{
 			Turret t = turrets[i];
 			DrawCircleV(t.pos, TURRET_RADIUS, BLACK);
-			DrawCircleV(t.pos, TURRET_RADIUS - 5, DARKGRAY);
+			DrawCircleV(t.pos, TURRET_RADIUS - PixelsToTiles(5), DARKGRAY);
 			float lookAngleDegrees = RAD2DEG * t.lookAngle;
-			Rectangle gunBarrel = { t.pos.x, t.pos.y, TURRET_RADIUS + 10, 12 };
-			DrawRectanglePro(gunBarrel, Vec2(-5, +6), lookAngleDegrees, MAROON);
-			DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), 2, ORANGE);
+			Rectangle gunBarrel = { t.pos.x, t.pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
+			DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, MAROON);
+			DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), ORANGE);
 		}
 
 		Color bulletTrail0 = ColorAlpha(DARKGRAY, 0);
@@ -530,7 +546,7 @@ void Playing_Draw(void)
 			Vector2 perp1 = Vector2Scale(Vector2Normalize(Vec2(-b.vel.y, +b.vel.x)), BULLET_RADIUS);
 			Vector2 perp2 = Vector2Scale(Vector2Normalize(Vec2(+b.vel.y, -b.vel.x)), BULLET_RADIUS);
 			Vector2 toOrigin = Vector2Subtract(b.origin, b.pos);
-			Vector2 perp3 = Vector2Scale(Vector2Normalize(toOrigin), 400);
+			Vector2 perp3 = Vector2Scale(Vector2Normalize(toOrigin), PixelsToTiles(400));
 			if (Vector2LengthSqr(perp3) > Vector2LengthSqr(toOrigin))
 				perp3 = toOrigin;
 			Vector2 trail1 = Vector2Add(b.pos, perp1);
@@ -554,7 +570,7 @@ void Playing_Draw(void)
 			if (player.justSnapped)
 			{
 				DrawCircleSector(player.pos,
-					PLAYER_CAPTURE_CONE_RADIUS + 10,
+					PLAYER_CAPTURE_CONE_RADIUS + PixelsToTiles(10),
 					lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE - 1,
 					lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE + 1,
 					12,
@@ -580,13 +596,13 @@ void Playing_Draw(void)
 				DrawCircleV(pos, BULLET_RADIUS, ColorAlpha(BLUE, 0.5f));
 			}
 
-			Vector2 mousePos = GetMousePosWithInvertedY();
+			Vector2 mousePos = ScreenToTile(GetMousePosition());
 			Vector2 arrowDir = Vector2Normalize(Vector2Subtract(mousePos, player.releasePos));
-			Vector2 arrowPos0 = Vector2Add(player.releasePos, Vector2Scale(arrowDir, BULLET_RADIUS + 10));
+			Vector2 arrowPos0 = Vector2Add(player.releasePos, Vector2Scale(arrowDir, BULLET_RADIUS + PixelsToTiles(10)));
 			Vector2 arrowPos1 = mousePos;
 			float arrowLength = Vector2Distance(arrowPos0, arrowPos1);
-			float arrowWidth0 = 5;
-			float arrowWidth1 = Clamp(0.2f * arrowLength, 5, 30);
+			float arrowWidth0 = PixelsToTiles(5);
+			float arrowWidth1 = Clamp(0.2f * arrowLength, PixelsToTiles(5), PixelsToTiles(30));
 			Vector2 dir1 = { -arrowDir.y, +arrowDir.x };
 			Vector2 dir2 = { +arrowDir.y, -arrowDir.x };
 			Color arrowColor = ColorAlpha(BLUE, 0.3f);
@@ -610,31 +626,13 @@ void Playing_Draw(void)
 	}
 	rlDrawRenderBatchActive();
 
+	rlMatrixMode(RL_PROJECTION);
 	rlLoadIdentity();
 	rlOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1);
 	{
-		//DrawDebugText("%.2f", turrets[0].lookAngle / (2 * PI));
-		//DrawDebugText("%.2f", player.lookAngle / (2*PI));
-		//if (devMode)
-		//{
-		//	float configWidth = 300;
-		//	float configHeight = 200;
-		//	float configX = SCREEN_WIDTH - configWidth;
-		//	float configY = SCREEN_HEIGHT - configHeight;
-		//	if (GuiWindowBox(Rect(configX, configY, configWidth, configHeight), "Config"))
-		//		devMode = false;
-		//
-		//	config.playerRadius = GuiSlider(
-		//		Rect(configX + 20, configY + 40, 150, 15), "", "Player radius", config.playerRadius, 5, 50);
-		//	config.playerSpeed = GuiSlider(
-		//		Rect(configX + 20, configY + 60, 150, 15), "", "Player speed", config.playerSpeed, 100, 1000);
-		//	config.bulletRadius = GuiSlider(
-		//		Rect(configX + 20, configY + 80, 150, 15), "", "Bullet radius", config.bulletRadius, 1, 20);
-		//	config.bulletSpeed = GuiSlider(
-		//		Rect(configX + 20, configY + 100, 150, 15), "", "Bullet speed", config.bulletSpeed, 100, 1000);
-		//}
+		Vector2 mp = ScreenToTile(GetMousePosition());
+		DrawDebugText("[%.1f %.1f] [%.1f %.1f]", mp.x, mp.y, cameraPos.x, cameraPos.y);
 	}
-	rlDrawRenderBatchActive();
 }
 
 void Paused_Init(GameState oldState)
@@ -668,25 +666,26 @@ const Rectangle tilesWindowRect = { 0, SCREEN_HEIGHT - 800, 200, 550 };
 
 void LevelEditor_Init(GameState oldState)
 {
-	zoomPower = -7;
-	zoom = powf(zoomPower, 1.1f);
+	cameraPos = Vector2Zero();
+	cameraZoom = 1;
+	ZoomInToPoint(screenCenter, powf(1.1f, -7));
 }
 GameState LevelEditor_Update(void)
 {
+	Vector2 mousePos = GetMousePosition();
+
 	if (IsKeyPressed(KEY_GRAVE))
 	{
-		SetZoomPower(0);
+		cameraZoom = 1;
 		return GAME_STATE_PLAYING;
 	}
 
-	Vector2 mousePos = GetMousePosition();
+	// Zoom
 	float wheelMove = GetMouseWheelMove();
 	if (wheelMove > 0)
-		SetZoomPower(zoomPower + 1);
+		ZoomInToPoint(mousePos, cameraZoom * 1.1f);
 	else if (wheelMove < 0)
-		SetZoomPower(zoomPower - 1);
-	if (IsKeyPressed(KEY_Z))
-		SetZoomPower(-7);
+		ZoomInToPoint(mousePos, cameraZoom / 1.1f);
 
 	if (selection.kind == EDITOR_SELECTION_KIND_CONSOLE && IsKeyPressed(KEY_ENTER))
 	{
@@ -695,7 +694,6 @@ GameState LevelEditor_Update(void)
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 	{
-		Vector2 mousePos = GetMousePosition();
 		if (!CheckCollisionPointRec(mousePos, consoleWindowRect) &&
 			!CheckCollisionPointRec(mousePos, objectsWindowRect) &&
 			!CheckCollisionPointRec(mousePos, propertiesWindowRect) &&
@@ -709,14 +707,16 @@ GameState LevelEditor_Update(void)
 	if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
 	{
 		Vector2 mouseDelta = GetMouseDelta();
-		offsetX += mouseDelta.x;
-		offsetY -= mouseDelta.y;
+		mouseDelta = Vector2Divide(mouseDelta, Vec2(SCREEN_WIDTH, -SCREEN_HEIGHT));
+		mouseDelta = Vector2Multiply(mouseDelta, Vec2(MAX_TILES_X, MAX_TILES_Y));
+		cameraPos.x += mouseDelta.x;
+		cameraPos.y += mouseDelta.y;
 	}
-
 	if (IsKeyPressed(KEY_C))
 	{
-		offsetX = 0;
-		offsetY = 0;
+		cameraPos = Vector2Zero();
+		cameraZoom = 1;
+		ZoomInToPoint(screenCenter, powf(1.1f, -7));
 	}
 
 	return GAME_STATE_LEVEL_EDITOR;
@@ -815,11 +815,11 @@ void GameInit(void)
 	longShotSound = LoadSound("res/long-shot.wav");
 	SetSoundVolume(longShotSound, 0.1f);
 
-	player.pos.x = SCREEN_WIDTH / 2.f;
-	player.pos.y = SCREEN_HEIGHT / 2.f;
-	SpawnTurret(Vec2(50, SCREEN_HEIGHT - 50), 0);
-	SpawnTurret(Vec2(SCREEN_WIDTH - 50, SCREEN_HEIGHT - 50), 0);
-	SpawnTurret(Vec2(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 100), 0);
+	player.pos.x = 15;
+	player.pos.y = 15;
+	SpawnTurret(Vec2(2, 28), 0);
+	SpawnTurret(Vec2(28, 28), 0);
+	SpawnTurret(Vec2(15, 28), 0);
 }
 void GameLoopOneIteration(void)
 {

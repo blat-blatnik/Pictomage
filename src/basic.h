@@ -80,6 +80,10 @@ Rectangle RectMinMax(Vector2 min, Vector2 max);
 Vector2 RectangleCenter(Rectangle rect);
 Rectangle ExpandRectangle(Rectangle rect, float expansion);
 Rectangle ExpandRectangleEx(Rectangle rect, float left, float right, float up, float down);
+Vector2 Vector2Min(Vector2 a, Vector2 b);
+Vector2 Vector2Max(Vector2 a, Vector2 b);
+Vector2 Vector2Floor(Vector2 v);
+Vector2 Vector2Ceil(Vector2 v);
 
 float ToRaylibDegrees(float radians);
 
@@ -110,11 +114,14 @@ void PrintvToString(StringBuilder *builder, FORMAT_STRING format, va_list args);
 void rlColor(Color color);
 void rlVertex2fv(Vector2 v);
 
+float DistanceLineToPoint(Vector2 p0, Vector2 p1, Vector2 p);
 bool CheckCollisionConeCircle(Vector2 coneCenter, float coneRadius, float coneAngleStart, float coneAngleEnd, Vector2 circleCenter, float circleRadius);
+bool CheckCollisionLineCircle(Vector2 p0, Vector2 p1, Vector2 center, float radius);
 
 void GuiText(Rectangle rect, FORMAT_STRING format, ...);
 
 void DrawDebugText(FORMAT_STRING format, ...);
+void DrawTextCentered(const char *text, float cx, float cy, float fontSize, Color color);
 void DrawTextFormat(float x, float y, float fontSize, Color color, FORMAT_STRING format, ...);
 void DrawTextFormatv(float x, float y, float fontSize, Color color, FORMAT_STRING format, va_list args);
 void DrawRectangleVCentered(Vector2 center, Vector2 size, Color color);

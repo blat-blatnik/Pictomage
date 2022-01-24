@@ -224,6 +224,38 @@ Rectangle ExpandRectangleEx(Rectangle rect, float left, float right, float up, f
 	rect.height += (up + down);
 	return rect;
 }
+Vector2 Vector2Min(Vector2 a, Vector2 b)
+{
+	Vector2 result = {
+		fminf(a.x, b.x),
+		fminf(a.y, b.y)
+	};
+	return result;
+}
+Vector2 Vector2Max(Vector2 a, Vector2 b)
+{
+	Vector2 result = {
+		fmaxf(a.x, b.x),
+		fmaxf(a.y, b.y)
+	};
+	return result;
+}
+Vector2 Vector2Floor(Vector2 v)
+{
+	Vector2 result = {
+		floorf(v.x),
+		floorf(v.y)
+	};
+	return result;
+}
+Vector2 Vector2Ceil(Vector2 v)
+{
+	Vector2 result = {
+		ceilf(v.x),
+		ceilf(v.y)
+	};
+	return result;
+}
 
 float ToRaylibDegrees(float radians)
 {
@@ -378,6 +410,47 @@ void rlVertex2fv(Vector2 v)
 	rlVertex2f(v.x, v.y);
 }
 
+float DistanceLineToPoint(Vector2 p0, Vector2 p1, Vector2 p)
+{
+	// https://stackoverflow.com/a/6853926
+	float x = p.x;
+	float y = p.y;
+	float x1 = p0.x;
+	float y1 = p0.y;
+	float x2 = p1.x;
+	float y2 = p1.y;
+	float A = x - x1;
+	float B = y - y1;
+	float C = x2 - x1;
+	float D = y2 - y1;
+
+	float dot = A * C + B * D;
+	float len_sq = C * C + D * D;
+	float param = -1;
+	if (len_sq != 0) //in case of 0 length line
+		param = dot / len_sq;
+
+	float xx, yy;
+	if (param < 0)
+	{
+		xx = x1;
+		yy = y1;
+	}
+	else if (param > 1)
+	{
+		xx = x2;
+		yy = y2;
+	}
+	else
+	{
+		xx = x1 + param * C;
+		yy = y1 + param * D;
+	}
+
+	float dx = x - xx;
+	float dy = y - yy;
+	return sqrtf(dx * dx + dy * dy);
+}
 bool CheckCollisionConeCircle(Vector2 coneCenter, float coneRadius, float coneAngleStart, float coneAngleEnd, Vector2 circleCenter, float circleRadius)
 {
 	if (!CheckCollisionCircles(coneCenter, coneRadius, circleCenter, circleRadius))
@@ -386,6 +459,11 @@ bool CheckCollisionConeCircle(Vector2 coneCenter, float coneRadius, float coneAn
 	Vector2 dp = Vector2Subtract(circleCenter, coneCenter);
 	float angle = atan2f(dp.y, dp.x);
 	return IsAngleBetween(angle, coneAngleStart, coneAngleEnd);
+}
+bool CheckCollisionLineCircle(Vector2 p0, Vector2 p1, Vector2 center, float radius)
+{
+	float d = DistanceLineToPoint(p0, p1, center);
+	return d < radius;
 }
 
 void GuiText(Rectangle rect, FORMAT_STRING format, ...)
@@ -403,6 +481,12 @@ void DrawDebugText(FORMAT_STRING format, ...)
 	va_start(args, format);
 	DrawTextFormatv(GetMouseX() + 10, GetMouseY() - 30, 20, GRAY, format, args);
 	va_end(args);
+}
+void DrawTextCentered(const char *text, float cx, float cy, float fontSize, Color color)
+{
+	Font font = GetFontDefault();
+	Vector2 size = MeasureTextEx(font, text, fontSize, 1);
+	DrawTextEx(font, text, Vec2(cx - 0.5f * size.x, cy - 0.5f * size.y), fontSize, 1, color);
 }
 void DrawTextFormat(float x, float y, float fontSize, Color color, FORMAT_STRING format, ...)
 {

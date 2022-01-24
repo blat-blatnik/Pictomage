@@ -17,7 +17,7 @@
 #define MAX_ROOM_FILE_NAME 64
 
 #define PLAYER_SPEED 10.0f
-#define PLAYER_RADIUS 0.5f
+#define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
 #define BULLET_SPEED 30.0f
 #define BULLET_RADIUS 0.2f
 #define TURRET_RADIUS 1.0f
@@ -51,8 +51,9 @@ typedef enum Direction
 
 typedef enum Tile
 {
-	TILE_WALL,
+	TILE_NONE,
 	TILE_FLOOR,
+	TILE_WALL,
 } Tile;
 
 typedef enum EditorSelectionKind
@@ -86,6 +87,7 @@ typedef struct Turret
 	Vector2 pos;
 	float lookAngle;
 	int framesUntilShoot;
+	Vector2 lastKnownPlayerPos; //@HACK: x == 0 && y == 0 means the player was never seen.
 } Turret;
 
 typedef struct Room
@@ -197,9 +199,150 @@ Bullet capturedBullets[MAX_BULLETS];
 int numTurrets;
 Turret turrets[MAX_TURRETS];
 
+// *---=======---*
+// |/   Tiles   \|
+// *---=======---*
+
+const char *GetTileName(Tile tile)
+{
+	switch (tile)
+	{
+		case TILE_NONE:  return "None";
+		case TILE_FLOOR: return "Floor";
+		case TILE_WALL:  return "Wall";
+		default:         return "[NULL]";
+	}
+}
+bool TileIsPassable(Tile tile)
+{
+	switch (tile)
+	{
+		case TILE_NONE:
+		case TILE_FLOOR:
+			return true;
+		case TILE_WALL:
+		default:
+			return false;
+	}
+}
+Tile TileAt(int x, int y)
+{
+	if (x < 0 || x >= numTilesX || y < 0 || y >= numTilesY)
+		return TILE_NONE;
+	return tiles[y][x];
+}
+Tile TileAtVec(Vector2 xy)
+{
+	return TileAt((int)xy.x, (int)xy.y);
+}
+
+Rectangle GetRoomRect(void)
+{
+	return (Rectangle) { 0, 0, numTilesX, numTilesY };
+}
+bool IsPointVisibleFrom(Vector2 pos, Vector2 target)
+{
+	// @EXTRATIME
+	// This doesnt actually visit every tile in between the points.
+	// That basically limits the level design, we cant have empty corners now.
+	// https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+
+	int x0 = (int)pos.x;
+	int y0 = (int)pos.y;
+	int x1 = (int)target.x;
+	int y1 = (int)target.y;
+	int dx = +abs(x1 - x0);
+	int dy = -abs(y1 - y0);
+	int sx = x0 < x1 ? 1 : -1;
+	int sy = y0 < y1 ? 1 : -1;
+	int err = dx + dy;
+	while (true)
+	{
+		if (!TileIsPassable(TileAt(x0, y0)))
+			return false;
+		if (x0 == x1 && y0 == y1) 
+			break;
+		int e2 = 2 * err;
+		if (e2 >= dy)
+		{
+			if (x0 == x1) break;
+			err += dy;
+			x0 += sx;
+		}
+		if (e2 <= dx)
+		{
+			if (y0 == y1) break;
+			err += dx;
+			y0 += sy;
+		}
+	}
+	return true;
+}
+bool IsPointBlockedByEnemiesFrom(Vector2 pos, Vector2 target)
+{
+	for (int i = 0; i < numTurrets; ++i)
+		if (CheckCollisionLineCircle(pos, target, turrets[i].pos, TURRET_RADIUS))
+			return true;
+	return false;
+}
+Vector2 ResolveCollisionsCircleTiles(Vector2 center, float radius, Vector2 velocity)
+{
+	// https://www.youtube.com/watch?v=D2a5fHX-Qrs
+
+	Vector2 p0f = center;
+	Vector2 p1f = Vector2Add(center, Vector2Scale(velocity, DELTA_TIME));
+	int minx = (int)floorf(fminf(p0f.x, p1f.x) - radius) - 1;
+	int miny = (int)floorf(fminf(p0f.y, p1f.y) - radius) - 1;
+	int maxx = (int)ceilf(fmaxf(p0f.x, p1f.x) + radius) + 1;
+	int maxy = (int)ceilf(fmaxf(p0f.y, p1f.y) + radius) + 1;
+	if (minx < 0)
+		minx = 0;
+	if (miny < 0)
+		miny = 0;
+	if (maxx >= numTilesX)
+		maxx = numTilesX - 1;
+	if (maxy >= numTilesY)
+		maxy = numTilesY - 1;
+
+	for (int ty = miny; ty <= maxy; ++ty)
+	{
+		for (int tx = minx; tx <= maxx; ++tx)
+		{
+			Tile tile = TileAt(tx, ty);
+			if (!TileIsPassable(tile))
+			{
+				Vector2 nearestPoint;
+				nearestPoint.x = Clamp(p1f.x, tx, tx + 1);
+				nearestPoint.y = Clamp(p1f.y, ty, ty + 1);
+				
+				Vector2 toNearest = Vector2Subtract(nearestPoint, p1f);
+				float len = Vector2Length(toNearest);
+				float overlap = radius - len;
+				if (overlap > 0)
+					p1f = Vector2Subtract(p1f, Vector2Scale(toNearest, overlap / len));
+			}
+		}
+	}
+
+	return p1f;
+}
+Vector2 ResolveCollisionCircles(Vector2 center, float radius, Vector2 obstacleCenter, float obstacleRadius)
+{
+	Vector2 normal = Vector2Subtract(center, obstacleCenter);
+	float length = Vector2Length(normal);
+	float penetration = (radius + obstacleRadius) - length;
+	if (penetration > 0)
+		center = Vector2Add(center, Vector2Scale(normal, penetration / length));
+	return center;
+}
+
 int SpawnBullet(Vector2 pos, Vector2 vel)
 {
 	if (numBullets >= MAX_BULLETS)
+		return -1;
+
+	Tile t = TileAtVec(pos);
+	if (t == TILE_WALL)
 		return -1;
 
 	int index = numBullets++;
@@ -216,7 +359,9 @@ int SpawnTurret(Vector2 pos, float lookAngleRadians)
 	int index = numTurrets++;
 	turrets[index].pos = pos;
 	turrets[index].lookAngle = lookAngleRadians;
-	turrets[index].framesUntilShoot = 0;
+	turrets[index].framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE);
+	turrets[index].lastKnownPlayerPos.x = 0;
+	turrets[index].lastKnownPlayerPos.y = 0;
 	return index;
 }
 void RemoveBulletFromGlobalList(int index)
@@ -262,6 +407,7 @@ void SetupScreenCoordinateDrawing(void)
 	rlLoadIdentity();
 	rlOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1);
 }
+
 void DrawPlayer(void)
 {
 	DrawCircleV(player.pos, PLAYER_RADIUS, DARKGREEN);
@@ -288,6 +434,11 @@ void DrawPlayerCaptureCone(void)
 			12,
 			ColorAlpha(GRAY, 0.1f));
 	}
+
+	//Vector2 p0 = ScreenToTile(GetMousePosition());
+	//Vector2 p1 = player.pos;
+	//Color lineColor = IsPointBlockedByEnemiesFrom(p0, p1) ? GREEN : RED;
+	//DrawLineV(p0, p1, lineColor);
 }
 void DrawPlayerRelease(void)
 {
@@ -335,7 +486,20 @@ void DrawTiles(void)
 		for (int x = 0; x < numTilesX; ++x)
 		{
 			Tile t = tiles[y][x];
-			DrawRectangle(x, y, 1, 1, (x + y) % 2 ? FloatRGBA(0.95f, 0.95f, 0.95f, 1) : FloatRGBA(0.9f, 0.9f, 0.9f, 1));
+			switch (t)
+			{
+				case TILE_FLOOR:
+				{
+					DrawRectangle(x, y, 1, 1, (x + y) % 2 ? FloatRGBA(0.95f, 0.95f, 0.95f, 1) : FloatRGBA(0.9f, 0.9f, 0.9f, 1));
+					break;
+				}
+				case TILE_WALL:
+				{
+					DrawRectangle(x, y, 1, 1, FloatRGBA(0.5f, 0.5f, 0.5f, 1));
+					break;
+				}
+			}
+
 		}
 	}
 }
@@ -378,6 +542,195 @@ void DrawBullets(void)
 		}
 		rlEnd();
 		DrawCircleV(b.pos, BULLET_RADIUS, DARKGRAY);
+	}
+}
+
+void UpdatePlayer(void)
+{
+	Vector2 mousePos = ScreenToTile(GetMousePosition());
+
+	Vector2 playerMove = Vec2Broadcast(0);
+	if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
+		playerMove.y += 1;
+	if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
+		playerMove.y -= 1;
+	if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
+		playerMove.x -= 1;
+	if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
+		playerMove.x += 1;
+
+	if (playerMove.x != 0 || playerMove.y != 0)
+	{
+		playerMove = Vector2Normalize(playerMove);
+		player.vel = Vector2Scale(playerMove, PLAYER_SPEED);
+		player.pos = ResolveCollisionsCircleTiles(player.pos, PLAYER_RADIUS, player.vel);
+		for (int i = 0; i < numTurrets; ++i)
+			player.pos = ResolveCollisionCircles(player.pos, PLAYER_RADIUS, turrets[i].pos, TURRET_RADIUS);
+	}
+
+	player.lookAngle = AngleBetween(player.pos, mousePos);
+	player.justSnapped = false; // Reset from previous frame.
+
+	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+	{
+		if (!player.hasCapture)
+		{
+			player.justSnapped = true;
+			PlaySound(flashSound);
+
+			for (int i = 0; i < numBullets; ++i)
+			{
+				Bullet *b = &bullets[i];
+				if (CheckCollisionConeCircle(player.pos,
+					PLAYER_CAPTURE_CONE_RADIUS,
+					player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					b->pos, BULLET_RADIUS))
+				{
+					int index = numCapturedBullets++;
+					capturedBullets[index] = *b;
+					RemoveBulletFromGlobalList(i);
+					--i;
+				}
+			}
+
+			int numCapturedItems = numCapturedBullets;
+			if (numCapturedItems != 0)
+			{
+				Vector2 captureCenter = Vector2Zero();
+				for (int i = 0; i < numCapturedBullets; ++i)
+				{
+					captureCenter = Vector2Add(captureCenter, capturedBullets[i].pos);
+				}
+				captureCenter = Vector2Scale(captureCenter, 1.0f / numCapturedItems);
+
+				for (int i = 0; i < numCapturedBullets; ++i)
+					capturedBullets[i].pos = Vector2Subtract(capturedBullets[i].pos, captureCenter);
+
+				player.hasCapture = true;
+			}
+		}
+		else
+		{
+			player.releasePos = mousePos;
+			player.isReleasingCapture = true;
+		}
+	}
+
+	if (player.isReleasingCapture && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+	{
+		player.isReleasingCapture = false;
+		player.hasCapture = false;
+
+		Vector2 releaseDir = Vector2Subtract(mousePos, player.releasePos);
+		if (releaseDir.x == 0 || releaseDir.y == 0)
+		{
+			// If we don't have a direction we just have to pick one, otherwise 
+			// everything will just hang in the air indefinitely and never despawn.
+			// First try to send everything away from the player, 
+			// if that doesn't work either just pick a random direction.
+			releaseDir = Vector2Subtract(player.releasePos, player.pos);
+			while (releaseDir.x == 0 || releaseDir.y == 0)
+			{
+				releaseDir.x = RandomFloat(&rng, -1, +1);
+				releaseDir.y = RandomFloat(&rng, -1, +1);
+			}
+		}
+
+		float releaseSpeed = Vector2Length(releaseDir);
+		releaseDir = Vector2Scale(releaseDir, 1 / releaseSpeed);
+
+		Vector2 bulletReleaseVel = Vector2Scale(releaseDir, fmaxf(5 * releaseSpeed, 30));
+		for (int i = 0; i < numCapturedBullets; ++i)
+		{
+			Bullet b = capturedBullets[i];
+			Vector2 pos = Vector2Add(b.pos, player.releasePos);
+			SpawnBullet(pos, bulletReleaseVel);
+		}
+		numCapturedBullets = 0;
+	}
+}
+void UpdateBullets(void)
+{
+	for (int i = 0; i < numBullets; ++i)
+	{
+		Bullet *b = &bullets[i];
+		b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME));
+		if (!CheckCollisionCircleRec(b->pos, BULLET_RADIUS, ExpandRectangle(screenRectTiles, 20)))
+		{
+			RemoveBulletFromGlobalList(i);
+			--i;
+		}
+		else if (TileAtVec(b->pos) == TILE_WALL) // @TODO: This is treating bullets as mere points even though they have a radius..
+		{
+			RemoveBulletFromGlobalList(i);
+			--i;
+		}
+		else
+		{
+			for (int j = 0; j < numTurrets; ++j)
+			{
+				Turret *t = &turrets[j];
+				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, t->pos, TURRET_RADIUS))
+				{
+					RemoveBulletFromGlobalList(i);
+					RemoveTurretFromGlobalList(j);
+					--i;
+					break;
+				}
+			}
+		}
+	}
+}
+void UpdateTurrets(void)
+{
+	for (int i = 0; i < numTurrets; ++i)
+	{
+		Turret *t = &turrets[i];
+		bool playerIsVisible = IsPointVisibleFrom(t->pos, player.pos);
+		if (playerIsVisible)
+			t->lastKnownPlayerPos = player.pos;
+
+		bool triedToShoot = false;
+		if (t->lastKnownPlayerPos.x != 0 || t->lastKnownPlayerPos.y != 0)
+		{
+			float angleToPlayer = AngleBetween(t->pos, t->lastKnownPlayerPos);
+			float dAngle = WrapMinMax(angleToPlayer - t->lookAngle, -PI, +PI);
+
+			if (playerIsVisible && fabsf(dAngle) < 15 * DEG2RAD)
+			{
+				float s = sinf(t->lookAngle);
+				float c = cosf(t->lookAngle);
+				Vector2 bulletPos = {
+					t->pos.x + (TURRET_RADIUS + PixelsToTiles(15)) * c,
+					t->pos.y + (TURRET_RADIUS + PixelsToTiles(15)) * s
+				};
+				if (!IsPointBlockedByEnemiesFrom(bulletPos, player.pos))
+				{
+					triedToShoot = true;
+					t->framesUntilShoot--;
+					if (t->framesUntilShoot <= 0)
+					{
+						t->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE); // (Frame/sec) / (Shots/sec) = Frame/Shot
+						Vector2 bulletVel = {
+							BULLET_SPEED * c,
+							BULLET_SPEED * s,
+						};
+						SpawnBullet(bulletPos, bulletVel);
+						PlaySound(longShotSound);
+						SetSoundPitch(longShotSound, RandomFloat(&rng, 0.95f, 1.2f));
+					}
+				}
+			}
+
+			float turnSpeed = TURRET_TURN_SPEED;
+			if (dAngle < 0)
+				turnSpeed *= -1;
+			t->lookAngle += turnSpeed * DELTA_TIME;
+		}
+
+		if (!triedToShoot)
+			t->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE); // (Frame/sec) / (Shots/sec) = Frame/Shot
 	}
 }
 
@@ -537,9 +890,9 @@ void CopyGameToRoom(Room *room)
 	}
 }
 
-// *---=============---*
-// |/   Game States   \|
-// *---=============---*
+// *---=========---*
+// |/   Playing   \|
+// *---=========---*
 
 void Playing_Init(GameState oldState)
 {
@@ -554,171 +907,9 @@ GameState Playing_Update(void)
 	if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER))
 		return GAME_STATE_PAUSED;
 
-	Vector2 mousePos = ScreenToTile(GetMousePosition());
-
-	// Update player
-	{
-		Vector2 playerMove = Vec2Broadcast(0);
-		if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
-			playerMove.y += 1;
-		if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
-			playerMove.y -= 1;
-		if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
-			playerMove.x -= 1;
-		if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
-			playerMove.x += 1;
-
-		if (playerMove.x != 0 || playerMove.y != 0)
-		{
-			player.vel = Vector2Normalize(playerMove);
-			player.vel = Vector2Scale(player.vel, PLAYER_SPEED);
-			player.pos = Vector2Add(player.pos, Vector2Scale(player.vel, DELTA_TIME));
-		}
-
-		player.lookAngle = AngleBetween(player.pos, mousePos);
-		player.justSnapped = false; // Reset from previous frame.
-
-		if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-		{
-			if (!player.hasCapture)
-			{
-				player.justSnapped = true;
-				PlaySound(flashSound);
-
-				for (int i = 0; i < numBullets; ++i)
-				{
-					Bullet *b = &bullets[i];
-					if (CheckCollisionConeCircle(player.pos,
-						PLAYER_CAPTURE_CONE_RADIUS,
-						player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
-						player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
-						b->pos, BULLET_RADIUS))
-					{
-						int index = numCapturedBullets++;
-						capturedBullets[index] = *b;
-						RemoveBulletFromGlobalList(i);
-						--i;
-					}
-				}
-
-				int numCapturedItems = numCapturedBullets;
-				if (numCapturedItems != 0)
-				{
-					Vector2 captureCenter = Vector2Zero();
-					for (int i = 0; i < numCapturedBullets; ++i)
-					{
-						captureCenter = Vector2Add(captureCenter, capturedBullets[i].pos);
-					}
-					captureCenter = Vector2Scale(captureCenter, 1.0f / numCapturedItems);
-
-					for (int i = 0; i < numCapturedBullets; ++i)
-						capturedBullets[i].pos = Vector2Subtract(capturedBullets[i].pos, captureCenter);
-
-					player.hasCapture = true;
-				}
-			}
-			else
-			{
-				player.releasePos = mousePos;
-				player.isReleasingCapture = true;
-			}
-		}
-
-		if (player.isReleasingCapture && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
-		{
-			player.isReleasingCapture = false;
-			player.hasCapture = false;
-
-			Vector2 releaseDir = Vector2Subtract(mousePos, player.releasePos);
-			if (releaseDir.x == 0 || releaseDir.y == 0)
-			{
-				// If we don't have a direction we just have to pick one, otherwise 
-				// everything will just hang in the air indefinitely and never despawn.
-				// First try to send everything away from the player, 
-				// if that doesn't work either just pick a random direction.
-				releaseDir = Vector2Subtract(player.releasePos, player.pos);
-				while (releaseDir.x == 0 || releaseDir.y == 0)
-				{
-					releaseDir.x = RandomFloat(&rng, -1, +1);
-					releaseDir.y = RandomFloat(&rng, -1, +1);
-				}
-			}
-
-			float releaseSpeed = Vector2Length(releaseDir);
-			releaseDir = Vector2Scale(releaseDir, 1 / releaseSpeed);
-
-			Vector2 bulletReleaseVel = Vector2Scale(releaseDir, fmaxf(5 * releaseSpeed, 30));
-			for (int i = 0; i < numCapturedBullets; ++i)
-			{
-				Bullet b = capturedBullets[i];
-				Vector2 pos = Vector2Add(b.pos, player.releasePos);
-				SpawnBullet(pos, bulletReleaseVel);
-			}
-			numCapturedBullets = 0;
-		}
-	}
-
-	for (int i = 0; i < numBullets; ++i)
-	{
-		Bullet *b = &bullets[i];
-		b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME));
-		if (!CheckCollisionCircleRec(b->pos, BULLET_RADIUS, ExpandRectangle(screenRectTiles, 30)))
-		{
-			RemoveBulletFromGlobalList(i);
-			--i;
-		}
-		else
-		{
-			for (int j = 0; j < numTurrets; ++j)
-			{
-				Turret *t = &turrets[j];
-				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, t->pos, TURRET_RADIUS))
-				{
-					RemoveBulletFromGlobalList(i);
-					RemoveTurretFromGlobalList(j);
-					--i;
-					break;
-				}
-			}
-		}
-	}
-
-	for (int i = 0; i < numTurrets; ++i)
-	{
-		Turret *t = &turrets[i];
-		float angleToPlayer = AngleBetween(t->pos, player.pos);
-		float dAngle = WrapMinMax(angleToPlayer - t->lookAngle, -PI, +PI);
-
-		if (fabsf(dAngle) < 15 * DEG2RAD)
-		{
-			t->framesUntilShoot--;
-			if (t->framesUntilShoot <= 0)
-			{
-				t->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE); // (Frame/sec) / (Shots/sec) = Frame/Shot
-				float s = sinf(t->lookAngle);
-				float c = cosf(t->lookAngle);
-				Vector2 bulletPos = {
-					t->pos.x + (TURRET_RADIUS + PixelsToTiles(15)) * c,
-					t->pos.y + (TURRET_RADIUS + PixelsToTiles(15)) * s
-				};
-				Vector2 bulletVel = {
-					BULLET_SPEED * c,
-					BULLET_SPEED * s,
-				};
-				SpawnBullet(bulletPos, bulletVel);
-				PlaySound(longShotSound);
-				SetSoundPitch(longShotSound, RandomFloat(&rng, 0.95f, 1.2f));
-			}
-		}
-		else
-			t->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE); // (Frame/sec) / (Shots/sec) = Frame/Shot
-
-		float turnSpeed = TURRET_TURN_SPEED;
-		if (dAngle < 0)
-			turnSpeed *= -1;
-		t->lookAngle += turnSpeed * DELTA_TIME;
-	}
-
+	UpdatePlayer();
+	UpdateBullets();
+	UpdateTurrets();
 	return GAME_STATE_PLAYING;
 }
 void Playing_Draw(void)
@@ -742,6 +933,10 @@ void Playing_Draw(void)
 	}
 }
 
+// *---========---*
+// |/   Paused   \|
+// *---========---*
+
 void Paused_Init(GameState oldState)
 {
 
@@ -760,7 +955,12 @@ GameState Paused_Update(void)
 void Paused_Draw(void)
 {
 	Playing_Draw();
-	DrawText("[PAUSED]", 50, 50, 20, BLACK);
+
+	Color edgeColor = ColorAlpha(BLACK, 0.9f);
+	Color centerColor = ColorAlpha(BLACK, 0.1f);
+	DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2, edgeColor, centerColor);
+	DrawRectangleGradientV(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2, centerColor, edgeColor);
+	DrawTextCentered("[PAUSED]", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 40, BLACK);
 }
 
 // *---==============---*
@@ -775,30 +975,6 @@ const Rectangle consoleInputRect = { 0, 24, SCREEN_WIDTH, 25 };
 const Rectangle objectsWindowRect = { 0, SCREEN_HEIGHT - 200, SCREEN_WIDTH, 200 };
 const Rectangle propertiesWindowRect = { SCREEN_WIDTH - 200, SCREEN_HEIGHT - 800, 200, 550 };
 const Rectangle tilesWindowRect = { 0, SCREEN_HEIGHT - 800, 200, 550 };
-
-void DropSelection(void)
-{
-	switch (selection.kind)
-	{
-		case EDITOR_SELECTION_KIND_PLAYER:
-		{
-			if (!CheckCollisionPointRec(selection.player->pos, screenRectTiles))
-				selection.player->pos = Vector2Zero();
-			selection.kind = EDITOR_SELECTION_KIND_NONE;
-			break;
-		}
-		case EDITOR_SELECTION_KIND_TURRET:
-		{
-			if (!CheckCollisionPointRec(selection.turret->pos, screenRectTiles))
-			{
-				int index = (int)(selection.turret - turrets);
-				RemoveTurretFromGlobalList(index);
-			}
-			selection.kind = EDITOR_SELECTION_KIND_NONE;
-			break;
-		}
-	}
-}
 
 void LevelEditor_Init(GameState oldState)
 {
@@ -922,38 +1098,50 @@ GameState LevelEditor_Update(void)
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 	{
 		lastMouseClickPos = mousePos;
-		if (!CheckCollisionPointRec(mousePos, consoleWindowRect) &&
-			!CheckCollisionPointRec(mousePos, objectsWindowRect) &&
-			!CheckCollisionPointRec(mousePos, propertiesWindowRect) &&
-			!CheckCollisionPointRec(mousePos, tilesWindowRect))
+		if (selection.kind == EDITOR_SELECTION_KIND_TILE)
 		{
-			Vector2 mousePosTiles = ScreenToTile(mousePos);
-			selection.kind = EDITOR_SELECTION_KIND_NONE;
-
-			for (int i = 0; i < numTurrets; ++i)
+			int tileX = (int)mousePosTiles.x;
+			int tileY = (int)mousePosTiles.y;
+			if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
 			{
-				if (CheckCollisionPointCircle(mousePosTiles, turrets[i].pos, TURRET_RADIUS))
-				{
-					selection.kind = EDITOR_SELECTION_KIND_TURRET;
-					selection.turret = &turrets[i];
-				}
+				tiles[tileY][tileX] = selection.tile;
 			}
+			else selection.kind = EDITOR_SELECTION_KIND_NONE;
+		}
 
-			if (CheckCollisionPointCircle(mousePosTiles, player.pos, PLAYER_RADIUS))
+		if (selection.kind != EDITOR_SELECTION_KIND_TILE) // Checking this again because it might change above.
+		{
+			if (!CheckCollisionPointRec(mousePos, consoleWindowRect) &&
+				!CheckCollisionPointRec(mousePos, objectsWindowRect) &&
+				!CheckCollisionPointRec(mousePos, propertiesWindowRect) &&
+				!CheckCollisionPointRec(mousePos, tilesWindowRect))
 			{
-				selection.kind = EDITOR_SELECTION_KIND_PLAYER;
-				selection.player = &player;
+				selection.kind = EDITOR_SELECTION_KIND_NONE;
+
+				for (int i = 0; i < numTurrets; ++i)
+				{
+					if (CheckCollisionPointCircle(mousePosTiles, turrets[i].pos, TURRET_RADIUS))
+					{
+						selection.kind = EDITOR_SELECTION_KIND_TURRET;
+						selection.turret = &turrets[i];
+					}
+				}
+
+				if (CheckCollisionPointCircle(mousePosTiles, player.pos, PLAYER_RADIUS))
+				{
+					selection.kind = EDITOR_SELECTION_KIND_PLAYER;
+					selection.player = &player;
+				}
 			}
 		}
 	}
 
 	if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
 	{
-		Vector2 mouseDelta = GetMouseDelta();
-		mouseDelta = Vector2Divide(mouseDelta, Vec2(SCREEN_WIDTH, -SCREEN_HEIGHT));
-		mouseDelta = Vector2Multiply(mouseDelta, Vec2(MAX_TILES_X, MAX_TILES_Y));
-		cameraPos.x += mouseDelta.x;
-		cameraPos.y += mouseDelta.y;
+		Vector2 d = Vector2Divide(mouseDelta, Vec2(SCREEN_WIDTH, -SCREEN_HEIGHT));
+		d = Vector2Multiply(d, Vec2(MAX_TILES_X, MAX_TILES_Y));
+		cameraPos.x += d.x;
+		cameraPos.y += d.y;
 	}
 	if (IsKeyPressed(KEY_C))
 	{
@@ -1086,6 +1274,7 @@ void LevelEditor_Draw(void)
 	{
 		case EDITOR_SELECTION_KIND_PLAYER: propertiesTitle = "Player properties"; break;
 		case EDITOR_SELECTION_KIND_TURRET: propertiesTitle = "Turret properties"; break;
+		case EDITOR_SELECTION_KIND_TILE: propertiesTitle = "Tile properties"; break;
 		default: propertiesTitle = "Room properties"; break;
 	}
 	GuiWindowBox(propertiesWindowRect, propertiesTitle);
@@ -1109,6 +1298,11 @@ void LevelEditor_Draw(void)
 				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.turret->pos.y);
 				y += 20;
 				selection.turret->lookAngle = GuiSlider(Rect(x, y, 100, 20), "", "Look angle", selection.turret->lookAngle, -PI, +PI);
+			} break;
+
+			case EDITOR_SELECTION_KIND_TILE:
+			{
+
 			} break;
 
 			default: // Room properties
@@ -1136,7 +1330,9 @@ void LevelEditor_Draw(void)
 			} break;
 		}
 
-		y = propertiesWindowRect.y + propertiesWindowRect.height - 40;
+		y = propertiesWindowRect.y + propertiesWindowRect.height - 60;
+		GuiText(Rect(x, y, 100, 20), "%s", GetTileName(TileAtVec(mousePosTiles)));
+		y += 20;
 		GuiText(Rect(x, y, 100, 20), "Mouse X: %.2f", mousePosTiles.x);
 		y += 20;
 		GuiText(Rect(x, y, 100, 20), "Mouse Y: %.2f", mousePosTiles.y);

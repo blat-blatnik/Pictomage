@@ -114,8 +114,8 @@ typedef struct EditorSelection
 	union
 	{
 		Tile tile;
-		Player player;
-		Turret turret;
+		Player *player;
+		Turret *turret;
 	};
 } EditorSelection;
 
@@ -135,6 +135,38 @@ void ZoomInToPoint(Vector2 screenPoint, float newZoom)
 	Vector2 d = Vector2Scale(Vector2Subtract(p, cameraPos), 1 - s);
 	cameraPos = Vector2Add(cameraPos, d);
 	cameraZoom = newZoom;
+}
+float PixelsToTiles(float pixels)
+{
+	return pixels / TILE_SIZE;
+}
+Vector2 PixelsToTiles2(float pixelsX, float pixelsY)
+{
+	Vector2 result = {
+		PixelsToTiles(pixelsX),
+		PixelsToTiles(pixelsY),
+	};
+	return result;
+}
+Vector2 ScreenDeltaToTileDelta(Vector2 screenDelta)
+{
+	Vector2 p = Vector2Multiply(screenDelta, Vec2((float)MAX_TILES_X / SCREEN_WIDTH, -(float)MAX_TILES_Y / SCREEN_HEIGHT));
+	return Vector2Scale(p, 1 / cameraZoom);
+}
+Vector2 ScreenToTile(Vector2 screenPos)
+{
+	screenPos.y = SCREEN_HEIGHT - screenPos.y - 1;
+	Vector2 p = Vector2Multiply(screenPos, Vec2((float)MAX_TILES_X / SCREEN_WIDTH, (float)MAX_TILES_Y / SCREEN_HEIGHT));
+	p = Vector2Subtract(p, cameraPos);
+	return Vector2Scale(p, 1 / cameraZoom);
+}
+Vector2 TileToScreen(Vector2 tilePos)
+{
+	Vector2 p = Vector2Scale(tilePos, cameraZoom);
+	p = Vector2Add(p, cameraPos);
+	p = Vector2Multiply(p, Vec2(SCREEN_WIDTH / (float)MAX_TILES_X, SCREEN_HEIGHT / (float)MAX_TILES_Y));
+	p.y = SCREEN_HEIGHT - p.y - 1;
+	return p;
 }
 
 // *---=========---*
@@ -156,34 +188,6 @@ Bullet bullets[MAX_BULLETS];
 Bullet capturedBullets[MAX_BULLETS];
 int numTurrets;
 Turret turrets[MAX_TURRETS];
-
-float PixelsToTiles(float pixels)
-{
-	return pixels / TILE_SIZE;
-}
-Vector2 PixelsToTiles2(float pixelsX, float pixelsY)
-{
-	Vector2 result = {
-		PixelsToTiles(pixelsX),
-		PixelsToTiles(pixelsY),
-	};
-	return result;
-}
-Vector2 ScreenToTile(Vector2 screenPos)
-{
-	screenPos.y = SCREEN_HEIGHT - screenPos.y - 1;
-	Vector2 p = Vector2Multiply(screenPos, Vec2((float)MAX_TILES_X / SCREEN_WIDTH, (float)MAX_TILES_Y / SCREEN_HEIGHT));
-	p = Vector2Subtract(p, cameraPos);
-	return Vector2Scale(p, 1 / cameraZoom);
-}
-Vector2 TileToScreen(Vector2 tilePos)
-{
-	Vector2 p = Vector2Scale(tilePos, cameraZoom);
-	p = Vector2Add(p, cameraPos);
-	p = Vector2Multiply(p, Vec2(SCREEN_WIDTH / (float)MAX_TILES_X, SCREEN_HEIGHT / (float)MAX_TILES_Y));
-	p.y = SCREEN_HEIGHT - p.y - 1;
-	return p;
-}
 
 int SpawnBullet(Vector2 pos, Vector2 vel)
 {
@@ -333,6 +337,7 @@ void SaveRoom(const Room *room)
 	u8 numTurrets = room->numTurrets;
 	fwrite(&numTurrets, sizeof numTurrets, 1, file);
 	fwrite(room->turretPos, sizeof room->turretPos[0], numTurrets, file);
+	fwrite(room->turretLookAngle, sizeof room->turretLookAngle[0], numTurrets, file);
 
 	fclose(file);
 	TraceLog(LOG_INFO, "Saved room '%s'.", filepath);
@@ -366,16 +371,14 @@ void CopyGameToRoom(Room *room)
 	}
 }
 
-// *---======---*
-// |/   Game   \|
-// *---======---*
+// *---=============---*
+// |/   Game States   \|
+// *---=============---*
 
 void Playing_Init(GameState oldState)
 {
 	cameraZoom = 1;
 	cameraPos = Vector2Zero();
-	LoadRoom(&currentRoom, "room0");
-	CopyRoomToGame(&currentRoom);
 }
 GameState Playing_Update(void)
 {
@@ -711,6 +714,30 @@ const Rectangle objectsWindowRect = { 0, SCREEN_HEIGHT - 200, SCREEN_WIDTH, 200 
 const Rectangle propertiesWindowRect = { SCREEN_WIDTH - 200, SCREEN_HEIGHT - 800, 200, 550 };
 const Rectangle tilesWindowRect = { 0, SCREEN_HEIGHT - 800, 200, 550 };
 
+void DropSelection(void)
+{
+	switch (selection.kind)
+	{
+		case EDITOR_SELECTION_KIND_PLAYER:
+		{
+			if (!CheckCollisionPointRec(selection.player->pos, screenRectTiles))
+				selection.player->pos = Vector2Zero();
+			selection.kind = EDITOR_SELECTION_KIND_NONE;
+			break;
+		}
+		case EDITOR_SELECTION_KIND_TURRET:
+		{
+			if (!CheckCollisionPointRec(selection.turret->pos, screenRectTiles))
+			{
+				int index = (int)(selection.turret - turrets);
+				RemoveTurretFromGlobalList(index);
+			}
+			selection.kind = EDITOR_SELECTION_KIND_NONE;
+			break;
+		}
+	}
+}
+
 void LevelEditor_Init(GameState oldState)
 {
 	cameraPos = Vector2Zero();
@@ -721,10 +748,13 @@ void LevelEditor_Init(GameState oldState)
 GameState LevelEditor_Update(void)
 {
 	Vector2 mousePos = GetMousePosition();
+	Vector2 mouseDelta = GetMouseDelta();
+	Vector2 mousePosTiles = ScreenToTile(mousePos);
+	Vector2 mouseDeltaTiles = ScreenDeltaToTileDelta(mouseDelta);
 
 	if (IsKeyPressed(KEY_GRAVE))
 	{
-		cameraZoom = 1;
+		CopyGameToRoom(&currentRoom);
 		return GAME_STATE_PLAYING;
 	}
 
@@ -743,8 +773,23 @@ GameState LevelEditor_Update(void)
 			!CheckCollisionPointRec(mousePos, propertiesWindowRect) &&
 			!CheckCollisionPointRec(mousePos, tilesWindowRect))
 		{
-			// @TODO: Check for collisions with stuff in game.
+			Vector2 mousePosTiles = ScreenToTile(mousePos);
 			selection.kind = EDITOR_SELECTION_KIND_NONE;
+
+			for (int i = 0; i < numTurrets; ++i)
+			{
+				if (CheckCollisionPointCircle(mousePosTiles, turrets[i].pos, TURRET_RADIUS))
+				{
+					selection.kind = EDITOR_SELECTION_KIND_TURRET;
+					selection.turret = &turrets[i];
+				}
+			}
+
+			if (CheckCollisionPointCircle(mousePosTiles, player.pos, PLAYER_RADIUS))
+			{
+				selection.kind = EDITOR_SELECTION_KIND_PLAYER;
+				selection.player = &player;
+			}
 		}
 	}
 
@@ -766,6 +811,40 @@ GameState LevelEditor_Update(void)
 	{
 		CopyGameToRoom(&currentRoom);
 		SaveRoom(&currentRoom);
+	}
+	if (IsKeyDown(KEY_DELETE))
+	{
+		switch (selection.kind)
+		{
+			case EDITOR_SELECTION_KIND_TURRET:
+			{
+				int index = (int)(selection.turret - turrets);
+				RemoveTurretFromGlobalList(index);
+				selection.kind = EDITOR_SELECTION_KIND_NONE;
+				break;
+			}
+		}
+	}
+
+	if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+	{
+		switch (selection.kind)
+		{
+			case EDITOR_SELECTION_KIND_TURRET:
+			{
+				Vector2 newPos = Vector2Add(selection.turret->pos, mouseDeltaTiles);
+				if (CheckCollisionPointCircle(mousePosTiles, newPos, TURRET_RADIUS))
+					selection.turret->pos = newPos;
+				break;
+			}
+			case EDITOR_SELECTION_KIND_PLAYER:
+			{
+				Vector2 newPos = Vector2Add(selection.player->pos, mouseDeltaTiles);
+				if (CheckCollisionPointCircle(mousePosTiles, newPos, PLAYER_RADIUS))
+					selection.player->pos = newPos;
+				break;
+			}
+		}
 	}
 
 	return GAME_STATE_LEVEL_EDITOR;
@@ -793,7 +872,9 @@ void LevelEditor_Draw(void)
 		float y = y0;
 		if (GuiButton(Rect(x, y, 60, 60), "Turret"))
 		{
+			int index = SpawnTurret(Vector2Zero(), 0);
 			selection.kind = EDITOR_SELECTION_KIND_TURRET;
+			selection.turret = &turrets[index];
 		}
 		DrawRectangleRec(Rect(x + 10, y + 10, 40, 40), ColorAlpha(BLACK, 0.2f));
 	}
@@ -834,12 +915,19 @@ void LevelEditor_Draw(void)
 		{
 			case EDITOR_SELECTION_KIND_PLAYER:
 			{
-
+				GuiText(Rect(x, y, 100, 20), "X: %g", selection.player->pos.x);
+				y += 20;
+				GuiText(Rect(x, y, 100, 20), "Y: %g", selection.player->pos.y);
+				y += 20;
 			} break;
 
 			case EDITOR_SELECTION_KIND_TURRET:
 			{
-				GuiSlider(Rect(x, y, 100, 20), "", "", 0, 0, 100);
+				GuiText(Rect(x, y, 100, 20), "X: %g", selection.turret->pos.x);
+				y += 20;
+				GuiText(Rect(x, y, 100, 20), "Y: %g", selection.turret->pos.y);
+				y += 20;
+				selection.turret->lookAngle = GuiSlider(Rect(x, y, 100, 20), "", "Look angle", selection.turret->lookAngle, -PI, +PI);
 			} break;
 
 			default: // Room properties
@@ -864,6 +952,10 @@ void LevelEditor_Draw(void)
 	}
 }
 
+// *---======---*
+// |/   Game   \|
+// *---======---*
+
 void GameInit(void)
 {
 	SetConfigFlags(FLAG_MSAA_4X_HINT);
@@ -882,7 +974,11 @@ void GameInit(void)
 	if (devMode)
 		gameState = GAME_STATE_PLAYING;
 	if (gameState == GAME_STATE_PLAYING)
+	{
+		LoadRoom(&currentRoom, "room0");
+		CopyRoomToGame(&currentRoom);
 		Playing_Init(GAME_STATE_PLAYING);
+	}
 }
 void GameLoopOneIteration(void)
 {

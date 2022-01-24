@@ -112,6 +112,8 @@ void rlVertex2fv(Vector2 v);
 
 bool CheckCollisionConeCircle(Vector2 coneCenter, float coneRadius, float coneAngleStart, float coneAngleEnd, Vector2 circleCenter, float circleRadius);
 
+void GuiText(Rectangle rect, FORMAT_STRING format, ...);
+
 void DrawDebugText(FORMAT_STRING format, ...);
 void DrawTextFormat(float x, float y, float fontSize, Color color, FORMAT_STRING format, ...);
 void DrawTextFormatv(float x, float y, float fontSize, Color color, FORMAT_STRING format, va_list args);

@@ -388,6 +388,15 @@ bool CheckCollisionConeCircle(Vector2 coneCenter, float coneRadius, float coneAn
 	return IsAngleBetween(angle, coneAngleStart, coneAngleEnd);
 }
 
+void GuiText(Rectangle rect, FORMAT_STRING format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	char *text = TempPrintv(format, args);
+	va_end(args);
+	GuiLabel(rect, text);
+}
+
 void DrawDebugText(FORMAT_STRING format, ...)
 {
 	va_list args;

@@ -668,6 +668,7 @@ void UpdateBullets(void)
 		}
 		else
 		{
+			bool collided = false;
 			for (int j = 0; j < numTurrets; ++j)
 			{
 				Turret *t = &turrets[j];
@@ -676,8 +677,18 @@ void UpdateBullets(void)
 					RemoveBulletFromGlobalList(i);
 					RemoveTurretFromGlobalList(j);
 					--i;
+					collided = true;
 					break;
 				}
+			}
+			if (collided)
+				continue;
+			
+			if (CheckCollisionCircles(b->pos, BULLET_RADIUS, player.pos, PLAYER_RADIUS))
+			{
+				RemoveBulletFromGlobalList(i);
+				--i;
+				continue;
 			}
 		}
 	}
@@ -976,6 +987,20 @@ const Rectangle objectsWindowRect = { 0, SCREEN_HEIGHT - 200, SCREEN_WIDTH, 200 
 const Rectangle propertiesWindowRect = { SCREEN_WIDTH - 200, SCREEN_HEIGHT - 800, 200, 550 };
 const Rectangle tilesWindowRect = { 0, SCREEN_HEIGHT - 800, 200, 550 };
 
+void DoTileButton(Tile tile, float x, float y)
+{
+	int state = GuiGetState();
+	if (selection.kind == EDITOR_SELECTION_KIND_TILE && selection.tile == tile)
+		GuiSetState(GUI_STATE_PRESSED);
+	if (GuiButton(Rect(x, y, 50, 50), GetTileName(tile)))
+	{
+		selection.kind = EDITOR_SELECTION_KIND_TILE;
+		selection.tile = tile;
+	}
+	DrawRectangleRec(Rect(x + 10, y + 10, 30, 30), ColorAlpha(BLACK, 0.2f));
+	GuiSetState(state);
+}
+
 void LevelEditor_Init(GameState oldState)
 {
 	cameraPos = Vector2Zero();
@@ -1095,6 +1120,14 @@ GameState LevelEditor_Update(void)
 	else if (wheelMove < 0)
 		ZoomInToPoint(mousePos, cameraZoom / 1.1f);
 
+	if (selection.kind == EDITOR_SELECTION_KIND_TILE && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+	{
+		int tileX = (int)mousePosTiles.x;
+		int tileY = (int)mousePosTiles.y;
+		if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
+			tiles[tileY][tileX] = selection.tile;
+	}
+
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 	{
 		lastMouseClickPos = mousePos;
@@ -1103,9 +1136,7 @@ GameState LevelEditor_Update(void)
 			int tileX = (int)mousePosTiles.x;
 			int tileY = (int)mousePosTiles.y;
 			if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
-			{
 				tiles[tileY][tileX] = selection.tile;
-			}
 			else selection.kind = EDITOR_SELECTION_KIND_NONE;
 		}
 
@@ -1209,7 +1240,6 @@ void LevelEditor_Draw(void)
 	{
 		bool isFocused = CheckCollisionPointRec(lastMouseClickPos, consoleInputRect);
 		GuiTextBox(consoleInputRect, consoleInputBuffer, sizeof consoleInputBuffer, isFocused);
-
 		if (isFocused && IsKeyPressed(KEY_ENTER))
 		{
 			int splitCount;
@@ -1230,6 +1260,8 @@ void LevelEditor_Draw(void)
 					else if (splitCount > 2) TraceLog(LOG_ERROR, "Command '%s' requires only 1 argument, but %d were given.", command, argCount);
 				}
 			}
+
+			memset(consoleInputBuffer, 0, sizeof consoleInputBuffer);
 		}
 	}
 	
@@ -1254,19 +1286,12 @@ void LevelEditor_Draw(void)
 		float y0 = tilesWindowRect.y + 30;
 		float x = x0;
 		float y = y0;
-		if (GuiButton(Rect(x, y, 50, 50), "Floor"))
-		{
-			selection.kind = EDITOR_SELECTION_KIND_TILE;
-			selection.tile = TILE_FLOOR;
-		}
-		DrawRectangleRec(Rect(x + 10, y + 10, 30, 30), ColorAlpha(BLACK, 0.2f));
+		int state;
+
+		DoTileButton(TILE_FLOOR, x, y);
 		x += 55;
-		if (GuiButton(Rect(x, y, 50, 50), "Wall"))
-		{
-			selection.kind = EDITOR_SELECTION_KIND_TILE;
-			selection.tile = TILE_WALL;
-		}
-		DrawRectangleRec(Rect(x + 10, y + 10, 30, 30), ColorAlpha(BLACK, 0.2f));
+		DoTileButton(TILE_WALL, x, y);
+		x += 55;
 	}
 
 	const char *propertiesTitle = NULL;

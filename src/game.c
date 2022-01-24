@@ -136,6 +136,11 @@ void ZoomInToPoint(Vector2 screenPoint, float newZoom)
 	cameraPos = Vector2Add(cameraPos, d);
 	cameraZoom = newZoom;
 }
+void ShiftCamera(float dx, float dy)
+{
+	cameraPos.x += dx * cameraZoom;
+	cameraPos.y += dy * cameraZoom;
+}
 float PixelsToTiles(float pixels)
 {
 	return pixels / TILE_SIZE;
@@ -226,6 +231,16 @@ void RemoveTurretFromGlobalList(int index)
 	SwapMemory(turrets + index, turrets + numTurrets - 1, sizeof turrets[0]);
 	--numTurrets;
 }
+void ShiftAllObjectsBy(float dx, float dy)
+{
+	player.pos.x += dx;
+	player.pos.y += dy;
+	for (int i = 0; i < numTurrets; ++i)
+	{
+		turrets[i].pos.x += dx;
+		turrets[i].pos.y += dy;
+	}
+}
 
 // *---=========---*
 // |/   Drawing   \|
@@ -247,9 +262,14 @@ void SetupScreenCoordinateDrawing(void)
 	rlLoadIdentity();
 	rlOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1);
 }
-void DrawPlayer(bool showCone)
+void DrawPlayer(void)
 {
-	float lookAngleDegrees = (RAD2DEG * (-player.lookAngle)) + 90; // No idea why RAD2DEG*radians isn't enough here.. whatever.
+	DrawCircleV(player.pos, PLAYER_RADIUS, DARKGREEN);
+}
+void DrawPlayerCaptureCone(void)
+{
+	// No idea why RAD2DEG*radians isn't enough here.. whatever.
+	float lookAngleDegrees = (RAD2DEG * (-player.lookAngle)) + 90;
 	if (player.justSnapped)
 	{
 		DrawCircleSector(player.pos,
@@ -267,6 +287,97 @@ void DrawPlayer(bool showCone)
 			lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
 			12,
 			ColorAlpha(GRAY, 0.1f));
+	}
+}
+void DrawPlayerRelease(void)
+{
+	if (!player.isReleasingCapture)
+		return;
+
+	for (int i = 0; i < numCapturedBullets; ++i)
+	{
+		Bullet b = capturedBullets[i];
+		Vector2 pos = Vector2Add(b.pos, player.releasePos);
+		DrawCircleV(pos, BULLET_RADIUS, ColorAlpha(BLUE, 0.5f));
+	}
+
+	Vector2 mousePos = ScreenToTile(GetMousePosition());
+	Vector2 arrowDir = Vector2Normalize(Vector2Subtract(mousePos, player.releasePos));
+	Vector2 arrowPos0 = Vector2Add(player.releasePos, Vector2Scale(arrowDir, BULLET_RADIUS + PixelsToTiles(10)));
+	Vector2 arrowPos1 = mousePos;
+	float arrowLength = Vector2Distance(arrowPos0, arrowPos1);
+	float arrowWidth0 = PixelsToTiles(5);
+	float arrowWidth1 = Clamp(0.2f * arrowLength, PixelsToTiles(5), PixelsToTiles(30));
+	Vector2 dir1 = { -arrowDir.y, +arrowDir.x };
+	Vector2 dir2 = { +arrowDir.y, -arrowDir.x };
+	Color arrowColor = ColorAlpha(BLUE, 0.3f);
+	rlBegin(RL_QUADS);
+	{
+		rlColor(arrowColor);
+		rlVertex2fv(Vector2Add(arrowPos0, Vector2Scale(dir1, arrowWidth0)));
+		rlVertex2fv(Vector2Add(arrowPos0, Vector2Scale(dir2, arrowWidth0)));
+		rlVertex2fv(Vector2Add(arrowPos1, Vector2Scale(dir2, arrowWidth1)));
+		rlVertex2fv(Vector2Add(arrowPos1, Vector2Scale(dir1, arrowWidth1)));
+	}
+	rlEnd();
+	float arrowheadWidth = 2 * arrowWidth1;
+	float arrowheadLength = 1.5f * arrowWidth1;
+	DrawTriangle(
+		Vector2Add(arrowPos1, Vector2Scale(dir1, arrowheadWidth)),
+		Vector2Add(arrowPos1, Vector2Scale(dir2, arrowheadWidth)),
+		Vector2Add(arrowPos1, Vector2Scale(arrowDir, arrowheadLength)),
+		arrowColor);
+}
+void DrawTiles(void)
+{
+	for (int y = 0; y < numTilesY; ++y)
+	{
+		for (int x = 0; x < numTilesX; ++x)
+		{
+			Tile t = tiles[y][x];
+			DrawRectangle(x, y, 1, 1, (x + y) % 2 ? FloatRGBA(0.95f, 0.95f, 0.95f, 1) : FloatRGBA(0.9f, 0.9f, 0.9f, 1));
+		}
+	}
+}
+void DrawTurrets(void)
+{
+	for (int i = 0; i < numTurrets; ++i)
+	{
+		Turret t = turrets[i];
+		DrawCircleV(t.pos, TURRET_RADIUS, BLACK);
+		DrawCircleV(t.pos, TURRET_RADIUS - PixelsToTiles(5), DARKGRAY);
+		float lookAngleDegrees = RAD2DEG * t.lookAngle;
+		Rectangle gunBarrel = { t.pos.x, t.pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
+		DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, MAROON);
+		DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), ORANGE);
+	}
+}
+void DrawBullets(void)
+{
+	Color bulletTrail0 = ColorAlpha(DARKGRAY, 0);
+	Color bulletTrail1 = ColorAlpha(DARKGRAY, 0.2);
+	for (int i = 0; i < numBullets; ++i)
+	{
+		Bullet b = bullets[i];
+		Vector2 perp1 = Vector2Scale(Vector2Normalize(Vec2(-b.vel.y, +b.vel.x)), BULLET_RADIUS);
+		Vector2 perp2 = Vector2Scale(Vector2Normalize(Vec2(+b.vel.y, -b.vel.x)), BULLET_RADIUS);
+		Vector2 toOrigin = Vector2Subtract(b.origin, b.pos);
+		Vector2 perp3 = Vector2Scale(Vector2Normalize(toOrigin), PixelsToTiles(400));
+		if (Vector2LengthSqr(perp3) > Vector2LengthSqr(toOrigin))
+			perp3 = toOrigin;
+		Vector2 trail1 = Vector2Add(b.pos, perp1);
+		Vector2 trail2 = Vector2Add(b.pos, perp2);
+		Vector2 trail3 = Vector2Add(b.pos, perp3);
+		rlBegin(RL_TRIANGLES);
+		{
+			rlColor(bulletTrail1);
+			rlVertex2fv(trail1);
+			rlVertex2fv(trail2);
+			rlColor(bulletTrail0);
+			rlVertex2fv(trail3);
+		}
+		rlEnd();
+		DrawCircleV(b.pos, BULLET_RADIUS, DARKGRAY);
 	}
 }
 
@@ -434,6 +545,7 @@ void Playing_Init(GameState oldState)
 {
 	cameraZoom = 1;
 	cameraPos = Vector2Zero();
+	ShiftCamera(-(numTilesX - MAX_TILES_X) / 2.0f, -(numTilesY - MAX_TILES_Y) / 2.0f);
 }
 GameState Playing_Update(void)
 {
@@ -611,112 +723,14 @@ GameState Playing_Update(void)
 }
 void Playing_Draw(void)
 {
-	ClearBackground(BLACK);
-
 	SetupTileCoordinateDrawing();
 	{
-		for (int y = 0; y < MAX_TILES_Y; ++y)
-			for (int x = 0; x < MAX_TILES_X; ++x)
-				DrawRectangle(x, y, 1, 1, (x + y) % 2 ? FloatRGBA(0.95f, 0.95f, 0.95f, 1) : FloatRGBA(0.9f, 0.9f, 0.9f, 1));
-
-		DrawCircleV(player.pos, PLAYER_RADIUS, DARKGREEN);
-
-		for (int i = 0; i < numTurrets; ++i)
-		{
-			Turret t = turrets[i];
-			DrawCircleV(t.pos, TURRET_RADIUS, BLACK);
-			DrawCircleV(t.pos, TURRET_RADIUS - PixelsToTiles(5), DARKGRAY);
-			float lookAngleDegrees = RAD2DEG * t.lookAngle;
-			Rectangle gunBarrel = { t.pos.x, t.pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
-			DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, MAROON);
-			DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), ORANGE);
-		}
-
-		Color bulletTrail0 = ColorAlpha(DARKGRAY, 0);
-		Color bulletTrail1 = ColorAlpha(DARKGRAY, 0.2);
-		for (int i = 0; i < numBullets; ++i)
-		{
-			Bullet b = bullets[i];
-			Vector2 perp1 = Vector2Scale(Vector2Normalize(Vec2(-b.vel.y, +b.vel.x)), BULLET_RADIUS);
-			Vector2 perp2 = Vector2Scale(Vector2Normalize(Vec2(+b.vel.y, -b.vel.x)), BULLET_RADIUS);
-			Vector2 toOrigin = Vector2Subtract(b.origin, b.pos);
-			Vector2 perp3 = Vector2Scale(Vector2Normalize(toOrigin), PixelsToTiles(400));
-			if (Vector2LengthSqr(perp3) > Vector2LengthSqr(toOrigin))
-				perp3 = toOrigin;
-			Vector2 trail1 = Vector2Add(b.pos, perp1);
-			Vector2 trail2 = Vector2Add(b.pos, perp2);
-			Vector2 trail3 = Vector2Add(b.pos, perp3);
-			rlBegin(RL_TRIANGLES);
-			{
-				rlColor(bulletTrail1);
-				rlVertex2fv(trail1);
-				rlVertex2fv(trail2);
-				rlColor(bulletTrail0);
-				rlVertex2fv(trail3);
-			}
-			rlEnd();
-			DrawCircleV(b.pos, BULLET_RADIUS, DARKGRAY);
-		}
-
-		// Draw Player
-		{
-			float lookAngleDegrees = (RAD2DEG * (-player.lookAngle)) + 90; // No idea why RAD2DEG*radians isn't enough here.. whatever.
-			if (player.justSnapped)
-			{
-				DrawCircleSector(player.pos,
-					PLAYER_CAPTURE_CONE_RADIUS + PixelsToTiles(10),
-					lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE - 1,
-					lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE + 1,
-					12,
-					ColorAlpha(ORANGE, 0.9f));
-			}
-			else if (!player.hasCapture)
-			{
-				DrawCircleSector(player.pos,
-					PLAYER_CAPTURE_CONE_RADIUS,
-					lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
-					lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
-					12,
-					ColorAlpha(GRAY, 0.1f));
-			}
-		}
-
-		if (player.isReleasingCapture)
-		{
-			for (int i = 0; i < numCapturedBullets; ++i)
-			{
-				Bullet b = capturedBullets[i];
-				Vector2 pos = Vector2Add(b.pos, player.releasePos);
-				DrawCircleV(pos, BULLET_RADIUS, ColorAlpha(BLUE, 0.5f));
-			}
-
-			Vector2 mousePos = ScreenToTile(GetMousePosition());
-			Vector2 arrowDir = Vector2Normalize(Vector2Subtract(mousePos, player.releasePos));
-			Vector2 arrowPos0 = Vector2Add(player.releasePos, Vector2Scale(arrowDir, BULLET_RADIUS + PixelsToTiles(10)));
-			Vector2 arrowPos1 = mousePos;
-			float arrowLength = Vector2Distance(arrowPos0, arrowPos1);
-			float arrowWidth0 = PixelsToTiles(5);
-			float arrowWidth1 = Clamp(0.2f * arrowLength, PixelsToTiles(5), PixelsToTiles(30));
-			Vector2 dir1 = { -arrowDir.y, +arrowDir.x };
-			Vector2 dir2 = { +arrowDir.y, -arrowDir.x };
-			Color arrowColor = ColorAlpha(BLUE, 0.3f);
-			rlBegin(RL_QUADS);
-			{
-				rlColor(arrowColor);
-				rlVertex2fv(Vector2Add(arrowPos0, Vector2Scale(dir1, arrowWidth0)));
-				rlVertex2fv(Vector2Add(arrowPos0, Vector2Scale(dir2, arrowWidth0)));
-				rlVertex2fv(Vector2Add(arrowPos1, Vector2Scale(dir2, arrowWidth1)));
-				rlVertex2fv(Vector2Add(arrowPos1, Vector2Scale(dir1, arrowWidth1)));
-			}
-			rlEnd();
-			float arrowheadWidth = 2 * arrowWidth1;
-			float arrowheadLength = 1.5f * arrowWidth1;
-			DrawTriangle(
-				Vector2Add(arrowPos1, Vector2Scale(dir1, arrowheadWidth)),
-				Vector2Add(arrowPos1, Vector2Scale(dir2, arrowheadWidth)),
-				Vector2Add(arrowPos1, Vector2Scale(arrowDir, arrowheadLength)),
-				arrowColor);
-		}
+		DrawTiles();
+		DrawTurrets();
+		DrawPlayer();
+		DrawBullets();
+		DrawPlayerCaptureCone();
+		DrawPlayerRelease();
 	}
 	rlDrawRenderBatchActive();
 
@@ -791,6 +805,7 @@ void LevelEditor_Init(GameState oldState)
 	cameraPos = Vector2Zero();
 	cameraZoom = 1;
 	CopyRoomToGame(&currentRoom);
+	ShiftCamera(-(numTilesX - MAX_TILES_X) / 2.0f, -(numTilesY - MAX_TILES_Y) / 2.0f);
 	ZoomInToPoint(screenCenter, powf(1.1f, -7));
 }
 GameState LevelEditor_Update(void)
@@ -806,9 +821,95 @@ GameState LevelEditor_Update(void)
 		return GAME_STATE_PLAYING;
 	}
 
-	if (IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT))
+	bool altIsDown = IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT);
+	if (IsKeyPressed(KEY_RIGHT))
 	{
-		//if (Is)
+		if (altIsDown)
+		{
+			if (numTilesX > 1)
+			{
+				for (int y = 0; y < numTilesY; ++y)
+					memmove(&tiles[y][0], &tiles[y][1], (numTilesX - 1) * sizeof tiles[0][0]);
+				--numTilesX;
+				ShiftAllObjectsBy(-1, 0);
+				ShiftCamera(+1, 0);
+			}
+		}
+		else
+		{
+			if (numTilesX < MAX_TILES_X)
+			{
+				int x = numTilesX++;
+				for (int y = 0; y < numTilesY; ++y)
+					tiles[y][x] = TILE_FLOOR;
+			}
+		}
+	}
+	if (IsKeyPressed(KEY_LEFT))
+	{
+		if (altIsDown)
+		{
+			if (numTilesX > 1)
+				--numTilesX;
+		}
+		else
+		{
+			if (numTilesX < MAX_TILES_X)
+			{
+				for (int y = 0; y < numTilesY; ++y)
+				{
+					memmove(&tiles[y][1], &tiles[y][0], numTilesX * sizeof tiles[0][0]);
+					tiles[y][0] = TILE_FLOOR;
+				}
+				++numTilesX;
+				ShiftAllObjectsBy(+1, 0);
+				ShiftCamera(-1, 0);
+			}
+		}
+	}
+	if (IsKeyPressed(KEY_UP)) // For some reason up and down seem to be switched here.. not sure why.
+	{
+		if (altIsDown)
+		{
+			if (numTilesY > 1)
+			{
+				for (int y = 0; y < numTilesY - 1; ++y)
+					memcpy(tiles[y], tiles[y + 1], numTilesX * sizeof tiles[0][0]);
+				--numTilesY;
+				ShiftAllObjectsBy(0, -1);
+				ShiftCamera(0, +1);
+			}
+		}
+		else
+		{
+			if (numTilesY < MAX_TILES_Y)
+			{
+				int y = numTilesY++;
+				for (int x = 0; x < numTilesX; ++x)
+					tiles[y][x] = TILE_FLOOR;
+			}
+		}
+	}
+	if (IsKeyPressed(KEY_DOWN))
+	{
+		if (altIsDown)
+		{
+			if (numTilesY > 1)
+				--numTilesY;
+		}
+		else
+		{
+			if (numTilesY < MAX_TILES_Y)
+			{
+				for (int y = numTilesY - 1; y >= 0; --y)
+					memcpy(tiles[y + 1], tiles[y], numTilesX * sizeof tiles[0][0]);
+				for (int x = 0; x < numTilesX; ++x)
+					tiles[0][x] = TILE_FLOOR;
+				++numTilesY;
+				ShiftAllObjectsBy(0, +1);
+				ShiftCamera(0, -1);
+			}
+		}
 	}
 
 	// Zoom
@@ -858,6 +959,7 @@ GameState LevelEditor_Update(void)
 	{
 		cameraPos = Vector2Zero();
 		cameraZoom = 1;
+		ShiftCamera(-(numTilesX - MAX_TILES_X) / 2.0f, -(numTilesY - MAX_TILES_Y) / 2.0f);
 		ZoomInToPoint(screenCenter, powf(1.1f, -7));
 	}
 	if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && IsKeyPressed(KEY_S))
@@ -904,7 +1006,16 @@ GameState LevelEditor_Update(void)
 }
 void LevelEditor_Draw(void)
 {
-	Playing_Draw();
+	SetupTileCoordinateDrawing();
+	{
+		DrawTiles();
+		DrawTurrets();
+		DrawPlayer();
+	}
+	SetupScreenCoordinateDrawing();
+
+	Vector2 mousePos = GetMousePosition();
+	Vector2 mousePosTiles = ScreenToTile(mousePos);
 
 	GuiWindowBox(consoleWindowRect, "Console");
 	{
@@ -913,7 +1024,6 @@ void LevelEditor_Draw(void)
 
 		if (isFocused && IsKeyPressed(KEY_ENTER))
 		{
-			//@TODO: Parse command
 			int splitCount;
 			const char **split = TextSplit(consoleInputBuffer, ' ', &splitCount);
 			if (splitCount >= 1)
@@ -986,17 +1096,17 @@ void LevelEditor_Draw(void)
 		{
 			case EDITOR_SELECTION_KIND_PLAYER:
 			{
-				GuiText(Rect(x, y, 100, 20), "X: %g", selection.player->pos.x);
+				GuiText(Rect(x, y, 100, 20), "X: %.2f", selection.player->pos.x);
 				y += 20;
-				GuiText(Rect(x, y, 100, 20), "Y: %g", selection.player->pos.y);
+				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.player->pos.y);
 				y += 20;
 			} break;
 
 			case EDITOR_SELECTION_KIND_TURRET:
 			{
-				GuiText(Rect(x, y, 100, 20), "X: %g", selection.turret->pos.x);
+				GuiText(Rect(x, y, 100, 20), "X: %.2f", selection.turret->pos.x);
 				y += 20;
-				GuiText(Rect(x, y, 100, 20), "Y: %g", selection.turret->pos.y);
+				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.turret->pos.y);
 				y += 20;
 				selection.turret->lookAngle = GuiSlider(Rect(x, y, 100, 20), "", "Look angle", selection.turret->lookAngle, -PI, +PI);
 			} break;
@@ -1018,8 +1128,18 @@ void LevelEditor_Draw(void)
 					LoadRoom(&currentRoom, currentRoom.name);
 					CopyRoomToGame(&currentRoom);
 				}
+				y += 25;
+				GuiText(Rect(x, y, 100, 20), "Tiles X: %d", numTilesX);
+				y += 20;
+				GuiText(Rect(x, y, 100, 20), "Tiles Y: %d", numTilesY);
+				y += 20;
 			} break;
 		}
+
+		y = propertiesWindowRect.y + propertiesWindowRect.height - 40;
+		GuiText(Rect(x, y, 100, 20), "Mouse X: %.2f", mousePosTiles.x);
+		y += 20;
+		GuiText(Rect(x, y, 100, 20), "Mouse Y: %.2f", mousePosTiles.y);
 	}
 }
 
@@ -1083,6 +1203,7 @@ void GameLoopOneIteration(void)
 	}
 	
 	BeginDrawing();
+	ClearBackground(BLACK);
 	{
 		switch (gameState)
 		{

@@ -137,6 +137,7 @@
     <None Include=".gitignore" />
     <None Include="LICENSE" />
     <None Include="README.md" />
+    <None Include="res\room0.bin" />
     <None Include="webbuild.bat" />
     <None Include="webrun.bat" />
     <None Include="webshell.html" />

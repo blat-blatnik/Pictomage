@@ -24,7 +24,7 @@
 #define TURRET_TURN_SPEED (30.0f*DEG2RAD)
 #define TURRET_FIRE_RATE 1.5f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
-#define PLAYER_CAPTURE_CONE_RADIUS 3.0f
+#define PLAYER_CAPTURE_CONE_RADIUS 3.5f
 
 // *---=======---*
 // |/   Types   \|
@@ -58,7 +58,6 @@ typedef enum Tile
 typedef enum EditorSelectionKind
 {
 	EDITOR_SELECTION_KIND_NONE,
-	EDITOR_SELECTION_KIND_CONSOLE,
 	EDITOR_SELECTION_KIND_TILE,
 	EDITOR_SELECTION_KIND_PLAYER,
 	EDITOR_SELECTION_KIND_TURRET,
@@ -91,6 +90,8 @@ typedef struct Turret
 
 typedef struct Room
 {
+	char name[MAX_ROOM_FILE_NAME];
+
 	int numTilesX;
 	int numTilesY;
 	Tile tiles[MAX_TILES_Y][MAX_TILES_X];
@@ -224,13 +225,13 @@ void RemoveTurretFromGlobalList(int index)
 // *---=======---*
 
 Room currentRoom;
-
 bool LoadRoom(Room *room, const char *filename)
 {
-	FILE *file = fopen(filename, "rb");
+	char *filepath = TempPrint("res/%s.bin", filename);
+	FILE *file = fopen(filepath, "rb");
 	if (!file)
 	{
-		TraceLog(LOG_ERROR, "Unable to load room from file '%s'. The file might not exist.", filename);
+		TraceLog(LOG_ERROR, "Unable to load room from file '%s'. The file might not exist.", filepath);
 		return false;
 	}
 
@@ -260,7 +261,12 @@ bool LoadRoom(Room *room, const char *filename)
 	fread(&numTurrets, sizeof numTurrets, 1, file);
 	fread(turretPos, sizeof turretPos[0], numTurrets, file);
 	fread(turretLookAngle, sizeof turretLookAngle[0], numTurrets, file);
+	fclose(file);
 
+	char name[sizeof room->name];
+	snprintf(name, sizeof name, "%s", filename);
+	memset(room, 0, sizeof room[0]);
+	memcpy(room->name, name, sizeof name);
 	room->numTilesX = (int)numTilesX;
 	room->numTilesY = (int)numTilesY;
 	for (u8 y = 0; y < numTilesY; ++y)
@@ -278,14 +284,16 @@ bool LoadRoom(Room *room, const char *filename)
 	memcpy(room->turretPos, turretPos, sizeof turretPos);
 	memcpy(room->turretLookAngle, turretLookAngle, sizeof turretLookAngle);
 
+	TraceLog(LOG_INFO, "Loaded room '%s'.", filepath);
 	return true;
 }
-void SaveRoom(const Room *room, const char *filename)
+void SaveRoom(const Room *room)
 {
-	FILE *file = fopen(filename, "wb");
+	char *filepath = TempPrint("res/%s.bin", room->name);
+	FILE *file = fopen(filepath, "wb");
 	if (!file)
 	{
-		TraceLog(LOG_ERROR, "Failed to save room because couldn't open file '%s'.", filename);
+		TraceLog(LOG_ERROR, "Failed to save room because couldn't open file '%s'.", filepath);
 		return;
 	}
 
@@ -325,6 +333,37 @@ void SaveRoom(const Room *room, const char *filename)
 	u8 numTurrets = room->numTurrets;
 	fwrite(&numTurrets, sizeof numTurrets, 1, file);
 	fwrite(room->turretPos, sizeof room->turretPos[0], numTurrets, file);
+
+	fclose(file);
+	TraceLog(LOG_INFO, "Saved room '%s'.", filepath);
+}
+void CopyRoomToGame(Room *room)
+{
+	numBullets = 0;
+	numTurrets = 0;
+	numCapturedBullets = 0;
+	player.hasCapture = false;
+	player.justSnapped = false;
+	player.isReleasingCapture = false;
+
+	player.pos = room->playerDefaultPos;
+	for (int i = 0; i < room->numTurrets; ++i)
+		SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
+}
+void CopyGameToRoom(Room *room)
+{
+	char name[sizeof room->name];
+	memcpy(name, room->name, sizeof name);
+	memset(room, 0, sizeof room[0]);
+	memcpy(room->name, name, sizeof name);
+	room->numTurrets = numTurrets;
+	room->playerDefaultPos = player.pos;
+	for (int i = 0; i < numTurrets; ++i)
+	{
+		Turret t = turrets[i];
+		room->turretPos[i] = t.pos;
+		room->turretLookAngle[i] = t.lookAngle;
+	}
 }
 
 // *---======---*
@@ -335,6 +374,8 @@ void Playing_Init(GameState oldState)
 {
 	cameraZoom = 1;
 	cameraPos = Vector2Zero();
+	LoadRoom(&currentRoom, "room0");
+	CopyRoomToGame(&currentRoom);
 }
 GameState Playing_Update(void)
 {
@@ -630,8 +671,9 @@ void Playing_Draw(void)
 	rlLoadIdentity();
 	rlOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1);
 	{
-		Vector2 mp = ScreenToTile(GetMousePosition());
-		DrawDebugText("[%.1f %.1f] [%.1f %.1f]", mp.x, mp.y, cameraPos.x, cameraPos.y);
+		//DrawFPS(100, 100);
+		//Vector2 mp = ScreenToTile(GetMousePosition());
+		//DrawDebugText("[%.1f %.1f] [%.1f %.1f]", mp.x, mp.y, cameraPos.x, cameraPos.y);
 	}
 }
 
@@ -656,7 +698,12 @@ void Paused_Draw(void)
 	DrawText("[PAUSED]", 50, 50, 20, BLACK);
 }
 
+// *---==============---*
+// |/   Level Editor   \|
+// *---==============---*
+
 EditorSelection selection;
+Vector2 lastMouseClickPos;
 char consoleInputBuffer[256];
 const Rectangle consoleWindowRect = { 0, 0, SCREEN_WIDTH, 50 };
 const Rectangle consoleInputRect = { 0, 24, SCREEN_WIDTH, 25 };
@@ -668,6 +715,7 @@ void LevelEditor_Init(GameState oldState)
 {
 	cameraPos = Vector2Zero();
 	cameraZoom = 1;
+	CopyRoomToGame(&currentRoom);
 	ZoomInToPoint(screenCenter, powf(1.1f, -7));
 }
 GameState LevelEditor_Update(void)
@@ -687,13 +735,9 @@ GameState LevelEditor_Update(void)
 	else if (wheelMove < 0)
 		ZoomInToPoint(mousePos, cameraZoom / 1.1f);
 
-	if (selection.kind == EDITOR_SELECTION_KIND_CONSOLE && IsKeyPressed(KEY_ENTER))
-	{
-		selection.kind = EDITOR_SELECTION_KIND_NONE;
-	}
-
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 	{
+		lastMouseClickPos = mousePos;
 		if (!CheckCollisionPointRec(mousePos, consoleWindowRect) &&
 			!CheckCollisionPointRec(mousePos, objectsWindowRect) &&
 			!CheckCollisionPointRec(mousePos, propertiesWindowRect) &&
@@ -718,6 +762,11 @@ GameState LevelEditor_Update(void)
 		cameraZoom = 1;
 		ZoomInToPoint(screenCenter, powf(1.1f, -7));
 	}
+	if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && IsKeyPressed(KEY_S))
+	{
+		CopyGameToRoom(&currentRoom);
+		SaveRoom(&currentRoom);
+	}
 
 	return GAME_STATE_LEVEL_EDITOR;
 }
@@ -727,9 +776,13 @@ void LevelEditor_Draw(void)
 
 	GuiWindowBox(consoleWindowRect, "Console");
 	{
-		
-		if (GuiTextBox(consoleInputRect, consoleInputBuffer, sizeof consoleInputBuffer, selection.kind == EDITOR_SELECTION_KIND_CONSOLE))
-			selection.kind = EDITOR_SELECTION_KIND_CONSOLE;
+		bool isFocused = CheckCollisionPointRec(lastMouseClickPos, consoleInputRect);
+		GuiTextBox(consoleInputRect, consoleInputBuffer, sizeof consoleInputBuffer, isFocused);
+
+		if (isFocused && IsKeyPressed(KEY_ENTER))
+		{
+			//@TODO: Parse command
+		}
 	}
 	
 	GuiWindowBox(objectsWindowRect, "Objects");
@@ -771,7 +824,7 @@ void LevelEditor_Draw(void)
 	{
 		case EDITOR_SELECTION_KIND_PLAYER: propertiesTitle = "Player properties"; break;
 		case EDITOR_SELECTION_KIND_TURRET: propertiesTitle = "Turret properties"; break;
-		default: propertiesTitle = "Level properties"; break;
+		default: propertiesTitle = "Room properties"; break;
 	}
 	GuiWindowBox(propertiesWindowRect, propertiesTitle);
 	{
@@ -789,9 +842,23 @@ void LevelEditor_Draw(void)
 				GuiSlider(Rect(x, y, 100, 20), "", "", 0, 0, 100);
 			} break;
 
-			default:
+			default: // Room properties
 			{
-
+				Rectangle roomNameRect = Rect(x, y, 140, 20);
+				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, roomNameRect);
+				GuiTextBox(roomNameRect, currentRoom.name, sizeof currentRoom.name, isFocused);
+				GuiLabel(Rect(x + 145, y, 20, 20), "Name");
+				y += 25;
+				if (GuiButton(Rect(x, y, 65, 20), "Save"))
+				{
+					CopyGameToRoom(&currentRoom);
+					SaveRoom(&currentRoom);
+				}
+				if (GuiButton(Rect(x + 75, y, 65, 20), "Reload"))
+				{
+					LoadRoom(&currentRoom, currentRoom.name);
+					CopyRoomToGame(&currentRoom);
+				}
 			} break;
 		}
 	}
@@ -799,9 +866,6 @@ void LevelEditor_Draw(void)
 
 void GameInit(void)
 {
-	if (devMode)
-		gameState = GAME_STATE_PLAYING;
-
 	SetConfigFlags(FLAG_MSAA_4X_HINT);
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Snapper");
 	SetTargetFPS(FPS);
@@ -815,11 +879,10 @@ void GameInit(void)
 	longShotSound = LoadSound("res/long-shot.wav");
 	SetSoundVolume(longShotSound, 0.1f);
 
-	player.pos.x = 15;
-	player.pos.y = 15;
-	SpawnTurret(Vec2(2, 28), 0);
-	SpawnTurret(Vec2(28, 28), 0);
-	SpawnTurret(Vec2(15, 28), 0);
+	if (devMode)
+		gameState = GAME_STATE_PLAYING;
+	if (gameState == GAME_STATE_PLAYING)
+		Playing_Init(GAME_STATE_PLAYING);
 }
 void GameLoopOneIteration(void)
 {

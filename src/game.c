@@ -177,6 +177,9 @@ const bool devMode = true; //@TODO: Disable this for release.
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
+int numTilesX = MAX_TILES_X;
+int numTilesY = MAX_TILES_Y;
+Tile tiles[MAX_TILES_Y][MAX_TILES_X];
 GameState gameState = GAME_STATE_START_MENU;
 Random rng;
 Sound flashSound;
@@ -222,6 +225,49 @@ void RemoveTurretFromGlobalList(int index)
 	ASSERT(index < numTurrets);
 	SwapMemory(turrets + index, turrets + numTurrets - 1, sizeof turrets[0]);
 	--numTurrets;
+}
+
+// *---=========---*
+// |/   Drawing   \|
+// *---=========---*
+
+void SetupTileCoordinateDrawing(void)
+{
+	rlDrawRenderBatchActive();
+	rlMatrixMode(RL_PROJECTION);
+	rlLoadIdentity();
+	rlOrtho(0, MAX_TILES_X, 0, MAX_TILES_Y, 0, 1);
+	rlTranslatef(cameraPos.x, cameraPos.y, 0);
+	rlScalef(cameraZoom, cameraZoom, 0);
+}
+void SetupScreenCoordinateDrawing(void)
+{
+	rlDrawRenderBatchActive();
+	rlMatrixMode(RL_PROJECTION);
+	rlLoadIdentity();
+	rlOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1);
+}
+void DrawPlayer(bool showCone)
+{
+	float lookAngleDegrees = (RAD2DEG * (-player.lookAngle)) + 90; // No idea why RAD2DEG*radians isn't enough here.. whatever.
+	if (player.justSnapped)
+	{
+		DrawCircleSector(player.pos,
+			PLAYER_CAPTURE_CONE_RADIUS + PixelsToTiles(10),
+			lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE - 1,
+			lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE + 1,
+			12,
+			ColorAlpha(ORANGE, 0.9f));
+	}
+	else if (!player.hasCapture)
+	{
+		DrawCircleSector(player.pos,
+			PLAYER_CAPTURE_CONE_RADIUS,
+			lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
+			lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
+			12,
+			ColorAlpha(GRAY, 0.1f));
+	}
 }
 
 // *---=======---*
@@ -351,6 +397,11 @@ void CopyRoomToGame(Room *room)
 	player.justSnapped = false;
 	player.isReleasingCapture = false;
 
+	numTilesX = room->numTilesX;
+	numTilesY = room->numTilesY;
+	for (int y = 0; y < numTilesY; ++y)
+		memcpy(tiles[y], room->tiles[y], sizeof tiles[0]);
+
 	player.pos = room->playerDefaultPos;
 	for (int i = 0; i < room->numTurrets; ++i)
 		SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
@@ -361,6 +412,10 @@ void CopyGameToRoom(Room *room)
 	memcpy(name, room->name, sizeof name);
 	memset(room, 0, sizeof room[0]);
 	memcpy(room->name, name, sizeof name);
+	room->numTilesX = numTilesX;
+	room->numTilesY = numTilesY;
+	for (int y = 0; y < numTilesY; ++y)
+		memcpy(room->tiles[y], tiles[y], numTilesX * sizeof tiles[y][0]);
 	room->numTurrets = numTurrets;
 	room->playerDefaultPos = player.pos;
 	for (int i = 0; i < numTurrets; ++i)
@@ -558,12 +613,7 @@ void Playing_Draw(void)
 {
 	ClearBackground(BLACK);
 
-	rlMatrixMode(RL_PROJECTION);
-	rlLoadIdentity();
-	rlOrtho(0, MAX_TILES_X, 0, MAX_TILES_Y, 0, 1);
-	rlTranslatef(cameraPos.x, cameraPos.y, 0);
-	rlScalef(cameraZoom, cameraZoom, 0);
-	rlGetMatrixProjection();
+	SetupTileCoordinateDrawing();
 	{
 		for (int y = 0; y < MAX_TILES_Y; ++y)
 			for (int x = 0; x < MAX_TILES_X; ++x)
@@ -670,9 +720,7 @@ void Playing_Draw(void)
 	}
 	rlDrawRenderBatchActive();
 
-	rlMatrixMode(RL_PROJECTION);
-	rlLoadIdentity();
-	rlOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1);
+	SetupScreenCoordinateDrawing();
 	{
 		//DrawFPS(100, 100);
 		//Vector2 mp = ScreenToTile(GetMousePosition());
@@ -756,6 +804,11 @@ GameState LevelEditor_Update(void)
 	{
 		CopyGameToRoom(&currentRoom);
 		return GAME_STATE_PLAYING;
+	}
+
+	if (IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT))
+	{
+		//if (Is)
 	}
 
 	// Zoom
@@ -861,6 +914,24 @@ void LevelEditor_Draw(void)
 		if (isFocused && IsKeyPressed(KEY_ENTER))
 		{
 			//@TODO: Parse command
+			int splitCount;
+			const char **split = TextSplit(consoleInputBuffer, ' ', &splitCount);
+			if (splitCount >= 1)
+			{
+				int argCount = splitCount - 1;
+				const char *command = split[0];
+				const char **args = &split[1];
+				if (TextIsEqual(command, "lr") || TextIsEqual(command, "loadroom"))
+				{
+					if (splitCount == 2)
+					{
+						if (LoadRoom(&currentRoom, args[0]))
+							CopyRoomToGame(&currentRoom);
+					}
+					else if (splitCount < 2) TraceLog(LOG_ERROR, "Command '%s' requires the name of the room to load.", command);
+					else if (splitCount > 2) TraceLog(LOG_ERROR, "Command '%s' requires only 1 argument, but %d were given.", command, argCount);
+				}
+			}
 		}
 	}
 	

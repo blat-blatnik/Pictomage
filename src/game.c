@@ -162,6 +162,9 @@ typedef struct EditorSelection
 
 float cameraZoom = 1;
 Vector2 cameraPos; // In tiles.
+float screenShakeDuration;
+float screenShakeIntensity;
+float screenShakeDamping;
 
 void ZoomInToPoint(Vector2 screenPoint, float newZoom)
 {
@@ -209,6 +212,12 @@ Vector2 TileToScreen(Vector2 tilePos)
 	p = Vector2Multiply(p, Vec2(SCREEN_WIDTH / (float)MAX_TILES_X, SCREEN_HEIGHT / (float)MAX_TILES_Y));
 	p.y = SCREEN_HEIGHT - p.y - 1;
 	return p;
+}
+void ScreenShake(float intensity, float duration, float damping)
+{
+	screenShakeDuration = duration;
+	screenShakeIntensity = intensity;
+	screenShakeDamping = damping;
 }
 
 // *---=========---*
@@ -533,6 +542,7 @@ void ExplodeBomb(int index)
 	Bomb *bomb = &bombs[index];
 	SpawnExplosion(bomb->pos, BOMB_EXPLOSION_DURATION, BOMB_EXPLOSION_RADIUS);
 	PlaySound(explosionSound);
+	ScreenShake(1, 0.2f, 0);
 	RemoveBombFromGlobalList(index);
 }
 
@@ -656,6 +666,10 @@ void CopyRoomToGame(Room *room)
 	memcpy(previousRoomName, room->prev, sizeof previousRoomName);
 	memcpy(nextRoomName, room->next, sizeof nextRoomName);
 
+	StopSound(explosionSound);
+	StopSound(turretDestroySound);
+	StopSound(longShotSound);
+
 	numBullets = 0;
 	numTurrets = 0;
 	numBombs = 0;
@@ -665,6 +679,9 @@ void CopyRoomToGame(Room *room)
 	player.hasCapture = false;
 	player.justSnapped = false;
 	player.isReleasingCapture = false;
+	screenShakeDuration = 0;
+	screenShakeIntensity = 0;
+	screenShakeDamping = 0;
 
 	numTilesX = room->numTilesX;
 	numTilesY = room->numTilesY;
@@ -1406,6 +1423,14 @@ void Playing_Draw(void)
 {
 	SetupTileCoordinateDrawing();
 	{
+		if (screenShakeDuration > 0)
+		{
+			Vector2 cameraOffset = RandomVector(&rng, screenShakeIntensity);
+			screenShakeDuration -= GetFrameTime();
+			screenShakeIntensity -= GetFrameTime() * screenShakeDamping;
+			rlTranslatef(cameraOffset.x, cameraOffset.y, 0);
+		}
+
 		DrawTiles();
 		DrawTurrets();
 		DrawBombs();

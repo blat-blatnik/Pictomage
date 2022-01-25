@@ -348,6 +348,17 @@ void RandomShuffle(Random *rand, void *items, uptr elementCount, uptr elementSiz
 		}
 	}
 }
+Vector2 RandomVector(Random *rand, float magnitude)
+{
+	float angle = RandomFloat(rand, -PI, +PI);
+	float s = sinf(angle);
+	float c = cosf(angle);
+	Vector2 result = {
+		c * magnitude,
+		s * magnitude
+	};
+	return result;
+}
 
 StringBuilder CreateStringBuilder(char *buffer, uptr capacity)
 {

@@ -98,6 +98,7 @@ float RandomFloat(Random *rand, float inclusiveMin, float exclusiveMax);
 float RandomFloat01(Random *rand);
 bool RandomProbability(Random *rand, float prob);
 void RandomShuffle(Random *rand, void *items, uptr elementCount, uptr elementSize);
+Vector2 RandomVector(Random *rand, float magnitude);
 
 typedef struct StringBuilder
 {

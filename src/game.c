@@ -231,6 +231,7 @@ Random rng;
 Sound flashSound;
 Sound longShotSound;
 Sound explosionSound;
+Sound turretDestroySound;
 Player player;
 int numBullets;
 int numCapturedBullets;
@@ -1122,6 +1123,7 @@ void UpdateBullets(void)
 				{
 					RemoveBulletFromGlobalList(i);
 					RemoveTurretFromGlobalList(j);
+					PlaySound(turretDestroySound);
 					--i;
 					collided = true;
 					break;
@@ -1915,8 +1917,10 @@ void GameInit(void)
 
 	flashSound = LoadSound("res/snap.wav");
 	longShotSound = LoadSound("res/long-shot.wav");
-	explosionSound = LoadSound("res/explosion.wav");
 	SetSoundVolume(longShotSound, 0.1f);
+	explosionSound = LoadSound("res/explosion.wav");
+	turretDestroySound = LoadSound("res/turret-destroy.wav");
+	SetSoundVolume(turretDestroySound, 0.3f);
 
 	if (devMode)
 		gameState = GAME_STATE_PLAYING;

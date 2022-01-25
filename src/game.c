@@ -536,6 +536,13 @@ void ExplodeBomb(int index)
 	RemoveBombFromGlobalList(index);
 }
 
+void CenterCameraOnLevel(void)
+{
+	cameraZoom = 1;
+	cameraPos = Vector2Zero();
+	ShiftCamera(-(numTilesX - MAX_TILES_X) / 2.0f, -(numTilesY - MAX_TILES_Y) / 2.0f);
+}
+
 // *---=======---*
 // |/   Level   \|
 // *---=======---*
@@ -1162,7 +1169,7 @@ void UpdateTurrets(void)
 	{
 		Turret *t = &turrets[i];
 		Vector2 dpos = Vector2Scale(t->flingVelocity, DELTA_TIME);
-		if (dpos.x > 0.00001f || dpos.y > 0.00001f)
+		if (fabsf(dpos.x) > 0.00001f || fabsf(dpos.y) > 0.00001f)
 		{
 			t->pos = ResolveCollisionsCircleRoom(t->pos, TURRET_RADIUS, t->flingVelocity);
 			for (int j = 0; j < numTurrets; ++j)
@@ -1367,9 +1374,7 @@ void UpdateExplosions(void)
 
 void Playing_Init(GameState oldState)
 {
-	cameraZoom = 1;
-	cameraPos = Vector2Zero();
-	ShiftCamera(-(numTilesX - MAX_TILES_X) / 2.0f, -(numTilesY - MAX_TILES_Y) / 2.0f);
+	CenterCameraOnLevel();
 }
 GameState Playing_Update(void)
 {
@@ -1389,7 +1394,10 @@ GameState Playing_Update(void)
 	{
 		bool loadedNextLevel = LoadRoom(&currentRoom, nextRoomName);
 		if (loadedNextLevel)
+		{
 			CopyRoomToGame(&currentRoom);
+			CenterCameraOnLevel();
+		}
 	}
 
 	return GAME_STATE_PLAYING;
@@ -1676,6 +1684,13 @@ GameState LevelEditor_Update(void)
 			{
 				int index = (int)(selection.turret - turrets);
 				RemoveTurretFromGlobalList(index);
+				selection.kind = EDITOR_SELECTION_KIND_NONE;
+				break;
+			}
+			case EDITOR_SELECTION_KIND_BOMB:
+			{
+				int index = (int)(selection.bomb - bombs);
+				RemoveBombFromGlobalList(index);
 				selection.kind = EDITOR_SELECTION_KIND_NONE;
 				break;
 			}

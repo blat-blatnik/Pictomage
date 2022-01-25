@@ -323,7 +323,7 @@ bool IsPointBlockedByEnemiesFrom(Vector2 pos, Vector2 target)
 			return true;
 	return false;
 }
-Vector2 ResolveCollisionsCircleTiles(Vector2 center, float radius, Vector2 velocity)
+Vector2 ResolveCollisionsCircleRoom(Vector2 center, float radius, Vector2 velocity)
 {
 	// https://www.youtube.com/watch?v=D2a5fHX-Qrs
 
@@ -342,6 +342,7 @@ Vector2 ResolveCollisionsCircleTiles(Vector2 center, float radius, Vector2 veloc
 	if (maxy >= numTilesY)
 		maxy = numTilesY - 1;
 
+	// Impassable tiles.
 	for (int ty = miny; ty <= maxy; ++ty)
 	{
 		for (int tx = minx; tx <= maxx; ++tx)
@@ -361,6 +362,16 @@ Vector2 ResolveCollisionsCircleTiles(Vector2 center, float radius, Vector2 veloc
 			}
 		}
 	}
+
+	// Room boundaries
+	if (p1f.x - radius < 0)
+		p1f.x = radius;
+	if (p1f.y - radius < 0)
+		p1f.y = radius;
+	if (p1f.x + radius > numTilesX)
+		p1f.x = (float)numTilesX - radius;
+	if (p1f.y + radius > numTilesY)
+		p1f.y = (float)numTilesY - radius;
 
 	return p1f;
 }
@@ -634,7 +645,7 @@ void UpdatePlayer(void)
 	{
 		playerMove = Vector2Normalize(playerMove);
 		player.vel = Vector2Scale(playerMove, PLAYER_SPEED);
-		player.pos = ResolveCollisionsCircleTiles(player.pos, PLAYER_RADIUS, player.vel);
+		player.pos = ResolveCollisionsCircleRoom(player.pos, PLAYER_RADIUS, player.vel);
 		for (int i = 0; i < numTurrets; ++i)
 			player.pos = ResolveCollisionCircles(player.pos, PLAYER_RADIUS, turrets[i].pos, TURRET_RADIUS);
 	}
@@ -754,6 +765,21 @@ void UpdateBullets(void)
 			}
 			if (collided)
 				continue;
+
+			for (int j = 0; j < numBombs; ++j)
+			{
+				Bomb *bomb = &bombs[j];
+				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, bomb->pos, BOMB_RADIUS))
+				{
+					RemoveBulletFromGlobalList(i);
+					RemoveBombFromGlobalList(j);
+					--i;
+					collided = true;
+					break;
+				}
+			}
+			if (collided)
+				continue;
 			
 			if (CheckCollisionCircles(b->pos, BULLET_RADIUS, player.pos, PLAYER_RADIUS))
 			{
@@ -831,11 +857,14 @@ void UpdateBombs(void)
 		{
 			Vector2 toPlayer = Vector2Subtract(b->lastKnownPlayerPos, b->pos);
 			float length = Vector2Length(toPlayer);
-			float speed = Clamp(length / DELTA_TIME, 0, length < BOMB_CLOSE_THRESHOLD ? BOMB_SPEED_CLOSE : BOMB_SPEED);
+			float speed = Lerp(BOMB_SPEED, BOMB_SPEED_CLOSE, Smoothstep(1.5f * BOMB_CLOSE_THRESHOLD, 0.5f * BOMB_CLOSE_THRESHOLD, length));
+			if (speed * DELTA_TIME > length)
+				speed = length / DELTA_TIME;
 			if (speed > 0.001f)
 			{
 				chasedPlayer = true;
 				b->framesUntilIdleMove = RandomInt(&rng, 60, 120);
+				b->framesToIdleMove = 0;
 				vel = Vector2Scale(toPlayer, speed / length);
 			}
 		}
@@ -848,8 +877,8 @@ void UpdateBombs(void)
 			{
 				b->framesToIdleMove = RandomInt(&rng, 30, 120);
 				b->framesUntilIdleMove = b->framesToIdleMove + RandomInt(&rng, 0, 60);
-				b->idleMoveVel.x = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.3f * BOMB_IDLE_SPEED);
-				b->idleMoveVel.y = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.3f * BOMB_IDLE_SPEED);
+				b->idleMoveVel.x = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
+				b->idleMoveVel.y = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
 			}
 			if (b->framesToIdleMove > 0)
 				vel = b->idleMoveVel;
@@ -857,9 +886,9 @@ void UpdateBombs(void)
 
 		if (vel.x != 0 || vel.y != 0)
 		{
-			b->pos = ResolveCollisionsCircleTiles(b->pos, BOMB_RADIUS, vel);
-			for (int i = 0; i < numTurrets; ++i)
-				b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[i].pos, TURRET_RADIUS);
+			b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
+			for (int j = 0; j < numTurrets; ++j)
+				b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS);
 		}
 
 		if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))

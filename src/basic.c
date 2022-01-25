@@ -107,6 +107,12 @@ void SwapMemory(void *a, void *b, uptr size)
 	}
 }
 
+float Smoothstep(float edge0, float edge1, float x)
+{
+	// Actually smootherstep because it looks better: https://en.wikipedia.org/wiki/Smoothstep#Variations
+	x = Clamp((x - edge0) / (edge1 - edge0), 0, 1);
+	return x * x * x * (x * (x * 6 - 15) + 10);
+}
 float Wrap(float x, float max)
 {
 	return fmodf(max + fmodf(x, max), max);

@@ -61,6 +61,7 @@ u64 HashBytes(const void *bytes, uptr size);
 u64 HashString(const char *str);
 void SwapMemory(void *a, void *b, uptr size);
 
+float Smoothstep(float edge0, float edge1, float x);
 float Wrap(float x, float max); // x -> [0, max)
 float WrapMinMax(float x, float min, float max); // x -> [min, max)
 bool IsAngleBetween(float target, float angle1, float angle2);

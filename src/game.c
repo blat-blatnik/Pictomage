@@ -25,7 +25,10 @@
 #define TURRET_TURN_SPEED (30.0f*DEG2RAD)
 #define TURRET_FIRE_RATE 1.5f
 #define BOMB_RADIUS 0.4f
-#define BOMB_SPEED 1.0f
+#define BOMB_IDLE_SPEED 1.0f
+#define BOMB_SPEED 2.5f
+#define BOMB_SPEED_CLOSE 8.0f
+#define BOMB_CLOSE_THRESHOLD 6.0f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
 
@@ -65,6 +68,7 @@ typedef enum EditorSelectionKind
 	EDITOR_SELECTION_KIND_TILE,
 	EDITOR_SELECTION_KIND_PLAYER,
 	EDITOR_SELECTION_KIND_TURRET,
+	EDITOR_SELECTION_KIND_BOMB,
 } EditorSelectionKind;
 
 typedef struct Player
@@ -97,6 +101,9 @@ typedef struct Bomb
 {
 	Vector2 pos;
 	Vector2 lastKnownPlayerPos; //@HACK: x == 0 && y == 0 means the player was never seen.
+	Vector2 idleMoveVel;
+	int framesUntilIdleMove;
+	int framesToIdleMove;
 } Bomb;
 
 typedef struct Room
@@ -130,6 +137,7 @@ typedef struct EditorSelection
 		Tile tile;
 		Player *player;
 		Turret *turret;
+		Bomb *bomb;
 	};
 } EditorSelection;
 
@@ -209,9 +217,13 @@ int numCapturedBullets;
 Bullet bullets[MAX_BULLETS];
 Bullet capturedBullets[MAX_BULLETS];
 int numTurrets;
+int numCapturedTurrets;
 Turret turrets[MAX_TURRETS];
+Turret capturedTurrets[MAX_TURRETS];
 int numBombs;
+int numCapturedBombs;
 Bomb bombs[MAX_BOMBS];
+Bomb capturedBombs[MAX_BOMBS];
 
 // *---=======---*
 // |/   Tiles   \|
@@ -399,6 +411,9 @@ int SpawnBomb(Vector2 pos)
 	bombs[index].pos = pos;
 	bombs[index].lastKnownPlayerPos.x = 0;
 	bombs[index].lastKnownPlayerPos.y = 0;
+	bombs[index].framesUntilIdleMove = RandomInt(&rng, 60, 120);
+	bombs[index].framesToIdleMove = 0;
+	bombs[index].idleMoveVel = Vector2Zero();
 	return index;
 }
 void RemoveBulletFromGlobalList(int index)
@@ -802,10 +817,56 @@ void UpdateTurrets(void)
 }
 void UpdateBombs(void)
 {
-	for (int i = 0; i < numBullets; ++i)
+	for (int i = 0; i < numBombs; ++i)
 	{
 		Bomb *b = &bombs[i];
-		//b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME));
+		bool playerIsVisible = IsPointVisibleFrom(b->pos, player.pos);
+		if (playerIsVisible)
+			b->lastKnownPlayerPos = player.pos;
+
+		bool chasedPlayer = false;
+		Vector2 vel = Vector2Zero();
+
+		if (b->lastKnownPlayerPos.x != 0 || b->lastKnownPlayerPos.y != 0)
+		{
+			Vector2 toPlayer = Vector2Subtract(b->lastKnownPlayerPos, b->pos);
+			float length = Vector2Length(toPlayer);
+			float speed = Clamp(length / DELTA_TIME, 0, length < BOMB_CLOSE_THRESHOLD ? BOMB_SPEED_CLOSE : BOMB_SPEED);
+			if (speed > 0.001f)
+			{
+				chasedPlayer = true;
+				b->framesUntilIdleMove = RandomInt(&rng, 60, 120);
+				vel = Vector2Scale(toPlayer, speed / length);
+			}
+		}
+		
+		if (!chasedPlayer)
+		{
+			b->framesUntilIdleMove--;
+			b->framesToIdleMove--;
+			if (b->framesUntilIdleMove <= 0)
+			{
+				b->framesToIdleMove = RandomInt(&rng, 30, 120);
+				b->framesUntilIdleMove = b->framesToIdleMove + RandomInt(&rng, 0, 60);
+				b->idleMoveVel.x = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.3f * BOMB_IDLE_SPEED);
+				b->idleMoveVel.y = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.3f * BOMB_IDLE_SPEED);
+			}
+			if (b->framesToIdleMove > 0)
+				vel = b->idleMoveVel;
+		}
+
+		if (vel.x != 0 || vel.y != 0)
+		{
+			b->pos = ResolveCollisionsCircleTiles(b->pos, BOMB_RADIUS, vel);
+			for (int i = 0; i < numTurrets; ++i)
+				b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[i].pos, TURRET_RADIUS);
+		}
+
+		if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
+		{
+			RemoveBombFromGlobalList(i);
+			--i;
+		}
 	}
 }
 
@@ -943,6 +1004,8 @@ void CopyRoomToGame(Room *room)
 	numTurrets = 0;
 	numBombs = 0;
 	numCapturedBullets = 0;
+	numCapturedTurrets = 0;
+	numCapturedBombs = 0;
 	player.hasCapture = false;
 	player.justSnapped = false;
 	player.isReleasingCapture = false;
@@ -1004,6 +1067,7 @@ GameState Playing_Update(void)
 	UpdatePlayer();
 	UpdateBullets();
 	UpdateTurrets();
+	UpdateBombs();
 	return GAME_STATE_PLAYING;
 }
 void Playing_Draw(void)
@@ -1012,6 +1076,7 @@ void Playing_Draw(void)
 	{
 		DrawTiles();
 		DrawTurrets();
+		DrawBombs();
 		DrawPlayer();
 		DrawBullets();
 		DrawPlayerCaptureCone();
@@ -1066,9 +1131,9 @@ Vector2 lastMouseClickPos;
 char consoleInputBuffer[256];
 const Rectangle consoleWindowRect = { 0, 0, SCREEN_WIDTH, 50 };
 const Rectangle consoleInputRect = { 0, 24, SCREEN_WIDTH, 25 };
-const Rectangle objectsWindowRect = { 0, SCREEN_HEIGHT - 200, SCREEN_WIDTH, 200 };
+const Rectangle objectsWindowRect = { 0, SCREEN_HEIGHT - 100, SCREEN_WIDTH, 100 };
 const Rectangle propertiesWindowRect = { SCREEN_WIDTH - 200, SCREEN_HEIGHT - 800, 200, 550 };
-const Rectangle tilesWindowRect = { 0, SCREEN_HEIGHT - 800, 200, 550 };
+const Rectangle tilesWindowRect = { 0, SCREEN_HEIGHT - 800, 120, 550 };
 
 void DoTileButton(Tile tile, float x, float y)
 {
@@ -1241,6 +1306,15 @@ GameState LevelEditor_Update(void)
 					}
 				}
 
+				for (int i = 0; i < numBombs; ++i)
+				{
+					if (CheckCollisionPointCircle(mousePosTiles, bombs[i].pos, BOMB_RADIUS))
+					{
+						selection.kind = EDITOR_SELECTION_KIND_BOMB;
+						selection.bomb = &bombs[i];
+					}
+				}
+
 				if (CheckCollisionPointCircle(mousePosTiles, player.pos, PLAYER_RADIUS))
 				{
 					selection.kind = EDITOR_SELECTION_KIND_PLAYER;
@@ -1294,6 +1368,13 @@ GameState LevelEditor_Update(void)
 					selection.turret->pos = newPos;
 				break;
 			}
+			case EDITOR_SELECTION_KIND_BOMB:
+			{
+				Vector2 newPos = Vector2Add(selection.bomb->pos, mouseDeltaTiles);
+				if (CheckCollisionPointCircle(mousePosTiles, newPos, BOMB_RADIUS))
+					selection.bomb->pos = newPos;
+				break;
+			}
 			case EDITOR_SELECTION_KIND_PLAYER:
 			{
 				Vector2 newPos = Vector2Add(selection.player->pos, mouseDeltaTiles);
@@ -1312,6 +1393,7 @@ void LevelEditor_Draw(void)
 	{
 		DrawTiles();
 		DrawTurrets();
+		DrawBombs();
 		DrawPlayer();
 	}
 	SetupScreenCoordinateDrawing();
@@ -1354,6 +1436,7 @@ void LevelEditor_Draw(void)
 		float y0 = objectsWindowRect.y + 30;
 		float x = x0;
 		float y = y0;
+
 		if (GuiButton(Rect(x, y, 60, 60), "Turret"))
 		{
 			int index = SpawnTurret(Vector2Zero(), 0);
@@ -1361,6 +1444,16 @@ void LevelEditor_Draw(void)
 			selection.turret = &turrets[index];
 		}
 		DrawRectangleRec(Rect(x + 10, y + 10, 40, 40), ColorAlpha(BLACK, 0.2f));
+		x += 70;
+
+		if (GuiButton(Rect(x, y, 60, 60), "Bomb"))
+		{
+			int index = SpawnBomb(Vector2Zero(), 0);
+			selection.kind = EDITOR_SELECTION_KIND_BOMB;
+			selection.bomb = &bombs[index];
+		}
+		DrawRectangleRec(Rect(x + 10, y + 10, 40, 40), ColorAlpha(BLACK, 0.2f));
+		x += 70;
 	}
 
 	GuiWindowBox(tilesWindowRect, "Tiles");
@@ -1382,6 +1475,7 @@ void LevelEditor_Draw(void)
 	{
 		case EDITOR_SELECTION_KIND_PLAYER: propertiesTitle = "Player properties"; break;
 		case EDITOR_SELECTION_KIND_TURRET: propertiesTitle = "Turret properties"; break;
+		case EDITOR_SELECTION_KIND_BOMB: propertiesTitle = "Bomb properties"; break;
 		case EDITOR_SELECTION_KIND_TILE: propertiesTitle = "Tile properties"; break;
 		default: propertiesTitle = "Room properties"; break;
 	}
@@ -1406,6 +1500,14 @@ void LevelEditor_Draw(void)
 				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.turret->pos.y);
 				y += 20;
 				selection.turret->lookAngle = GuiSlider(Rect(x, y, 100, 20), "", "Look angle", selection.turret->lookAngle, -PI, +PI);
+			} break;
+
+			case EDITOR_SELECTION_KIND_BOMB:
+			{
+				GuiText(Rect(x, y, 100, 20), "X: %.2f", selection.bomb->pos.x);
+				y += 20;
+				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.bomb->pos.y);
+				y += 20;
 			} break;
 
 			case EDITOR_SELECTION_KIND_TILE:

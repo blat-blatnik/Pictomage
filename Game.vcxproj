@@ -149,6 +149,9 @@
     <Media Include="res\long-shot.wav" />
     <Media Include="res\snap.wav" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="room-file-format.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

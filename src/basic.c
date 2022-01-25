@@ -262,6 +262,10 @@ Vector2 Vector2Ceil(Vector2 v)
 	};
 	return result;
 }
+bool Vector2Equal(Vector2 a, Vector2 b)
+{
+	return a.x == b.x && a.y == b.y;
+}
 
 float ToRaylibDegrees(float radians)
 {

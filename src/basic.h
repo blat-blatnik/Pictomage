@@ -85,6 +85,7 @@ Vector2 Vector2Min(Vector2 a, Vector2 b);
 Vector2 Vector2Max(Vector2 a, Vector2 b);
 Vector2 Vector2Floor(Vector2 v);
 Vector2 Vector2Ceil(Vector2 v);
+bool Vector2Equal(Vector2 a, Vector2 b);
 
 float ToRaylibDegrees(float radians);
 

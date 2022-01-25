@@ -24,11 +24,13 @@
 #define TURRET_RADIUS 1.0f
 #define TURRET_TURN_SPEED (30.0f*DEG2RAD)
 #define TURRET_FIRE_RATE 1.5f
+#define TURRET_FRICTION 0.85f
 #define BOMB_RADIUS 0.4f
 #define BOMB_IDLE_SPEED 1.0f
 #define BOMB_SPEED 2.5f
 #define BOMB_SPEED_CLOSE 8.0f
 #define BOMB_CLOSE_THRESHOLD 6.0f
+#define BOMB_EXPLOSION_RADIUS 4.0f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
 
@@ -94,6 +96,7 @@ typedef struct Turret
 	Vector2 pos;
 	float lookAngle;
 	int framesUntilShoot;
+	Vector2 flingVelocity;
 	Vector2 lastKnownPlayerPos; //@HACK: x == 0 && y == 0 means the player was never seen.
 } Turret;
 
@@ -102,6 +105,8 @@ typedef struct Bomb
 	Vector2 pos;
 	Vector2 lastKnownPlayerPos; //@HACK: x == 0 && y == 0 means the player was never seen.
 	Vector2 idleMoveVel;
+	bool wasFlung;
+	Vector2 flungVel;
 	int framesUntilIdleMove;
 	int framesToIdleMove;
 } Bomb;
@@ -385,47 +390,49 @@ Vector2 ResolveCollisionCircles(Vector2 center, float radius, Vector2 obstacleCe
 	return center;
 }
 
-int SpawnBullet(Vector2 pos, Vector2 vel)
+Bullet *SpawnBullet(Vector2 pos, Vector2 vel)
 {
 	if (numBullets >= MAX_BULLETS)
-		return -1;
+		return NULL;
 
 	Tile t = TileAtVec(pos);
 	if (t == TILE_WALL)
-		return -1;
+		return NULL;
 
-	int index = numBullets++;
-	bullets[index].origin = pos;
-	bullets[index].pos = pos;
-	bullets[index].vel = vel;
-	return index;
+	Bullet *bullet = &bullets[numBullets++];
+	bullet->origin = pos;
+	bullet->pos = pos;
+	bullet->vel = vel;
+	return bullet;
 }
-int SpawnTurret(Vector2 pos, float lookAngleRadians)
+Turret *SpawnTurret(Vector2 pos, float lookAngleRadians)
 {
 	if (numTurrets >= MAX_TURRETS)
-		return -1;
+		return NULL;
 
-	int index = numTurrets++;
-	turrets[index].pos = pos;
-	turrets[index].lookAngle = lookAngleRadians;
-	turrets[index].framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE);
-	turrets[index].lastKnownPlayerPos.x = 0;
-	turrets[index].lastKnownPlayerPos.y = 0;
-	return index;
+	Turret *turret = &turrets[numTurrets++];
+	turret->pos = pos;
+	turret->lookAngle = lookAngleRadians;
+	turret->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE);
+	turret->lastKnownPlayerPos.x = 0;
+	turret->lastKnownPlayerPos.y = 0;
+	return turret;
 }
-int SpawnBomb(Vector2 pos)
+Bomb *SpawnBomb(Vector2 pos)
 {
 	if (numBombs >= MAX_BOMBS)
-		return -1;
+		return NULL;
 
-	int index = numBombs++;
-	bombs[index].pos = pos;
-	bombs[index].lastKnownPlayerPos.x = 0;
-	bombs[index].lastKnownPlayerPos.y = 0;
-	bombs[index].framesUntilIdleMove = RandomInt(&rng, 60, 120);
-	bombs[index].framesToIdleMove = 0;
-	bombs[index].idleMoveVel = Vector2Zero();
-	return index;
+	Bomb *bomb = &bombs[numBombs++];
+	bomb->pos = pos;
+	bomb->lastKnownPlayerPos.x = 0;
+	bomb->lastKnownPlayerPos.y = 0;
+	bomb->framesUntilIdleMove = RandomInt(&rng, 60, 120);
+	bomb->framesToIdleMove = 0;
+	bomb->idleMoveVel = Vector2Zero();
+	bomb->wasFlung = false;
+	bomb->flungVel = Vector2Zero();
+	return bomb;
 }
 void RemoveBulletFromGlobalList(int index)
 {
@@ -524,6 +531,26 @@ void DrawPlayerRelease(void)
 		Bullet b = capturedBullets[i];
 		Vector2 pos = Vector2Add(b.pos, player.releasePos);
 		DrawCircleV(pos, BULLET_RADIUS, ColorAlpha(BLUE, 0.5f));
+	}
+
+	for (int i = 0; i < numCapturedTurrets; ++i)
+	{
+		Color color = ColorAlpha(DARKBLUE, 0.5f);
+		Turret t = capturedTurrets[i];
+		Vector2 pos = Vector2Add(t.pos, player.releasePos);
+		DrawCircleV(pos, TURRET_RADIUS, color);
+		DrawCircleV(pos, TURRET_RADIUS - PixelsToTiles(5), color);
+		float lookAngleDegrees = RAD2DEG * t.lookAngle;
+		Rectangle gunBarrel = { pos.x, pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
+		DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, color);
+		DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), color);
+	}
+
+	for (int i = 0; i < numCapturedBombs; ++i)
+	{
+		Bomb b = capturedBombs[i];
+		Vector2 pos = Vector2Add(b.pos, player.releasePos);
+		DrawCircleV(pos, BOMB_RADIUS, ColorAlpha(DARKBLUE, 0.5f));
 	}
 
 	Vector2 mousePos = ScreenToTile(GetMousePosition());
@@ -676,18 +703,56 @@ void UpdatePlayer(void)
 				}
 			}
 
-			int numCapturedItems = numCapturedBullets;
+			for (int i = 0; i < numBombs; ++i)
+			{
+				Bomb *b = &bombs[i];
+				if (CheckCollisionConeCircle(player.pos,
+					PLAYER_CAPTURE_CONE_RADIUS,
+					player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					b->pos, BOMB_RADIUS))
+				{
+					int index = numCapturedBombs++;
+					capturedBombs[index] = *b;
+					RemoveBombFromGlobalList(i);
+					--i;
+				}
+			}
+
+			for (int i = 0; i < numTurrets; ++i)
+			{
+				Turret *t = &turrets[i];
+				if (CheckCollisionConeCircle(player.pos,
+					PLAYER_CAPTURE_CONE_RADIUS,
+					player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					t->pos, TURRET_RADIUS))
+				{
+					int index = numCapturedTurrets++;
+					capturedTurrets[index] = *t;
+					RemoveTurretFromGlobalList(i);
+					--i;
+				}
+			}
+
+			int numCapturedItems = numCapturedBullets + numCapturedTurrets + numCapturedBombs;
 			if (numCapturedItems != 0)
 			{
 				Vector2 captureCenter = Vector2Zero();
 				for (int i = 0; i < numCapturedBullets; ++i)
-				{
 					captureCenter = Vector2Add(captureCenter, capturedBullets[i].pos);
-				}
+				for (int i = 0; i < numCapturedTurrets; ++i)
+					captureCenter = Vector2Add(captureCenter, capturedTurrets[i].pos);
+				for (int i = 0; i < numCapturedBombs; ++i)
+					captureCenter = Vector2Add(captureCenter, capturedBombs[i].pos);
 				captureCenter = Vector2Scale(captureCenter, 1.0f / numCapturedItems);
 
 				for (int i = 0; i < numCapturedBullets; ++i)
 					capturedBullets[i].pos = Vector2Subtract(capturedBullets[i].pos, captureCenter);
+				for (int i = 0; i < numCapturedTurrets; ++i)
+					capturedTurrets[i].pos = Vector2Subtract(capturedTurrets[i].pos, captureCenter);
+				for (int i = 0; i < numCapturedBombs; ++i)
+					capturedBombs[i].pos = Vector2Subtract(capturedBombs[i].pos, captureCenter);
 
 				player.hasCapture = true;
 			}
@@ -722,14 +787,37 @@ void UpdatePlayer(void)
 		float releaseSpeed = Vector2Length(releaseDir);
 		releaseDir = Vector2Scale(releaseDir, 1 / releaseSpeed);
 
-		Vector2 bulletReleaseVel = Vector2Scale(releaseDir, fmaxf(5 * releaseSpeed, 30));
+		Vector2 releaseVel = Vector2Scale(releaseDir, fmaxf(5 * releaseSpeed, 30));
 		for (int i = 0; i < numCapturedBullets; ++i)
 		{
 			Bullet b = capturedBullets[i];
 			Vector2 pos = Vector2Add(b.pos, player.releasePos);
-			SpawnBullet(pos, bulletReleaseVel);
+			SpawnBullet(pos, releaseVel);
+		}
+		for (int i = 0; i < numCapturedTurrets; ++i)
+		{
+			Turret t = capturedTurrets[i];
+			Vector2 pos = Vector2Add(t.pos, player.releasePos);
+			Turret *turret = SpawnTurret(pos, t.lookAngle);
+			if (turret)
+			{
+				turret->flingVelocity = releaseVel;
+			}
+		}
+		for (int i = 0; i < numCapturedBombs; ++i)
+		{
+			Bomb b = capturedBombs[i];
+			Vector2 pos = Vector2Add(b.pos, player.releasePos);
+			Bomb *bomb = SpawnBomb(pos);
+			if (bomb)
+			{
+				bomb->wasFlung = true;
+				bomb->flungVel = releaseVel;
+			}
 		}
 		numCapturedBullets = 0;
+		numCapturedTurrets = 0;
+		numCapturedBombs = 0;
 	}
 }
 void UpdateBullets(void)
@@ -795,6 +883,13 @@ void UpdateTurrets(void)
 	for (int i = 0; i < numTurrets; ++i)
 	{
 		Turret *t = &turrets[i];
+		Vector2 dpos = Vector2Scale(t->flingVelocity, DELTA_TIME);
+		if (dpos.x > 0.00001f || dpos.y > 0.00001f)
+		{
+			t->pos = Vector2Add(t->pos, dpos);
+			t->flingVelocity = Vector2Scale(t->flingVelocity, TURRET_FRICTION);
+		}
+
 		bool playerIsVisible = IsPointVisibleFrom(t->pos, player.pos);
 		if (playerIsVisible)
 			t->lastKnownPlayerPos = player.pos;
@@ -846,55 +941,76 @@ void UpdateBombs(void)
 	for (int i = 0; i < numBombs; ++i)
 	{
 		Bomb *b = &bombs[i];
-		bool playerIsVisible = IsPointVisibleFrom(b->pos, player.pos);
-		if (playerIsVisible)
-			b->lastKnownPlayerPos = player.pos;
-
-		bool chasedPlayer = false;
-		Vector2 vel = Vector2Zero();
-
-		if (b->lastKnownPlayerPos.x != 0 || b->lastKnownPlayerPos.y != 0)
+		if (b->wasFlung)
 		{
-			Vector2 toPlayer = Vector2Subtract(b->lastKnownPlayerPos, b->pos);
-			float length = Vector2Length(toPlayer);
-			float speed = Lerp(BOMB_SPEED, BOMB_SPEED_CLOSE, Smoothstep(1.5f * BOMB_CLOSE_THRESHOLD, 0.5f * BOMB_CLOSE_THRESHOLD, length));
-			if (speed * DELTA_TIME > length)
-				speed = length / DELTA_TIME;
-			if (speed > 0.001f)
+			Vector2 vel = b->flungVel;
+			Vector2 expectedPos = Vector2Add(b->pos, Vector2Scale(vel, DELTA_TIME));
+			if (vel.x != 0 || vel.y != 0)
 			{
-				chasedPlayer = true;
-				b->framesUntilIdleMove = RandomInt(&rng, 60, 120);
-				b->framesToIdleMove = 0;
-				vel = Vector2Scale(toPlayer, speed / length);
+				b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
+				for (int j = 0; j < numTurrets; ++j)
+					b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS);
+			}
+
+			bool collidedWithPlayer = CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS);
+			if (collidedWithPlayer || !Vector2Equal(b->pos, expectedPos))
+			{
+				RemoveBombFromGlobalList(i);
+				--i;
 			}
 		}
-		
-		if (!chasedPlayer)
+		else
 		{
-			b->framesUntilIdleMove--;
-			b->framesToIdleMove--;
-			if (b->framesUntilIdleMove <= 0)
+			bool playerIsVisible = IsPointVisibleFrom(b->pos, player.pos);
+			if (playerIsVisible)
+				b->lastKnownPlayerPos = player.pos;
+
+			Vector2 vel = Vector2Zero();
+			bool chasedPlayer = false;
+
+			if (b->lastKnownPlayerPos.x != 0 || b->lastKnownPlayerPos.y != 0)
 			{
-				b->framesToIdleMove = RandomInt(&rng, 30, 120);
-				b->framesUntilIdleMove = b->framesToIdleMove + RandomInt(&rng, 0, 60);
-				b->idleMoveVel.x = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
-				b->idleMoveVel.y = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
+				Vector2 toPlayer = Vector2Subtract(b->lastKnownPlayerPos, b->pos);
+				float length = Vector2Length(toPlayer);
+				float speed = Lerp(BOMB_SPEED, BOMB_SPEED_CLOSE, Smoothstep(1.5f * BOMB_CLOSE_THRESHOLD, 0.5f * BOMB_CLOSE_THRESHOLD, length));
+				if (speed * DELTA_TIME > length)
+					speed = length / DELTA_TIME;
+				if (speed > 0.001f)
+				{
+					chasedPlayer = true;
+					b->framesUntilIdleMove = RandomInt(&rng, 60, 120);
+					b->framesToIdleMove = 0;
+					vel = Vector2Scale(toPlayer, speed / length);
+				}
 			}
-			if (b->framesToIdleMove > 0)
-				vel = b->idleMoveVel;
-		}
 
-		if (vel.x != 0 || vel.y != 0)
-		{
-			b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
-			for (int j = 0; j < numTurrets; ++j)
-				b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS);
-		}
+			if (!chasedPlayer)
+			{
+				b->framesUntilIdleMove--;
+				b->framesToIdleMove--;
+				if (b->framesUntilIdleMove <= 0)
+				{
+					b->framesToIdleMove = RandomInt(&rng, 30, 120);
+					b->framesUntilIdleMove = b->framesToIdleMove + RandomInt(&rng, 0, 60);
+					b->idleMoveVel.x = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
+					b->idleMoveVel.y = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
+				}
+				if (b->framesToIdleMove > 0)
+					vel = b->idleMoveVel;
+			}
 
-		if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
-		{
-			RemoveBombFromGlobalList(i);
-			--i;
+			if (vel.x != 0 || vel.y != 0)
+			{
+				b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
+				for (int j = 0; j < numTurrets; ++j)
+					b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS);
+			}
+
+			if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
+			{
+				RemoveBombFromGlobalList(i);
+				--i;
+			}
 		}
 	}
 }
@@ -1468,18 +1584,24 @@ void LevelEditor_Draw(void)
 
 		if (GuiButton(Rect(x, y, 60, 60), "Turret"))
 		{
-			int index = SpawnTurret(Vector2Zero(), 0);
-			selection.kind = EDITOR_SELECTION_KIND_TURRET;
-			selection.turret = &turrets[index];
+			Turret *turret = SpawnTurret(Vector2Zero(), 0);
+			if (turret)
+			{
+				selection.kind = EDITOR_SELECTION_KIND_TURRET;
+				selection.turret = turret;
+			}
 		}
 		DrawRectangleRec(Rect(x + 10, y + 10, 40, 40), ColorAlpha(BLACK, 0.2f));
 		x += 70;
 
 		if (GuiButton(Rect(x, y, 60, 60), "Bomb"))
 		{
-			int index = SpawnBomb(Vector2Zero(), 0);
-			selection.kind = EDITOR_SELECTION_KIND_BOMB;
-			selection.bomb = &bombs[index];
+			Bomb *bomb = SpawnBomb(Vector2Zero(), 0);
+			if (bomb)
+			{
+				selection.kind = EDITOR_SELECTION_KIND_BOMB;
+				selection.bomb = bomb;
+			}
 		}
 		DrawRectangleRec(Rect(x + 10, y + 10, 40, 40), ColorAlpha(BLACK, 0.2f));
 		x += 70;

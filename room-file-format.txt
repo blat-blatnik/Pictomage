@@ -1,12 +1,10 @@
 uint64 flags
+char previousRoomName[64]
+char nextRoomName[64]
 uint8 numTilesX
 uint8 numTilesY
 uint8 tiles[numTilesY][numTilesX]
 Vector2 playerDefaultPos
-uint8 numDoors
-char connections[numDoors][64]
-uint8 doorX[numDoors]
-uint8 doorY[numDoors]
 uint8 numTurrets
 Vector2 turretPos[numTurrers]
 float turretLookAngle[numTurrets]

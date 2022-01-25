@@ -15,7 +15,7 @@
 #define MAX_TILES_X (SCREEN_WIDTH/TILE_SIZE)
 #define MAX_TILES_Y (SCREEN_HEIGHT/TILE_SIZE)
 #define MAX_DOORS_PER_ROOM 4
-#define MAX_ROOM_FILE_NAME 64
+#define MAX_ROOM_NAME 64
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
@@ -62,6 +62,8 @@ typedef enum Tile
 	TILE_NONE,
 	TILE_FLOOR,
 	TILE_WALL,
+	TILE_ENTRANCE,
+	TILE_EXIT,
 } Tile;
 
 typedef enum EditorSelectionKind
@@ -113,16 +115,13 @@ typedef struct Bomb
 
 typedef struct Room
 {
-	char name[MAX_ROOM_FILE_NAME];
+	char name[MAX_ROOM_NAME];
+	char prev[MAX_ROOM_NAME];
+	char next[MAX_ROOM_NAME];
 
 	int numTilesX;
 	int numTilesY;
 	Tile tiles[MAX_TILES_Y][MAX_TILES_X];
-
-	int numDoors;
-	int doorX[MAX_DOORS_PER_ROOM];
-	int doorY[MAX_DOORS_PER_ROOM];
-	char connections[MAX_DOORS_PER_ROOM][MAX_ROOM_FILE_NAME];
 	
 	Vector2 playerDefaultPos;
 	
@@ -209,6 +208,9 @@ const bool devMode = true; //@TODO: Disable this for release.
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
+char roomName[MAX_ROOM_NAME];
+char previousRoomName[MAX_ROOM_NAME];
+char nextRoomName[MAX_ROOM_NAME];
 int numTilesX = MAX_TILES_X;
 int numTilesY = MAX_TILES_Y;
 Tile tiles[MAX_TILES_Y][MAX_TILES_X];
@@ -234,14 +236,20 @@ Bomb capturedBombs[MAX_BOMBS];
 // |/   Tiles   \|
 // *---=======---*
 
+int NumRemainingEnemies(void)
+{
+	return numTurrets + numCapturedTurrets + numBombs + numCapturedBombs;
+}
 const char *GetTileName(Tile tile)
 {
 	switch (tile)
 	{
-		case TILE_NONE:  return "None";
-		case TILE_FLOOR: return "Floor";
-		case TILE_WALL:  return "Wall";
-		default:         return "[NULL]";
+		case TILE_NONE:     return "None";
+		case TILE_FLOOR:    return "Floor";
+		case TILE_WALL:     return "Wall";
+		case TILE_ENTRANCE: return "Entrance";
+		case TILE_EXIT:     return "Exit";
+		default:            return "[NULL]";
 	}
 }
 bool TileIsPassable(Tile tile)
@@ -252,8 +260,15 @@ bool TileIsPassable(Tile tile)
 		case TILE_FLOOR:
 			return true;
 		case TILE_WALL:
+		case TILE_ENTRANCE:
 		default:
 			return false;
+
+		case TILE_EXIT:
+			if (NumRemainingEnemies() > 0)
+				return false;
+			else
+				return true;
 	}
 }
 bool TileIsOpaque(Tile tile)
@@ -264,8 +279,15 @@ bool TileIsOpaque(Tile tile)
 			return true;
 		case TILE_NONE:
 		case TILE_FLOOR:
+		case TILE_ENTRANCE:
 		default:
 			return false;
+
+		case TILE_EXIT:
+			if (NumRemainingEnemies() > 0)
+				return false;
+			else
+				return true;
 	}
 }
 Tile TileAt(int x, int y)
@@ -362,7 +384,7 @@ Vector2 ResolveCollisionsCircleRoom(Vector2 center, float radius, Vector2 veloci
 				Vector2 toNearest = Vector2Subtract(nearestPoint, p1f);
 				float len = Vector2Length(toNearest);
 				float overlap = radius - len;
-				if (overlap > 0)
+				if (overlap > 0 && len > 0)
 					p1f = Vector2Subtract(p1f, Vector2Scale(toNearest, overlap / len));
 			}
 		}
@@ -385,7 +407,7 @@ Vector2 ResolveCollisionCircles(Vector2 center, float radius, Vector2 obstacleCe
 	Vector2 normal = Vector2Subtract(center, obstacleCenter);
 	float length = Vector2Length(normal);
 	float penetration = (radius + obstacleRadius) - length;
-	if (penetration > 0)
+	if (penetration > 0 && length > 0)
 		center = Vector2Add(center, Vector2Scale(normal, penetration / length));
 	return center;
 }
@@ -414,8 +436,8 @@ Turret *SpawnTurret(Vector2 pos, float lookAngleRadians)
 	turret->pos = pos;
 	turret->lookAngle = lookAngleRadians;
 	turret->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE);
-	turret->lastKnownPlayerPos.x = 0;
-	turret->lastKnownPlayerPos.y = 0;
+	turret->lastKnownPlayerPos = Vector2Zero();
+	turret->flingVelocity = Vector2Zero();
 	return turret;
 }
 Bomb *SpawnBomb(Vector2 pos)
@@ -465,6 +487,168 @@ void ShiftAllObjectsBy(float dx, float dy)
 	{
 		bombs[i].pos.x += dx;
 		bombs[i].pos.y += dy;
+	}
+}
+
+// *---=======---*
+// |/   Level   \|
+// *---=======---*
+
+Room currentRoom;
+bool LoadRoom(Room *room, const char *filename)
+{
+	char *filepath = TempPrint("res/%s.bin", filename);
+	FILE *file = fopen(filepath, "rb");
+	if (!file)
+	{
+		TraceLog(LOG_ERROR, "Unable to load room from file '%s'. The file might not exist.", filepath);
+		return false;
+	}
+
+	u64 flags = 0;
+	char prev[MAX_ROOM_NAME];
+	char next[MAX_ROOM_NAME];
+	u8 numTilesX = 1;
+	u8 numTilesY = 1;
+	u8 tiles[MAX_TILES_Y][MAX_TILES_X] = { { TILE_FLOOR } };
+	Vector2 playerDefaultPos = Vec2(0.5f, 0.5f);
+	u8 numTurrets = 0;
+	Vector2 turretPos[MAX_TURRETS] = { 0 };
+	float turretLookAngle[MAX_TURRETS] = { 0 };
+	u8 numBombs = 0;
+	Vector2 bombPos[MAX_BOMBS] = { 0 };
+
+	fread(&flags, sizeof flags, 1, file);
+	fread(prev, sizeof prev, 1, file);
+	fread(next, sizeof next, 1, file);
+	fread(&numTilesX, sizeof numTilesX, 1, file);
+	fread(&numTilesY, sizeof numTilesY, 1, file);
+	for (u8 y = 0; y < numTilesY; ++y)
+		fread(tiles[y], sizeof tiles[0][0], numTilesX, file);
+	fread(&playerDefaultPos, sizeof playerDefaultPos, 1, file);
+	fread(&numTurrets, sizeof numTurrets, 1, file);
+	fread(turretPos, sizeof turretPos[0], numTurrets, file);
+	fread(turretLookAngle, sizeof turretLookAngle[0], numTurrets, file);
+	fread(&numBombs, sizeof numBombs, 1, file);
+	fread(bombPos, sizeof bombPos[0], numBombs, file);
+	fclose(file);
+
+	char name[sizeof room->name];
+	snprintf(name, sizeof name, "%s", filename);
+	memset(room, 0, sizeof room[0]);
+	memcpy(room->name, name, sizeof room->name);
+	memcpy(room->prev, prev, sizeof room->prev);
+	memcpy(room->next, next, sizeof room->next);
+	room->numTilesX = (int)numTilesX;
+	room->numTilesY = (int)numTilesY;
+	for (u8 y = 0; y < numTilesY; ++y)
+		for (u8 x = 0; x < numTilesX; ++x)
+			room->tiles[y][x] = (Tile)tiles[y][x];
+	room->playerDefaultPos = playerDefaultPos;
+	room->numTurrets = (int)numTurrets;
+	memcpy(room->turretPos, turretPos, sizeof turretPos);
+	memcpy(room->turretLookAngle, turretLookAngle, sizeof turretLookAngle);
+	room->numBombs = (int)numBombs;
+	memcpy(room->bombPos, bombPos, sizeof bombPos);
+
+	TraceLog(LOG_INFO, "Loaded room '%s'.", filepath);
+	return true;
+}
+void SaveRoom(const Room *room)
+{
+	char *filepath = TempPrint("res/%s.bin", room->name);
+	FILE *file = fopen(filepath, "wb");
+	if (!file)
+	{
+		TraceLog(LOG_ERROR, "Failed to save room because couldn't open file '%s'.", filepath);
+		return;
+	}
+
+	u64 flags = 0;
+	fwrite(&flags, sizeof flags, 1, file);
+	fwrite(room->prev, sizeof room->prev, 1, file);
+	fwrite(room->next, sizeof room->next, 1, file);
+
+	u8 numTilesX = (u8)room->numTilesX;
+	u8 numTilesY = (u8)room->numTilesY;
+	fwrite(&numTilesX, sizeof numTilesX, 1, file);
+	fwrite(&numTilesY, sizeof numTilesY, 1, file);
+
+	for (u8 y = 0; y < numTilesY; ++y)
+	{
+		for (u8 x = 0; x < numTilesX; ++x)
+		{
+			u8 tile = (u8)room->tiles[y][x];
+			fwrite(&tile, sizeof tile, 1, file);
+		}
+	}
+
+	fwrite(&room->playerDefaultPos, sizeof room->playerDefaultPos, 1, file);
+
+	u8 numTurrets = (u8)room->numTurrets;
+	fwrite(&numTurrets, sizeof numTurrets, 1, file);
+	fwrite(room->turretPos, sizeof room->turretPos[0], numTurrets, file);
+	fwrite(room->turretLookAngle, sizeof room->turretLookAngle[0], numTurrets, file);
+
+	u8 numBombs = (u8)room->numBombs;
+	fwrite(&numBombs, sizeof numBombs, 1, file);
+	fwrite(room->bombPos, sizeof room->bombPos[0], numBombs, file);
+
+	fclose(file);
+	TraceLog(LOG_INFO, "Saved room '%s'.", filepath);
+}
+void CopyRoomToGame(Room *room)
+{
+	memcpy(roomName, room->name, sizeof roomName);
+	memcpy(previousRoomName, room->prev, sizeof previousRoomName);
+	memcpy(nextRoomName, room->next, sizeof nextRoomName);
+
+	numBullets = 0;
+	numTurrets = 0;
+	numBombs = 0;
+	numCapturedBullets = 0;
+	numCapturedTurrets = 0;
+	numCapturedBombs = 0;
+	player.hasCapture = false;
+	player.justSnapped = false;
+	player.isReleasingCapture = false;
+
+	numTilesX = room->numTilesX;
+	numTilesY = room->numTilesY;
+	for (int y = 0; y < numTilesY; ++y)
+		memcpy(tiles[y], room->tiles[y], sizeof tiles[0]);
+
+	player.pos = room->playerDefaultPos;
+	for (int i = 0; i < room->numTurrets; ++i)
+		SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
+	for (int i = 0; i < room->numBombs; ++i)
+		SpawnBomb(room->bombPos[i]);
+}
+void CopyGameToRoom(Room *room)
+{
+	char name[sizeof room->name];
+	memcpy(name, room->name, sizeof name);
+	memset(room, 0, sizeof room[0]);
+	memcpy(room->name, name, sizeof name);
+	memcpy(room->prev, previousRoomName, sizeof room->prev);
+	memcpy(room->next, nextRoomName, sizeof room->next);
+	room->numTilesX = numTilesX;
+	room->numTilesY = numTilesY;
+	for (int y = 0; y < numTilesY; ++y)
+		memcpy(room->tiles[y], tiles[y], numTilesX * sizeof tiles[y][0]);
+	room->playerDefaultPos = player.pos;
+	room->numTurrets = numTurrets;
+	for (int i = 0; i < numTurrets; ++i)
+	{
+		Turret t = turrets[i];
+		room->turretPos[i] = t.pos;
+		room->turretLookAngle[i] = t.lookAngle;
+	}
+	room->numBombs = numBombs;
+	for (int i = 0; i < numBombs; ++i)
+	{
+		Bomb b = bombs[i];
+		room->bombPos[i] = b.pos;
 	}
 }
 
@@ -592,15 +776,27 @@ void DrawTiles(void)
 				case TILE_FLOOR:
 				{
 					DrawRectangle(x, y, 1, 1, (x + y) % 2 ? FloatRGBA(0.95f, 0.95f, 0.95f, 1) : FloatRGBA(0.9f, 0.9f, 0.9f, 1));
-					break;
-				}
+				} break;
 				case TILE_WALL:
 				{
 					DrawRectangle(x, y, 1, 1, FloatRGBA(0.5f, 0.5f, 0.5f, 1));
-					break;
-				}
+				} break;
+				case TILE_ENTRANCE:
+				{
+					DrawRectangle(x, y, 1, 1, BLUE);
+				} break;
+				case TILE_EXIT:
+				{
+					if (NumRemainingEnemies() == 0)
+						DrawRectangle(x, y, 1, 1, FloatRGBA(0, 1, 0, 1));
+					else
+						DrawRectangle(x, y, 1, 1, FloatRGBA(1, 0, 0, 1));
+				} break;
+				default:
+				{
+					DrawRectangle(x, y, 1, 1, FloatRGBA(1, 0, 1, 1));
+				} break;
 			}
-
 		}
 	}
 }
@@ -886,7 +1082,32 @@ void UpdateTurrets(void)
 		Vector2 dpos = Vector2Scale(t->flingVelocity, DELTA_TIME);
 		if (dpos.x > 0.00001f || dpos.y > 0.00001f)
 		{
-			t->pos = Vector2Add(t->pos, dpos);
+			t->pos = ResolveCollisionsCircleRoom(t->pos, TURRET_RADIUS, t->flingVelocity);
+			for (int j = 0; j < numTurrets; ++j)
+				if (i != j)
+					t->pos = ResolveCollisionCircles(t->pos, TURRET_RADIUS, turrets[j].pos, TURRET_RADIUS);
+
+			float velMagnitude = Vector2Length(t->flingVelocity);
+			if (velMagnitude > 0.5f)
+			{
+				bool exploded = false;
+				for (int j = 0; j < numBombs; ++j)
+				{
+					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, bombs[j].pos, BOMB_RADIUS))
+					{
+						exploded = true;
+						RemoveBombFromGlobalList(j);
+						--j;
+					}
+				}
+				if (exploded)
+				{
+					RemoveTurretFromGlobalList(i);
+					--i;
+					continue;
+				}
+			}
+
 			t->flingVelocity = Vector2Scale(t->flingVelocity, TURRET_FRICTION);
 		}
 
@@ -1015,183 +1236,6 @@ void UpdateBombs(void)
 	}
 }
 
-// *---=======---*
-// |/   Level   \|
-// *---=======---*
-
-Room currentRoom;
-bool LoadRoom(Room *room, const char *filename)
-{
-	char *filepath = TempPrint("res/%s.bin", filename);
-	FILE *file = fopen(filepath, "rb");
-	if (!file)
-	{
-		TraceLog(LOG_ERROR, "Unable to load room from file '%s'. The file might not exist.", filepath);
-		return false;
-	}
-
-	u64 flags = 0;
-	u8 numTilesX = 1;
-	u8 numTilesY = 1;
-	u8 tiles[MAX_TILES_Y][MAX_TILES_X] = { { TILE_FLOOR } };
-	Vector2 playerDefaultPos = Vec2(0.5f, 0.5f);
-	u8 numDoors = 0;
-	char connections[MAX_DOORS_PER_ROOM][MAX_ROOM_FILE_NAME] = { 0 };
-	u8 doorX[MAX_DOORS_PER_ROOM] = { 0 };
-	u8 doorY[MAX_DOORS_PER_ROOM] = { 0 };
-	u8 numTurrets = 0;
-	Vector2 turretPos[MAX_TURRETS] = { 0 };
-	float turretLookAngle[MAX_TURRETS] = { 0 };
-	u8 numBombs = 0;
-	Vector2 bombPos[MAX_BOMBS] = { 0 };
-
-	fread(&flags, sizeof flags, 1, file);
-	fread(&numTilesX, sizeof numTilesX, 1, file);
-	fread(&numTilesY, sizeof numTilesY, 1, file);
-	for (u8 y = 0; y < numTilesY; ++y)
-		fread(tiles[y], sizeof tiles[0][0], numTilesX, file);
-	fread(&playerDefaultPos, sizeof playerDefaultPos, 1, file);
-	fread(&numDoors, sizeof numDoors, 1, file);
-	fread(connections, sizeof connections[0], numDoors, file);
-	fread(doorX, sizeof doorX[0], numDoors, file);
-	fread(doorY, sizeof doorY[0], numDoors, file);
-	fread(&numTurrets, sizeof numTurrets, 1, file);
-	fread(turretPos, sizeof turretPos[0], numTurrets, file);
-	fread(turretLookAngle, sizeof turretLookAngle[0], numTurrets, file);
-	fread(&numBombs, sizeof numBombs, 1, file);
-	fread(bombPos, sizeof bombPos[0], numBombs, file);
-	fclose(file);
-
-	char name[sizeof room->name];
-	snprintf(name, sizeof name, "%s", filename);
-	memset(room, 0, sizeof room[0]);
-	memcpy(room->name, name, sizeof name);
-	room->numTilesX = (int)numTilesX;
-	room->numTilesY = (int)numTilesY;
-	for (u8 y = 0; y < numTilesY; ++y)
-		for (u8 x = 0; x < numTilesX; ++x)
-			room->tiles[y][x] = (Tile)tiles[y][x];
-	room->playerDefaultPos = playerDefaultPos;
-	room->numDoors = (int)numDoors;
-	memcpy(room->connections, connections, sizeof connections);
-	for (u8 i = 0; i < numDoors; ++i)
-	{
-		room->doorX[i] = (int)doorX[i];
-		room->doorY[i] = (int)doorY[i];
-	}
-	room->numTurrets = (int)numTurrets;
-	memcpy(room->turretPos, turretPos, sizeof turretPos);
-	memcpy(room->turretLookAngle, turretLookAngle, sizeof turretLookAngle);
-	room->numBombs = (int)numBombs;
-	memcpy(room->bombPos, bombPos, sizeof bombPos);
-
-	TraceLog(LOG_INFO, "Loaded room '%s'.", filepath);
-	return true;
-}
-void SaveRoom(const Room *room)
-{
-	char *filepath = TempPrint("res/%s.bin", room->name);
-	FILE *file = fopen(filepath, "wb");
-	if (!file)
-	{
-		TraceLog(LOG_ERROR, "Failed to save room because couldn't open file '%s'.", filepath);
-		return;
-	}
-
-	u64 flags = 0;
-	fwrite(&flags, sizeof flags, 1, file);
-
-	u8 numTilesX = (u8)room->numTilesX;
-	u8 numTilesY = (u8)room->numTilesY;
-	fwrite(&numTilesX, sizeof numTilesX, 1, file);
-	fwrite(&numTilesY, sizeof numTilesY, 1, file);
-
-	for (u8 y = 0; y < numTilesY; ++y)
-	{
-		for (u8 x = 0; x < numTilesX; ++x)
-		{
-			u8 tile = (u8)room->tiles[y][x];
-			fwrite(&tile, sizeof tile, 1, file);
-		}
-	}
-
-	fwrite(&room->playerDefaultPos, sizeof room->playerDefaultPos, 1, file);
-
-	u8 numDoors = (u8)room->numDoors;
-	fwrite(&numDoors, sizeof numDoors, 1, file);
-	fwrite(room->connections, sizeof room->connections[0], numDoors, file);
-	for (u8 i = 0; i < numDoors; ++i)
-	{
-		u8 doorX = (u8)room->doorX[i];
-		fwrite(&doorX, sizeof doorX, 1, file);
-	}
-	for (u8 i = 0; i < numDoors; ++i)
-	{
-		u8 doorY = (u8)room->doorY[i];
-		fwrite(&doorY, sizeof doorY, 1, file);
-	}
-
-	u8 numTurrets = (u8)room->numTurrets;
-	fwrite(&numTurrets, sizeof numTurrets, 1, file);
-	fwrite(room->turretPos, sizeof room->turretPos[0], numTurrets, file);
-	fwrite(room->turretLookAngle, sizeof room->turretLookAngle[0], numTurrets, file);
-
-	u8 numBombs = (u8)room->numBombs;
-	fwrite(&numBombs, sizeof numBombs, 1, file);
-	fwrite(room->bombPos, sizeof room->bombPos[0], numBombs, file);
-
-	fclose(file);
-	TraceLog(LOG_INFO, "Saved room '%s'.", filepath);
-}
-void CopyRoomToGame(Room *room)
-{
-	numBullets = 0;
-	numTurrets = 0;
-	numBombs = 0;
-	numCapturedBullets = 0;
-	numCapturedTurrets = 0;
-	numCapturedBombs = 0;
-	player.hasCapture = false;
-	player.justSnapped = false;
-	player.isReleasingCapture = false;
-
-	numTilesX = room->numTilesX;
-	numTilesY = room->numTilesY;
-	for (int y = 0; y < numTilesY; ++y)
-		memcpy(tiles[y], room->tiles[y], sizeof tiles[0]);
-
-	player.pos = room->playerDefaultPos;
-	for (int i = 0; i < room->numTurrets; ++i)
-		SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
-	for (int i = 0; i < room->numBombs; ++i)
-		SpawnBomb(room->bombPos[i]);
-}
-void CopyGameToRoom(Room *room)
-{
-	char name[sizeof room->name];
-	memcpy(name, room->name, sizeof name);
-	memset(room, 0, sizeof room[0]);
-	memcpy(room->name, name, sizeof name);
-	room->numTilesX = numTilesX;
-	room->numTilesY = numTilesY;
-	for (int y = 0; y < numTilesY; ++y)
-		memcpy(room->tiles[y], tiles[y], numTilesX * sizeof tiles[y][0]);
-	room->playerDefaultPos = player.pos;
-	room->numTurrets = numTurrets;
-	for (int i = 0; i < numTurrets; ++i)
-	{
-		Turret t = turrets[i];
-		room->turretPos[i] = t.pos;
-		room->turretLookAngle[i] = t.lookAngle;
-	}
-	room->numBombs = numBombs;
-	for (int i = 0; i < numBombs; ++i)
-	{
-		Bomb b = bombs[i];
-		room->bombPos[i] = b.pos;
-	}
-}
-
 // *---=========---*
 // |/   Playing   \|
 // *---=========---*
@@ -1213,6 +1257,15 @@ GameState Playing_Update(void)
 	UpdateBullets();
 	UpdateTurrets();
 	UpdateBombs();
+
+	Tile playerTile = TileAtVec(player.pos);
+	if (playerTile == TILE_EXIT && NumRemainingEnemies() == 0)
+	{
+		bool loadedNextLevel = LoadRoom(&currentRoom, nextRoomName);
+		if (loadedNextLevel)
+			CopyRoomToGame(&currentRoom);
+	}
+
 	return GAME_STATE_PLAYING;
 }
 void Playing_Draw(void)
@@ -1615,10 +1668,17 @@ void LevelEditor_Draw(void)
 		float y = y0;
 		int state;
 
+		x = x0;
 		DoTileButton(TILE_FLOOR, x, y);
 		x += 55;
 		DoTileButton(TILE_WALL, x, y);
+		y += 55;
+
+		x = x0;
+		DoTileButton(TILE_ENTRANCE, x, y);
 		x += 55;
+		DoTileButton(TILE_EXIT, x, y);
+		y += 55;
 	}
 
 	const char *propertiesTitle = NULL;
@@ -1673,6 +1733,19 @@ void LevelEditor_Draw(void)
 				GuiTextBox(roomNameRect, currentRoom.name, sizeof currentRoom.name, isFocused);
 				GuiLabel(Rect(x + 145, y, 20, 20), "Name");
 				y += 25;
+
+				Rectangle prevNameRect = Rect(x, y, 140, 20);
+				isFocused = CheckCollisionPointRec(lastMouseClickPos, prevNameRect);
+				GuiTextBox(prevNameRect, previousRoomName, sizeof previousRoomName, isFocused);
+				GuiLabel(Rect(x + 145, y, 20, 20), "Prev");
+				y += 25;
+
+				Rectangle nextNameRect = Rect(x, y, 140, 20);
+				isFocused = CheckCollisionPointRec(lastMouseClickPos, nextNameRect);
+				GuiTextBox(nextNameRect, nextRoomName, sizeof nextRoomName, isFocused);
+				GuiLabel(Rect(x + 145, y, 20, 20), "Next");
+				y += 25;
+				
 				if (GuiButton(Rect(x, y, 65, 20), "Save"))
 				{
 					CopyGameToRoom(&currentRoom);

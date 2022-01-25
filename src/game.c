@@ -11,6 +11,7 @@
 #define MAX_BULLETS 100
 #define MAX_TURRETS 50
 #define MAX_BOMBS 50
+#define MAX_EXPLOSIONS 10
 #define TILE_SIZE 30
 #define MAX_TILES_X (SCREEN_WIDTH/TILE_SIZE)
 #define MAX_TILES_Y (SCREEN_HEIGHT/TILE_SIZE)
@@ -31,6 +32,7 @@
 #define BOMB_SPEED_CLOSE 8.0f
 #define BOMB_CLOSE_THRESHOLD 6.0f
 #define BOMB_EXPLOSION_RADIUS 4.0f
+#define BOMB_EXPLOSION_DURATION 0.5f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
 
@@ -108,6 +110,7 @@ typedef struct Bomb
 	Vector2 lastKnownPlayerPos; //@HACK: x == 0 && y == 0 means the player was never seen.
 	Vector2 idleMoveVel;
 	bool wasFlung;
+	Vector2 flungOrigin;
 	Vector2 flungVel;
 	int framesUntilIdleMove;
 	int framesToIdleMove;
@@ -132,6 +135,14 @@ typedef struct Room
 	int numBombs;
 	Vector2 bombPos[MAX_BOMBS];
 } Room;
+
+typedef struct Explosion
+{
+	Vector2 pos;
+	float radius;
+	int frame;
+	int durationFrames;
+} Explosion;
 
 typedef struct EditorSelection
 {
@@ -204,6 +215,7 @@ Vector2 TileToScreen(Vector2 tilePos)
 // |/   Globals   \|
 // *---=========---*
 
+bool godMode = true; //@TODO: Disable this for release.
 const bool devMode = true; //@TODO: Disable this for release.
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
@@ -218,6 +230,7 @@ GameState gameState = GAME_STATE_START_MENU;
 Random rng;
 Sound flashSound;
 Sound longShotSound;
+Sound explosionSound;
 Player player;
 int numBullets;
 int numCapturedBullets;
@@ -231,6 +244,8 @@ int numBombs;
 int numCapturedBombs;
 Bomb bombs[MAX_BOMBS];
 Bomb capturedBombs[MAX_BOMBS];
+int numExplosions;
+Explosion explosions[MAX_EXPLOSIONS];
 
 // *---=======---*
 // |/   Tiles   \|
@@ -348,6 +363,9 @@ bool IsPointBlockedByEnemiesFrom(Vector2 pos, Vector2 target)
 	for (int i = 0; i < numTurrets; ++i)
 		if (CheckCollisionLineCircle(pos, target, turrets[i].pos, TURRET_RADIUS))
 			return true;
+	for (int i = 0; i < numBombs; ++i)
+		if (CheckCollisionLineCircle(pos, target, bombs[i].pos, BOMB_RADIUS))
+			return true;
 	return false;
 }
 Vector2 ResolveCollisionsCircleRoom(Vector2 center, float radius, Vector2 velocity)
@@ -453,26 +471,45 @@ Bomb *SpawnBomb(Vector2 pos)
 	bomb->framesToIdleMove = 0;
 	bomb->idleMoveVel = Vector2Zero();
 	bomb->wasFlung = false;
+	bomb->flungOrigin = Vector2Zero();
 	bomb->flungVel = Vector2Zero();
 	return bomb;
 }
+Explosion *SpawnExplosion(Vector2 pos, float durationSeconds, float radius)
+{
+	if (numExplosions >= MAX_EXPLOSIONS)
+		return NULL;
+
+	Explosion *explosion = &explosions[numExplosions++];
+	explosion->durationFrames = (int)(durationSeconds * FPS);
+	explosion->frame = 0;
+	explosion->pos = pos;
+	explosion->radius = radius;
+	return explosion;
+}
 void RemoveBulletFromGlobalList(int index)
 {
-	ASSERT(index < numBullets);
+	ASSERT(index >= 0 && index < numBullets);
 	SwapMemory(bullets + index, bullets + numBullets - 1, sizeof bullets[0]);
 	--numBullets;
 }
 void RemoveTurretFromGlobalList(int index)
 {
-	ASSERT(index < numTurrets);
+	ASSERT(index >= 0 && index < numTurrets);
 	SwapMemory(turrets + index, turrets + numTurrets - 1, sizeof turrets[0]);
 	--numTurrets;
 }
 void RemoveBombFromGlobalList(int index)
 {
-	ASSERT(index < numBombs);
+	ASSERT(index >= 0 && index < numBombs);
 	SwapMemory(bombs + index, bombs + numBombs - 1, sizeof bombs[0]);
 	--numBombs;
+}
+void RemoveExplosionsFromGlobalList(int index)
+{
+	ASSERT(index >= 0 && index < numExplosions);
+	SwapMemory(explosions + index, explosions + numExplosions - 1, sizeof explosions[0]);
+	--numExplosions;
 }
 void ShiftAllObjectsBy(float dx, float dy)
 {
@@ -488,6 +525,14 @@ void ShiftAllObjectsBy(float dx, float dy)
 		bombs[i].pos.x += dx;
 		bombs[i].pos.y += dy;
 	}
+}
+void ExplodeBomb(int index)
+{
+	assert(index >= 0 && index < numBombs);
+	Bomb *bomb = &bombs[index];
+	SpawnExplosion(bomb->pos, BOMB_EXPLOSION_DURATION, BOMB_EXPLOSION_RADIUS);
+	PlaySound(explosionSound);
+	RemoveBombFromGlobalList(index);
 }
 
 // *---=======---*
@@ -802,8 +847,8 @@ void DrawTiles(void)
 }
 void DrawBullets(void)
 {
-	Color bulletTrail0 = ColorAlpha(DARKGRAY, 0);
-	Color bulletTrail1 = ColorAlpha(DARKGRAY, 0.2);
+	const Color trailColor0 = ColorAlpha(DARKGRAY, 0);
+	const Color trailColor1 = ColorAlpha(DARKGRAY, 0.2);
 	for (int i = 0; i < numBullets; ++i)
 	{
 		Bullet b = bullets[i];
@@ -818,10 +863,10 @@ void DrawBullets(void)
 		Vector2 trail3 = Vector2Add(b.pos, perp3);
 		rlBegin(RL_TRIANGLES);
 		{
-			rlColor(bulletTrail1);
+			rlColor(trailColor1);
 			rlVertex2fv(trail1);
 			rlVertex2fv(trail2);
-			rlColor(bulletTrail0);
+			rlColor(trailColor0);
 			rlVertex2fv(trail3);
 		}
 		rlEnd();
@@ -843,10 +888,44 @@ void DrawTurrets(void)
 }
 void DrawBombs(void)
 {
+	const Color trailColor0 = ColorAlpha(DARKGRAY, 0);
+	const Color trailColor1 = ColorAlpha(DARKGRAY, 0.2);
 	for (int i = 0; i < numBombs; ++i)
 	{
 		Bomb b = bombs[i];
+		if (b.wasFlung)
+		{
+			Vector2 perp1 = Vector2Scale(Vector2Normalize(Vec2(-b.flungVel.y, +b.flungVel.x)), BULLET_RADIUS);
+			Vector2 perp2 = Vector2Scale(Vector2Normalize(Vec2(+b.flungVel.y, -b.flungVel.x)), BULLET_RADIUS);
+			Vector2 toOrigin = Vector2Subtract(b.flungOrigin, b.pos);
+			Vector2 perp3 = Vector2Scale(Vector2Normalize(toOrigin), PixelsToTiles(400));
+			if (Vector2LengthSqr(perp3) > Vector2LengthSqr(toOrigin))
+				perp3 = toOrigin;
+			Vector2 trail1 = Vector2Add(b.pos, perp1);
+			Vector2 trail2 = Vector2Add(b.pos, perp2);
+			Vector2 trail3 = Vector2Add(b.pos, perp3);
+			rlBegin(RL_TRIANGLES);
+			{
+				rlColor(trailColor1);
+				rlVertex2fv(trail1);
+				rlVertex2fv(trail2);
+				rlColor(trailColor0);
+				rlVertex2fv(trail3);
+			}
+			rlEnd();
+		}
 		DrawCircleV(b.pos, BOMB_RADIUS, BLACK);
+	}
+}
+void DrawExplosions(void)
+{
+	for (int i = 0; i < numExplosions; ++i)
+	{
+		Explosion *e = &explosions[i];
+		float t = 2 * Clamp(e->frame / (float)e->durationFrames, 0, 1);
+		float x = 1 - t;
+		float r = (1 - x * x * x * x * x * x) * e->radius;
+		DrawCircleV(e->pos, r, ColorAlpha(RED, 0.5f));
 	}
 }
 
@@ -1008,6 +1087,7 @@ void UpdatePlayer(void)
 			if (bomb)
 			{
 				bomb->wasFlung = true;
+				bomb->flungOrigin = pos;
 				bomb->flungVel = releaseVel;
 			}
 		}
@@ -1056,7 +1136,7 @@ void UpdateBullets(void)
 				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, bomb->pos, BOMB_RADIUS))
 				{
 					RemoveBulletFromGlobalList(i);
-					RemoveBombFromGlobalList(j);
+					ExplodeBomb(j);
 					--i;
 					collided = true;
 					break;
@@ -1096,8 +1176,8 @@ void UpdateTurrets(void)
 					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, bombs[j].pos, BOMB_RADIUS))
 					{
 						exploded = true;
-						RemoveBombFromGlobalList(j);
-						--j;
+						ExplodeBomb(j);
+						break;
 					}
 				}
 				if (exploded)
@@ -1176,7 +1256,7 @@ void UpdateBombs(void)
 			bool collidedWithPlayer = CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS);
 			if (collidedWithPlayer || !Vector2Equal(b->pos, expectedPos))
 			{
-				RemoveBombFromGlobalList(i);
+				ExplodeBomb(i);
 				--i;
 			}
 		}
@@ -1229,8 +1309,51 @@ void UpdateBombs(void)
 
 			if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
 			{
-				RemoveBombFromGlobalList(i);
+				ExplodeBomb(i);
 				--i;
+			}
+		}
+	}
+}
+void UpdateExplosions(void)
+{
+	for (int i = 0; i < numExplosions; ++i)
+	{
+		Explosion *e = &explosions[i];
+		e->frame++;
+		if (e->frame > e->durationFrames)
+		{
+			RemoveExplosionsFromGlobalList(i);
+			--i;
+		}
+		else
+		{
+			float t = 2 * Clamp(e->frame / (float)e->durationFrames, 0, 1);
+			if (t <= 1)
+			{
+				float x = 1 - t;
+				float r = (1 - x * x * x * x * x * x) * e->radius;
+
+				for (int j = 0; j < numTurrets; ++j)
+				{
+					Turret *t = &turrets[j];
+					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, e->pos, r))
+					{
+						RemoveTurretFromGlobalList(j);
+						--j;
+					}
+				}
+				for (int j = 0; j < numBombs; ++j)
+				{
+					Bomb *b = &bombs[j];
+					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, e->pos, r))
+					{
+						ExplodeBomb(j);
+						--j;
+					}
+				}
+
+				// @TODO: Collision check with player!
 			}
 		}
 	}
@@ -1257,6 +1380,7 @@ GameState Playing_Update(void)
 	UpdateBullets();
 	UpdateTurrets();
 	UpdateBombs();
+	UpdateExplosions();
 
 	Tile playerTile = TileAtVec(player.pos);
 	if (playerTile == TILE_EXIT && NumRemainingEnemies() == 0)
@@ -1277,6 +1401,7 @@ void Playing_Draw(void)
 		DrawBombs();
 		DrawPlayer();
 		DrawBullets();
+		DrawExplosions();
 		DrawPlayerCaptureCone();
 		DrawPlayerRelease();
 	}
@@ -1649,7 +1774,7 @@ void LevelEditor_Draw(void)
 
 		if (GuiButton(Rect(x, y, 60, 60), "Bomb"))
 		{
-			Bomb *bomb = SpawnBomb(Vector2Zero(), 0);
+			Bomb *bomb = SpawnBomb(Vector2Zero());
 			if (bomb)
 			{
 				selection.kind = EDITOR_SELECTION_KIND_BOMB;
@@ -1790,6 +1915,7 @@ void GameInit(void)
 
 	flashSound = LoadSound("res/snap.wav");
 	longShotSound = LoadSound("res/long-shot.wav");
+	explosionSound = LoadSound("res/explosion.wav");
 	SetSoundVolume(longShotSound, 0.1f);
 
 	if (devMode)

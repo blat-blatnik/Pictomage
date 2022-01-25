@@ -146,10 +146,12 @@
     <Natvis Include="debug.natvis" />
   </ItemGroup>
   <ItemGroup>
+    <Media Include="res\explosion.wav" />
     <Media Include="res\long-shot.wav" />
     <Media Include="res\snap.wav" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="credits.txt" />
     <Text Include="room-file-format.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

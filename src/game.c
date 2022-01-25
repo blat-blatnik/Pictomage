@@ -9,7 +9,8 @@
 #define FPS 60
 #define DELTA_TIME (1.0f/FPS)
 #define MAX_BULLETS 100
-#define MAX_TURRETS 100
+#define MAX_TURRETS 50
+#define MAX_BOMBS 50
 #define TILE_SIZE 30
 #define MAX_TILES_X (SCREEN_WIDTH/TILE_SIZE)
 #define MAX_TILES_Y (SCREEN_HEIGHT/TILE_SIZE)
@@ -23,6 +24,8 @@
 #define TURRET_RADIUS 1.0f
 #define TURRET_TURN_SPEED (30.0f*DEG2RAD)
 #define TURRET_FIRE_RATE 1.5f
+#define BOMB_RADIUS 0.4f
+#define BOMB_SPEED 1.0f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
 
@@ -90,6 +93,12 @@ typedef struct Turret
 	Vector2 lastKnownPlayerPos; //@HACK: x == 0 && y == 0 means the player was never seen.
 } Turret;
 
+typedef struct Bomb
+{
+	Vector2 pos;
+	Vector2 lastKnownPlayerPos; //@HACK: x == 0 && y == 0 means the player was never seen.
+} Bomb;
+
 typedef struct Room
 {
 	char name[MAX_ROOM_FILE_NAME];
@@ -108,6 +117,9 @@ typedef struct Room
 	int numTurrets;
 	Vector2 turretPos[MAX_TURRETS];
 	float turretLookAngle[MAX_TURRETS];
+
+	int numBombs;
+	Vector2 bombPos[MAX_BOMBS];
 } Room;
 
 typedef struct EditorSelection
@@ -198,6 +210,8 @@ Bullet bullets[MAX_BULLETS];
 Bullet capturedBullets[MAX_BULLETS];
 int numTurrets;
 Turret turrets[MAX_TURRETS];
+int numBombs;
+Bomb bombs[MAX_BOMBS];
 
 // *---=======---*
 // |/   Tiles   \|
@@ -221,6 +235,18 @@ bool TileIsPassable(Tile tile)
 		case TILE_FLOOR:
 			return true;
 		case TILE_WALL:
+		default:
+			return false;
+	}
+}
+bool TileIsOpaque(Tile tile)
+{
+	switch (tile)
+	{
+		case TILE_WALL:
+			return true;
+		case TILE_NONE:
+		case TILE_FLOOR:
 		default:
 			return false;
 	}
@@ -364,6 +390,17 @@ int SpawnTurret(Vector2 pos, float lookAngleRadians)
 	turrets[index].lastKnownPlayerPos.y = 0;
 	return index;
 }
+int SpawnBomb(Vector2 pos)
+{
+	if (numBombs >= MAX_BOMBS)
+		return -1;
+
+	int index = numBombs++;
+	bombs[index].pos = pos;
+	bombs[index].lastKnownPlayerPos.x = 0;
+	bombs[index].lastKnownPlayerPos.y = 0;
+	return index;
+}
 void RemoveBulletFromGlobalList(int index)
 {
 	ASSERT(index < numBullets);
@@ -376,6 +413,12 @@ void RemoveTurretFromGlobalList(int index)
 	SwapMemory(turrets + index, turrets + numTurrets - 1, sizeof turrets[0]);
 	--numTurrets;
 }
+void RemoveBombFromGlobalList(int index)
+{
+	ASSERT(index < numBombs);
+	SwapMemory(bombs + index, bombs + numBombs - 1, sizeof bombs[0]);
+	--numBombs;
+}
 void ShiftAllObjectsBy(float dx, float dy)
 {
 	player.pos.x += dx;
@@ -384,6 +427,11 @@ void ShiftAllObjectsBy(float dx, float dy)
 	{
 		turrets[i].pos.x += dx;
 		turrets[i].pos.y += dy;
+	}
+	for (int i = 0; i < numBombs; ++i)
+	{
+		bombs[i].pos.x += dx;
+		bombs[i].pos.y += dy;
 	}
 }
 
@@ -503,19 +551,6 @@ void DrawTiles(void)
 		}
 	}
 }
-void DrawTurrets(void)
-{
-	for (int i = 0; i < numTurrets; ++i)
-	{
-		Turret t = turrets[i];
-		DrawCircleV(t.pos, TURRET_RADIUS, BLACK);
-		DrawCircleV(t.pos, TURRET_RADIUS - PixelsToTiles(5), DARKGRAY);
-		float lookAngleDegrees = RAD2DEG * t.lookAngle;
-		Rectangle gunBarrel = { t.pos.x, t.pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
-		DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, MAROON);
-		DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), ORANGE);
-	}
-}
 void DrawBullets(void)
 {
 	Color bulletTrail0 = ColorAlpha(DARKGRAY, 0);
@@ -542,6 +577,27 @@ void DrawBullets(void)
 		}
 		rlEnd();
 		DrawCircleV(b.pos, BULLET_RADIUS, DARKGRAY);
+	}
+}
+void DrawTurrets(void)
+{
+	for (int i = 0; i < numTurrets; ++i)
+	{
+		Turret t = turrets[i];
+		DrawCircleV(t.pos, TURRET_RADIUS, BLACK);
+		DrawCircleV(t.pos, TURRET_RADIUS - PixelsToTiles(5), DARKGRAY);
+		float lookAngleDegrees = RAD2DEG * t.lookAngle;
+		Rectangle gunBarrel = { t.pos.x, t.pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
+		DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, MAROON);
+		DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), ORANGE);
+	}
+}
+void DrawBombs(void)
+{
+	for (int i = 0; i < numBombs; ++i)
+	{
+		Bomb b = bombs[i];
+		DrawCircleV(b.pos, BOMB_RADIUS, BLACK);
 	}
 }
 
@@ -744,6 +800,14 @@ void UpdateTurrets(void)
 			t->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE); // (Frame/sec) / (Shots/sec) = Frame/Shot
 	}
 }
+void UpdateBombs(void)
+{
+	for (int i = 0; i < numBullets; ++i)
+	{
+		Bomb *b = &bombs[i];
+		//b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME));
+	}
+}
 
 // *---=======---*
 // |/   Level   \|
@@ -772,6 +836,8 @@ bool LoadRoom(Room *room, const char *filename)
 	u8 numTurrets = 0;
 	Vector2 turretPos[MAX_TURRETS] = { 0 };
 	float turretLookAngle[MAX_TURRETS] = { 0 };
+	u8 numBombs = 0;
+	Vector2 bombPos[MAX_BOMBS] = { 0 };
 
 	fread(&flags, sizeof flags, 1, file);
 	fread(&numTilesX, sizeof numTilesX, 1, file);
@@ -786,6 +852,8 @@ bool LoadRoom(Room *room, const char *filename)
 	fread(&numTurrets, sizeof numTurrets, 1, file);
 	fread(turretPos, sizeof turretPos[0], numTurrets, file);
 	fread(turretLookAngle, sizeof turretLookAngle[0], numTurrets, file);
+	fread(&numBombs, sizeof numBombs, 1, file);
+	fread(bombPos, sizeof bombPos[0], numBombs, file);
 	fclose(file);
 
 	char name[sizeof room->name];
@@ -808,6 +876,8 @@ bool LoadRoom(Room *room, const char *filename)
 	room->numTurrets = (int)numTurrets;
 	memcpy(room->turretPos, turretPos, sizeof turretPos);
 	memcpy(room->turretLookAngle, turretLookAngle, sizeof turretLookAngle);
+	room->numBombs = (int)numBombs;
+	memcpy(room->bombPos, bombPos, sizeof bombPos);
 
 	TraceLog(LOG_INFO, "Loaded room '%s'.", filepath);
 	return true;
@@ -841,7 +911,7 @@ void SaveRoom(const Room *room)
 
 	fwrite(&room->playerDefaultPos, sizeof room->playerDefaultPos, 1, file);
 
-	u8 numDoors = room->numDoors;
+	u8 numDoors = (u8)room->numDoors;
 	fwrite(&numDoors, sizeof numDoors, 1, file);
 	fwrite(room->connections, sizeof room->connections[0], numDoors, file);
 	for (u8 i = 0; i < numDoors; ++i)
@@ -855,10 +925,14 @@ void SaveRoom(const Room *room)
 		fwrite(&doorY, sizeof doorY, 1, file);
 	}
 
-	u8 numTurrets = room->numTurrets;
+	u8 numTurrets = (u8)room->numTurrets;
 	fwrite(&numTurrets, sizeof numTurrets, 1, file);
 	fwrite(room->turretPos, sizeof room->turretPos[0], numTurrets, file);
 	fwrite(room->turretLookAngle, sizeof room->turretLookAngle[0], numTurrets, file);
+
+	u8 numBombs = (u8)room->numBombs;
+	fwrite(&numBombs, sizeof numBombs, 1, file);
+	fwrite(room->bombPos, sizeof room->bombPos[0], numBombs, file);
 
 	fclose(file);
 	TraceLog(LOG_INFO, "Saved room '%s'.", filepath);
@@ -867,6 +941,7 @@ void CopyRoomToGame(Room *room)
 {
 	numBullets = 0;
 	numTurrets = 0;
+	numBombs = 0;
 	numCapturedBullets = 0;
 	player.hasCapture = false;
 	player.justSnapped = false;
@@ -880,6 +955,8 @@ void CopyRoomToGame(Room *room)
 	player.pos = room->playerDefaultPos;
 	for (int i = 0; i < room->numTurrets; ++i)
 		SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
+	for (int i = 0; i < room->numBombs; ++i)
+		SpawnBomb(room->bombPos[i]);
 }
 void CopyGameToRoom(Room *room)
 {
@@ -891,13 +968,19 @@ void CopyGameToRoom(Room *room)
 	room->numTilesY = numTilesY;
 	for (int y = 0; y < numTilesY; ++y)
 		memcpy(room->tiles[y], tiles[y], numTilesX * sizeof tiles[y][0]);
-	room->numTurrets = numTurrets;
 	room->playerDefaultPos = player.pos;
+	room->numTurrets = numTurrets;
 	for (int i = 0; i < numTurrets; ++i)
 	{
 		Turret t = turrets[i];
 		room->turretPos[i] = t.pos;
 		room->turretLookAngle[i] = t.lookAngle;
+	}
+	room->numBombs = numBombs;
+	for (int i = 0; i < numBombs; ++i)
+	{
+		Bomb b = bombs[i];
+		room->bombPos[i] = b.pos;
 	}
 }
 

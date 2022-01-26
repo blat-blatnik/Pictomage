@@ -137,7 +137,6 @@ typedef struct GlassBox
 typedef struct TriggerMessage
 {
 	Rectangle rect;
-	float t; // For animations.
 	bool once;
 	bool isTriggered;
 	bool wasTriggerred;
@@ -569,12 +568,11 @@ TriggerMessage *SpawnTriggerMessage(Rectangle rect, bool once, const char *messa
 
 	TriggerMessage *tm = &triggerMessages[numTriggerMessages++];
 	tm->rect = rect;
-	tm->t = 0;
 	tm->once = once;
 	tm->isTriggered = false;
 	tm->wasTriggerred = false;
 	tm->enterTime = 0;
-	tm->leaveTime = 0;
+	tm->leaveTime = INFINITY;
 	memset(tm->message, 0, sizeof tm->message);
 	snprintf(tm->message, sizeof tm->message, "%s", message);
 	return tm;
@@ -1374,6 +1372,7 @@ void UpdateTriggerredMessages(void)
 		{
 			if (!tm->once || !tm->wasTriggerred)
 			{
+				tm->enterTime = GetTime();
 				tm->isTriggered = true;
 				tm->wasTriggerred = true;
 			}
@@ -1381,14 +1380,11 @@ void UpdateTriggerredMessages(void)
 		else if (tm->isTriggered)
 		{
 			if (!outerOverlap)
+			{
 				tm->isTriggered = false;
+				tm->leaveTime = GetTime();
+			}
 		}
-
-		if (tm->isTriggered)
-			tm->t += GetFrameTime();
-		else
-			tm->t -= GetFrameTime();
-		tm->t = Clamp(tm->t, 0, POPUP_ANIMATION_TIME);
 	}
 }
 
@@ -1670,6 +1666,7 @@ void DrawGlassBoxes(void)
 }
 void DrawTriggerMessages(bool debug)
 {
+	double timeNow = GetTime();
 	for (int i = 0; i < numTriggerMessages; ++i)
 	{
 		TriggerMessage tm = triggerMessages[i];
@@ -1677,12 +1674,17 @@ void DrawTriggerMessages(bool debug)
 			DrawRectangleRec(tm.rect, ColorAlpha(ORANGE, 0.3f));
 		else
 		{
-			if (tm.t > 0)
+			float enterTime = Clamp((timeNow - tm.enterTime) / POPUP_ANIMATION_TIME, 0, 1);
+			float leaveTime = Clamp((timeNow - tm.leaveTime) / POPUP_ANIMATION_TIME, 0, 1);
+			if (tm.leaveTime < tm.enterTime)
+				leaveTime = 0;
+			if (tm.isTriggered || (leaveTime > 0 && leaveTime < POPUP_ANIMATION_TIME))
 			{
 				const float flyInOutTime = 0.1f;
-				float t = Clamp(tm.t / POPUP_ANIMATION_TIME, 0, 1);
-				float t0 = Clamp(t / flyInOutTime, 0, 1);
-				float t1 = Clamp((t - flyInOutTime) / (1 - flyInOutTime), 0, 1);
+				float t0Enter = Clamp(enterTime / flyInOutTime, 0, 1);
+				float t0Leave = Clamp((leaveTime - 1 + flyInOutTime) / flyInOutTime, 0, 1);
+				float t1Enter = Clamp((enterTime - flyInOutTime) / (1 - flyInOutTime), 0, 1);
+				float t1Leave = Clamp(leaveTime / (1 - flyInOutTime), 0, 1);
 
 				char text[MAX_POPUP_MESSAGE_LENGTH];
 				memcpy(text, tm.message, sizeof tm.message);
@@ -1697,92 +1699,59 @@ void DrawTriggerMessages(bool debug)
 				const float centerY = 200;
 				const float tapePadX = 30;
 				const float tapePadY = 10;
-				Rectangle reelRect;
 
-				if (t < flyInOutTime)
-				{
-					float height = textSize.y + 2 * tapePadY + 4;
-					float x0 = centerX - 0.5f * textSize.x - tapePadX;
-					float x1 = x0 + textSize.x + 2 * tapePadX;
-					float y0 = -height;
-					float y1 = centerY - 0.5f * fontSize - tapePadX - 2;
-					reelRect = Rect(
-						x0,
-						y1,
-						30,
-						height);
+				Rectangle tape = {
+					centerX - 0.5f * textSize.x - tapePadX,
+					centerY - 0.5f * fontSize - tapePadY,
+					textSize.x + 2 * tapePadX,
+					textSize.y + 2 * tapePadY
+				};
+				
+				float tapeX0 = tape.x;
+				float tapeX1 = tape.x + tape.width;
+				float tapeY0 = -tape.height - 10;
+				float tapeY1 = tape.y;
+				tape.y = Lerp(tapeY0, tapeY1, Clamp(t0Enter - t0Leave, 0, 1));
+				tape.x = Lerp(tapeX0, tapeX1, t1Leave);
+				tape.width = Lerp(0, tape.width, Clamp(t1Enter - t1Leave, 0, 1));
 
-					if (tm.isTriggered)
-					{
-						reelRect.x = x0;
-						reelRect.y = Lerp(y0, y1, t0);
-					}
-					else
-					{
-						reelRect.x = x1;
-						reelRect.y = Lerp(y1, y0, 1 - t0);
-					}
-				}
-				else
-				{
-					Rectangle tapeRect = Rect(
-						centerX - 0.5f * textSize.x - tapePadX,
-						centerY - 0.5f * fontSize - tapePadY,
-						textSize.x + 2 * tapePadX,
-						textSize.y + 2 * tapePadY);
-					reelRect = Rect(
-						tapeRect.x,
-						tapeRect.y - 2,
-						30,
-						tapeRect.height + 4);
-
-					float textOffsetX = 0;
-					if (tm.isTriggered)
-					{
-						reelRect.x = Lerp(reelRect.x, tapeRect.x + tapeRect.width, t1);
-						tapeRect.width = Lerp(0, tapeRect.width, t1);
-					}
-					else
-					{
-						textOffsetX = Lerp(0, tapeRect.width, 1 - t1);
-						reelRect.x = tapeRect.x + tapeRect.width;
-						tapeRect.x = Lerp(tapeRect.x, tapeRect.x + tapeRect.width, 1 - t1);
-						tapeRect.width = Lerp(tapeRect.width, 0, 1 - t1);
-					}
-
-					if (t > flyInOutTime)
-					{
-						float textMaxWidth = tapeRect.width - tapePadX;
-						for (int j = 0; j < textLength; ++j)
-						{
-							char backup = text[j];
-							text[j] = 0;
-							Vector2 s = MeasureTextEx(font, text, fontSize, 1);
-							if (s.x > textMaxWidth)
-								break;
-							text[j] = backup;
-						}
-
-						DrawRectangleRec(tapeRect, Grayscale(0.15f));
-						DrawTextEx(font, text, Vec2(centerX - 0.5f * textSize.x + textOffsetX, centerY - 0.5f * textSize.y), fontSize, 1, RAYWHITE);
-					}
-				}
+				Rectangle reel = {
+					tape.x + tape.width,
+					tape.y - 2,
+					30,
+					tape.height + 4
+				};
 
 				Rectangle reelTop = {
-					reelRect.x - 3,
-					reelRect.y + reelRect.height,
-					reelRect.width + 6,
+					reel.x - 3,
+					reel.y + reel.height,
+					reel.width + 6,
 					3
 				};
 				Rectangle reelBottom = {
-					reelRect.x - 3,
-					reelRect.y - 3,
-					reelRect.width + 6,
+					reel.x - 3,
+					reel.y - 3,
+					reel.width + 6,
 					3
 				};
 
-				DrawRectangleRec(reelRect, Grayscale(0.4f));
-				DrawRectangleRec(ExpandRectangleEx(reelRect, +3, +3, -3.5f, -3.5f), Grayscale(0.1f));
+				float textOffsetX = tape.x - tapeX0;
+				float textMaxWidth = tape.width;
+				for (int j = 0; j < textLength; ++j)
+				{
+					char backup = text[j];
+					text[j] = 0;
+					Vector2 s = MeasureTextEx(font, text, fontSize, 1);
+					if (s.x >= textMaxWidth)
+						break;
+					text[j] = backup;
+				}
+
+				DrawRectangleRec(tape, Grayscale(0.15f));
+				DrawTextEx(font, text, Vec2(centerX - 0.5f * textSize.x + textOffsetX, centerY - 0.5f * textSize.y), fontSize, 1, RAYWHITE);
+
+				DrawRectangleRec(reel, Grayscale(0.4f));
+				DrawRectangleRec(ExpandRectangleEx(reel, +3, +3, -3.5f, -3.5f), Grayscale(0.1f));
 				DrawRectangleRec(reelTop, Grayscale(0.3f));
 				DrawRectangleRec(reelBottom, Grayscale(0.3f));
 			}

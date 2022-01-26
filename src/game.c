@@ -1294,12 +1294,12 @@ void UpdateTurrets(void)
 			t->flingVelocity = Vector2Scale(t->flingVelocity, TURRET_FRICTION);
 		}
 
-		bool playerIsVisible = IsPointVisibleFrom(t->pos, player.pos);
+		bool playerIsVisible = player.isAlive && IsPointVisibleFrom(t->pos, player.pos);
 		if (playerIsVisible)
 			t->lastKnownPlayerPos = player.pos;
 
 		bool triedToShoot = false;
-		if (t->lastKnownPlayerPos.x != 0 || t->lastKnownPlayerPos.y != 0)
+		if (player.isAlive && (t->lastKnownPlayerPos.x != 0 || t->lastKnownPlayerPos.y != 0))
 		{
 			float angleToPlayer = AngleBetween(t->pos, t->lastKnownPlayerPos);
 			float dAngle = WrapMinMax(angleToPlayer - t->lookAngle, -PI, +PI);
@@ -1373,14 +1373,14 @@ void UpdateBombs(void)
 		}
 		else
 		{
-			bool playerIsVisible = IsPointVisibleFrom(b->pos, player.pos);
+			bool playerIsVisible = player.isAlive && IsPointVisibleFrom(b->pos, player.pos);
 			if (playerIsVisible)
 				b->lastKnownPlayerPos = player.pos;
 
 			Vector2 vel = Vector2Zero();
 			bool chasedPlayer = false;
 
-			if (b->lastKnownPlayerPos.x != 0 || b->lastKnownPlayerPos.y != 0)
+			if (player.isAlive && (b->lastKnownPlayerPos.x != 0 || b->lastKnownPlayerPos.y != 0))
 			{
 				Vector2 toPlayer = Vector2Subtract(b->lastKnownPlayerPos, b->pos);
 				float length = Vector2Length(toPlayer);
@@ -1416,9 +1416,12 @@ void UpdateBombs(void)
 				b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
 				for (int j = 0; j < numTurrets; ++j)
 					b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS);
+				for (int j = 0; j < numBombs; ++j)
+					if (i != j)
+						b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, bombs[j].pos, BOMB_RADIUS);
 			}
 
-			if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
+			if (player.isAlive && CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
 			{
 				ExplodeBomb(i);
 				--i;

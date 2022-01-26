@@ -20,6 +20,7 @@
 #define MAX_GLASS_BOXES 50
 #define MAX_POPUP_MESSAGE_LENGTH 128
 #define MAX_TRIGGER_MESSAGES 10
+#define MAX_TEXTURE_VARIANTS 32
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
@@ -73,6 +74,8 @@ typedef enum Tile
 	TILE_WALL,
 	TILE_ENTRANCE,
 	TILE_EXIT,
+	// ----------------
+	TILE_ENUM_COUNT
 } Tile;
 
 typedef enum EditorSelectionKind
@@ -153,6 +156,7 @@ typedef struct Room
 	int numTilesX;
 	int numTilesY;
 	Tile tiles[MAX_TILES_Y][MAX_TILES_X];
+	u8 tileVariants[MAX_TILES_Y][MAX_TILES_X];
 	
 	Vector2 playerDefaultPos;
 	
@@ -193,6 +197,12 @@ typedef struct EditorSelection
 		TriggerMessage *triggerMessage;
 	};
 } EditorSelection;
+
+typedef struct TextureVariants
+{
+	int numVariants;
+	Texture variants[MAX_TEXTURE_VARIANTS];
+} TextureVariants;
 
 // *---========---*
 // |/   Camera   \|
@@ -272,13 +282,9 @@ char nextRoomName[MAX_ROOM_NAME];
 int numTilesX = MAX_TILES_X;
 int numTilesY = MAX_TILES_Y;
 Tile tiles[MAX_TILES_Y][MAX_TILES_X];
+u8 tileVariants[MAX_TILES_X][MAX_TILES_Y];
 GameState gameState = GAME_STATE_START_MENU;
 Random rng;
-Sound flashSound;
-Sound longShotSound;
-Sound explosionSound;
-Sound turretDestroySound;
-Sound shutterSound;
 Player player;
 int numBullets;
 int numCapturedBullets;
@@ -303,6 +309,12 @@ TriggerMessage triggerMessages[MAX_TRIGGER_MESSAGES];
 // |/   Assets   \|
 // *---========---*
 
+Sound flashSound;
+Sound longShotSound;
+Sound explosionSound;
+Sound turretDestroySound;
+Sound shutterSound;
+
 void LoadAllSounds(void)
 {
 	flashSound = LoadSound("res/snap.wav");
@@ -320,6 +332,35 @@ void StopAllLevelSounds(void)
 	StopSound(longShotSound);
 	StopSound(explosionSound);
 	StopSound(turretDestroySound);
+}
+
+Texture missingTexture;
+TextureVariants tileTextureVariants[TILE_ENUM_COUNT];
+
+void LoadTextureVariants(TextureVariants *tv, const char *baseName)
+{
+	tv->numVariants = 0;
+	for (int i = 0;; ++i)
+	{
+		const char *path = TempPrint("res/%s%d.png", baseName, i);
+		if (!FileExists(path))
+			break;
+
+		tv->variants[tv->numVariants++] = LoadTexture(path);
+	}
+}
+void LoadAllTextures(void)
+{
+	missingTexture = LoadTexture("res/missing.png");
+
+	for (int i = 0; i < TILE_ENUM_COUNT; ++i)
+		for (int j = 0; j < MAX_TEXTURE_VARIANTS; ++j)
+			tileTextureVariants[i].variants[j] = missingTexture;
+
+	LoadTextureVariants(&tileTextureVariants[TILE_FLOOR], "floor");
+	LoadTextureVariants(&tileTextureVariants[TILE_WALL], "wall");
+	LoadTextureVariants(&tileTextureVariants[TILE_ENTRANCE], "entrance");
+	LoadTextureVariants(&tileTextureVariants[TILE_EXIT], "exit-closed");
 }
 
 // *---=======---*
@@ -678,7 +719,8 @@ bool LoadRoom(Room *room, const char *filename)
 	char next[MAX_ROOM_NAME];
 	u8 numTilesX = 1;
 	u8 numTilesY = 1;
-	u8 tiles[MAX_TILES_Y][MAX_TILES_X] = { { TILE_FLOOR } };
+	u8 tiles[MAX_TILES_Y][MAX_TILES_X] = { 0 };
+	u8 tileVariants[MAX_TILES_Y][MAX_TILES_X] = { 0 };
 	Vector2 playerDefaultPos = Vec2(0.5f, 0.5f);
 	u8 numTurrets = 0;
 	Vector2 turretPos[MAX_TURRETS] = { 0 };
@@ -698,6 +740,8 @@ bool LoadRoom(Room *room, const char *filename)
 	fread(&numTilesY, sizeof numTilesY, 1, file);
 	for (u8 y = 0; y < numTilesY; ++y)
 		fread(tiles[y], sizeof tiles[0][0], numTilesX, file);
+	for (u8 y = 0; y < numTilesY; ++y)
+		fread(tileVariants[y], sizeof tileVariants[0][0], numTilesX, file);
 	fread(&playerDefaultPos, sizeof playerDefaultPos, 1, file);
 	fread(&numTurrets, sizeof numTurrets, 1, file);
 	fread(turretPos, sizeof turretPos[0], numTurrets, file);
@@ -722,6 +766,7 @@ bool LoadRoom(Room *room, const char *filename)
 	for (u8 y = 0; y < numTilesY; ++y)
 		for (u8 x = 0; x < numTilesX; ++x)
 			room->tiles[y][x] = (Tile)tiles[y][x];
+	memcpy(room->tileVariants, tileVariants, sizeof tileVariants);
 	room->playerDefaultPos = playerDefaultPos;
 	room->numTurrets = (int)numTurrets;
 	memcpy(room->turretPos, turretPos, sizeof turretPos);
@@ -765,6 +810,8 @@ void SaveRoom(const Room *room)
 			fwrite(&tile, sizeof tile, 1, file);
 		}
 	}
+	for (u8 y = 0; y < numTilesY; ++y)
+		fwrite(tileVariants[y], sizeof tileVariants[0][0], numTilesX, file);
 
 	fwrite(&room->playerDefaultPos, sizeof room->playerDefaultPos, 1, file);
 
@@ -819,7 +866,10 @@ void CopyRoomToGame(Room *room)
 	numTilesX = room->numTilesX;
 	numTilesY = room->numTilesY;
 	for (int y = 0; y < numTilesY; ++y)
+	{
 		memcpy(tiles[y], room->tiles[y], sizeof tiles[0]);
+		memcpy(tileVariants[y], room->tileVariants[y], sizeof tileVariants[0]);
+	}
 
 	player.pos = room->playerDefaultPos;
 	for (int i = 0; i < room->numTurrets; ++i)
@@ -841,7 +891,10 @@ void CopyGameToRoom(Room *room)
 	room->numTilesX = numTilesX;
 	room->numTilesY = numTilesY;
 	for (int y = 0; y < numTilesY; ++y)
+	{
 		memcpy(room->tiles[y], tiles[y], numTilesX * sizeof tiles[y][0]);
+		memcpy(room->tileVariants[y], tileVariants[y], numTilesX * sizeof tileVariants[y][0]);
+	}
 	room->playerDefaultPos = player.pos;
 	room->numTurrets = numTurrets;
 	for (int i = 0; i < numTurrets; ++i)
@@ -871,7 +924,6 @@ void CopyGameToRoom(Room *room)
 		memcpy(&room->triggerMessages[i], tm.message, sizeof tm.message);
 	}
 }
-
 
 // *---========---*
 // |/   Update   \|
@@ -1507,32 +1559,8 @@ void DrawTiles(void)
 		for (int x = 0; x < numTilesX; ++x)
 		{
 			Tile t = tiles[y][x];
-			switch (t)
-			{
-				case TILE_FLOOR:
-				{
-					DrawRectangle(x, y, 1, 1, (x + y) % 2 ? FloatRGBA(0.95f, 0.95f, 0.95f, 1) : FloatRGBA(0.9f, 0.9f, 0.9f, 1));
-				} break;
-				case TILE_WALL:
-				{
-					DrawRectangle(x, y, 1, 1, FloatRGBA(0.5f, 0.5f, 0.5f, 1));
-				} break;
-				case TILE_ENTRANCE:
-				{
-					DrawRectangle(x, y, 1, 1, BLUE);
-				} break;
-				case TILE_EXIT:
-				{
-					if (NumRemainingEnemies() == 0)
-						DrawRectangle(x, y, 1, 1, FloatRGBA(0, 1, 0, 1));
-					else
-						DrawRectangle(x, y, 1, 1, FloatRGBA(1, 0, 0, 1));
-				} break;
-				default:
-				{
-					DrawRectangle(x, y, 1, 1, FloatRGBA(1, 0, 1, 1));
-				} break;
-			}
+			u8 variant = tileVariants[y][x];
+			DrawTexture(tileTextureVariants[t].variants[variant], x, y, ((x + y) % 2 == 0) ? Grayscale(1) : Grayscale(0.95f));
 		}
 	}
 }
@@ -2559,6 +2587,7 @@ void GameInit(void)
 
 	rng = SeedRandom(time(NULL));
 
+	LoadAllTextures();
 	LoadAllSounds();
 
 	if (devMode)

@@ -156,6 +156,15 @@
     <Text Include="credits.txt" />
     <Text Include="room-file-format.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\entrance0.png" />
+    <Image Include="res\exit-closed0.png" />
+    <Image Include="res\exit-open0.png" />
+    <Image Include="res\floor0.png" />
+    <Image Include="res\floor1.png" />
+    <Image Include="res\missing.png" />
+    <Image Include="res\wall0.png" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

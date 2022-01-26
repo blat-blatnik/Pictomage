@@ -106,6 +106,9 @@ typedef struct Turret
 	int framesUntilShoot;
 	Vector2 flingVelocity;
 	Vector2 lastKnownPlayerPos; //@HACK: x == 0 && y == 0 means the player was never seen.
+	int framesUntilIdleMove;
+	int framesToIdleMove;
+	float idleAngularVel;
 } Turret;
 
 typedef struct Bomb
@@ -493,6 +496,9 @@ Turret *SpawnTurret(Vector2 pos, float lookAngleRadians)
 	turret->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE);
 	turret->lastKnownPlayerPos = Vector2Zero();
 	turret->flingVelocity = Vector2Zero();
+	turret->framesUntilIdleMove = RandomInt(&rng, 30, 60);
+	turret->framesToIdleMove = 0;
+	turret->idleAngularVel = 0;
 	return turret;
 }
 Bomb *SpawnBomb(Vector2 pos)
@@ -1334,6 +1340,18 @@ void UpdateTurrets(void)
 			if (dAngle < 0)
 				turnSpeed *= -1;
 			t->lookAngle += turnSpeed * DELTA_TIME;
+		}
+		else
+		{
+			t->framesUntilIdleMove--;
+			t->framesToIdleMove--;
+			if (t->framesUntilIdleMove <= 0)
+			{
+				t->framesToIdleMove = RandomInt(&rng, 30, 120);
+				t->framesUntilIdleMove = t->framesToIdleMove + RandomInt(&rng, 0, 60);
+				t->idleAngularVel = (RandomProbability(&rng, 0.5f) ? -1 : +1) * TURRET_TURN_SPEED / 3;
+			}
+			t->lookAngle += t->idleAngularVel * DELTA_TIME;
 		}
 
 		if (!triedToShoot)

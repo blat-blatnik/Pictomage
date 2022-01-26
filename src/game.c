@@ -40,6 +40,7 @@
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
 #define RESTARTING_DURATION 0.8f
 #define GRACE_PERIOD 1.0f
+#define POPUP_ANIMATION_TIME 1.0f
 
 // *---=======---*
 // |/   Types   \|
@@ -138,6 +139,7 @@ typedef struct TriggerMessage
 	Rectangle rect;
 	float t; // For animations.
 	bool once;
+	bool isTriggered;
 	bool wasTriggerred;
 	char message[MAX_POPUP_MESSAGE_LENGTH];
 } TriggerMessage;
@@ -567,6 +569,7 @@ TriggerMessage *SpawnTriggerMessage(Rectangle rect, bool once, const char *messa
 	tm->rect = rect;
 	tm->t = 0;
 	tm->once = once;
+	tm->isTriggered = false;
 	tm->wasTriggerred = false;
 	memset(tm->message, 0, sizeof tm->message);
 	snprintf(tm->message, sizeof tm->message, "%s", message);
@@ -824,7 +827,7 @@ void CopyRoomToGame(Room *room)
 	for (int i = 0; i < room->numGlassBoxes; ++i)
 		SpawnGlassBox(room->glassBoxRects[i]);
 	for (int i = 0; i < room->numTriggerMessages; ++i)
-		SpawnTriggerMessage(room->triggerMessagesRects[0], room->triggerMessagesOnce[0], room->triggerMessages[0]);
+		SpawnTriggerMessage(room->triggerMessagesRects[i], room->triggerMessagesOnce[i], room->triggerMessages[i]);
 }
 void CopyGameToRoom(Room *room)
 {
@@ -864,6 +867,524 @@ void CopyGameToRoom(Room *room)
 		room->triggerMessagesRects[i] = tm.rect;
 		room->triggerMessagesOnce[i] = tm.once;
 		memcpy(&room->triggerMessages[i], tm.message, sizeof tm.message);
+	}
+}
+
+
+// *---========---*
+// |/   Update   \|
+// *---========---*
+
+void UpdatePlayer(void)
+{
+	Vector2 mousePos = ScreenToTile(GetMousePosition());
+
+	Vector2 playerMove = Vec2Broadcast(0);
+	if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
+		playerMove.y += 1;
+	if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
+		playerMove.y -= 1;
+	if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
+		playerMove.x -= 1;
+	if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
+		playerMove.x += 1;
+
+	if (playerMove.x != 0 || playerMove.y != 0)
+	{
+		playerMove = Vector2Normalize(playerMove);
+		player.vel = Vector2Scale(playerMove, PLAYER_SPEED);
+		player.pos = ResolveCollisionsCircleRoom(player.pos, PLAYER_RADIUS, player.vel);
+		for (int i = 0; i < numTurrets; ++i)
+			player.pos = ResolveCollisionCircles(player.pos, PLAYER_RADIUS, turrets[i].pos, TURRET_RADIUS);
+	}
+
+	player.lookAngle = AngleBetween(player.pos, mousePos);
+	player.justSnapped = false; // Reset from previous frame.
+
+	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+	{
+		if (!player.hasCapture)
+		{
+			player.justSnapped = true;
+			PlaySound(flashSound);
+
+			for (int i = 0; i < numBullets; ++i)
+			{
+				Bullet *b = &bullets[i];
+				if (CheckCollisionConeCircle(player.pos,
+					PLAYER_CAPTURE_CONE_RADIUS,
+					player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					b->pos, BULLET_RADIUS))
+				{
+					int index = numCapturedBullets++;
+					capturedBullets[index] = *b;
+					RemoveBulletFromGlobalList(i);
+					--i;
+				}
+			}
+
+			for (int i = 0; i < numBombs; ++i)
+			{
+				Bomb *b = &bombs[i];
+				if (CheckCollisionConeCircle(player.pos,
+					PLAYER_CAPTURE_CONE_RADIUS,
+					player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					b->pos, BOMB_RADIUS))
+				{
+					int index = numCapturedBombs++;
+					capturedBombs[index] = *b;
+					RemoveBombFromGlobalList(i);
+					--i;
+				}
+			}
+
+			for (int i = 0; i < numTurrets; ++i)
+			{
+				Turret *t = &turrets[i];
+				if (CheckCollisionConeCircle(player.pos,
+					PLAYER_CAPTURE_CONE_RADIUS,
+					player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
+					t->pos, TURRET_RADIUS))
+				{
+					int index = numCapturedTurrets++;
+					capturedTurrets[index] = *t;
+					RemoveTurretFromGlobalList(i);
+					--i;
+				}
+			}
+
+			int numCapturedItems = numCapturedBullets + numCapturedTurrets + numCapturedBombs;
+			if (numCapturedItems != 0)
+			{
+				Vector2 captureCenter = Vector2Zero();
+				for (int i = 0; i < numCapturedBullets; ++i)
+					captureCenter = Vector2Add(captureCenter, capturedBullets[i].pos);
+				for (int i = 0; i < numCapturedTurrets; ++i)
+					captureCenter = Vector2Add(captureCenter, capturedTurrets[i].pos);
+				for (int i = 0; i < numCapturedBombs; ++i)
+					captureCenter = Vector2Add(captureCenter, capturedBombs[i].pos);
+				captureCenter = Vector2Scale(captureCenter, 1.0f / numCapturedItems);
+
+				for (int i = 0; i < numCapturedBullets; ++i)
+					capturedBullets[i].pos = Vector2Subtract(capturedBullets[i].pos, captureCenter);
+				for (int i = 0; i < numCapturedTurrets; ++i)
+					capturedTurrets[i].pos = Vector2Subtract(capturedTurrets[i].pos, captureCenter);
+				for (int i = 0; i < numCapturedBombs; ++i)
+					capturedBombs[i].pos = Vector2Subtract(capturedBombs[i].pos, captureCenter);
+
+				player.hasCapture = true;
+			}
+		}
+		else
+		{
+			player.releasePos = mousePos;
+			player.isReleasingCapture = true;
+		}
+	}
+
+	if (player.isReleasingCapture && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+	{
+		player.isReleasingCapture = false;
+		player.hasCapture = false;
+
+		Vector2 releaseDir = Vector2Subtract(mousePos, player.releasePos);
+		if (releaseDir.x == 0 || releaseDir.y == 0)
+		{
+			// If we don't have a direction we just have to pick one, otherwise 
+			// everything will just hang in the air indefinitely and never despawn.
+			// First try to send everything away from the player, 
+			// if that doesn't work either just pick a random direction.
+			releaseDir = Vector2Subtract(player.releasePos, player.pos);
+			while (releaseDir.x == 0 || releaseDir.y == 0)
+			{
+				releaseDir.x = RandomFloat(&rng, -1, +1);
+				releaseDir.y = RandomFloat(&rng, -1, +1);
+			}
+		}
+
+		float releaseSpeed = Vector2Length(releaseDir);
+		releaseDir = Vector2Scale(releaseDir, 1 / releaseSpeed);
+
+		Vector2 releaseVel = Vector2Scale(releaseDir, fmaxf(5 * releaseSpeed, 30));
+		for (int i = 0; i < numCapturedBullets; ++i)
+		{
+			Bullet b = capturedBullets[i];
+			Vector2 pos = Vector2Add(b.pos, player.releasePos);
+			SpawnBullet(pos, releaseVel);
+		}
+		for (int i = 0; i < numCapturedTurrets; ++i)
+		{
+			Turret t = capturedTurrets[i];
+			Vector2 pos = Vector2Add(t.pos, player.releasePos);
+			Turret *turret = SpawnTurret(pos, t.lookAngle);
+			if (turret)
+			{
+				turret->flingVelocity = releaseVel;
+			}
+		}
+		for (int i = 0; i < numCapturedBombs; ++i)
+		{
+			Bomb b = capturedBombs[i];
+			Vector2 pos = Vector2Add(b.pos, player.releasePos);
+			Bomb *bomb = SpawnBomb(pos);
+			if (bomb)
+			{
+				bomb->wasFlung = true;
+				bomb->flungOrigin = pos;
+				bomb->flungVel = releaseVel;
+			}
+		}
+		numCapturedBullets = 0;
+		numCapturedTurrets = 0;
+		numCapturedBombs = 0;
+	}
+}
+void UpdateBullets(void)
+{
+	for (int i = 0; i < numBullets; ++i)
+	{
+		Bullet *b = &bullets[i];
+		b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME));
+		if (!CheckCollisionCircleRec(b->pos, BULLET_RADIUS, ExpandRectangle(screenRectTiles, 20)))
+		{
+			RemoveBulletFromGlobalList(i);
+			--i;
+		}
+		else if (TileAtVec(b->pos) == TILE_WALL) // @TODO: This is treating bullets as mere points even though they have a radius..
+		{
+			RemoveBulletFromGlobalList(i);
+			--i;
+		}
+		else
+		{
+			bool collided = false;
+			for (int j = 0; j < numTurrets; ++j)
+			{
+				Turret *t = &turrets[j];
+				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, t->pos, TURRET_RADIUS))
+				{
+					RemoveBulletFromGlobalList(i);
+					RemoveTurretFromGlobalList(j);
+					PlaySound(turretDestroySound);
+					--i;
+					collided = true;
+					break;
+				}
+			}
+			if (collided)
+				continue;
+
+			for (int j = 0; j < numBombs; ++j)
+			{
+				Bomb *bomb = &bombs[j];
+				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, bomb->pos, BOMB_RADIUS))
+				{
+					RemoveBulletFromGlobalList(i);
+					ExplodeBomb(j);
+					--i;
+					collided = true;
+					break;
+				}
+			}
+			if (collided)
+				continue;
+
+			for (int j = 0; j < numGlassBoxes; ++j)
+			{
+				GlassBox *box = &glassBoxes[j];
+				if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
+				{
+					//@TODO: Glass shatter sound.
+					RemoveGlassBoxFromGlobalList(j);
+					--j;
+				}
+			}
+
+			if (CheckCollisionCircles(b->pos, BULLET_RADIUS, player.pos, PLAYER_RADIUS))
+			{
+				RemoveBulletFromGlobalList(i);
+				--i;
+				Vector2 toPlayer = Vector2Subtract(player.pos, b->pos);
+				KillPlayer(toPlayer, 0.1f);
+				continue;
+			}
+		}
+	}
+}
+void UpdateTurrets(void)
+{
+	for (int i = 0; i < numTurrets; ++i)
+	{
+		Turret *t = &turrets[i];
+		Vector2 dpos = Vector2Scale(t->flingVelocity, DELTA_TIME);
+		if (fabsf(dpos.x) > 0.00001f || fabsf(dpos.y) > 0.00001f)
+		{
+			t->pos = ResolveCollisionsCircleRoom(t->pos, TURRET_RADIUS, t->flingVelocity);
+			for (int j = 0; j < numTurrets; ++j)
+				if (i != j)
+					t->pos = ResolveCollisionCircles(t->pos, TURRET_RADIUS, turrets[j].pos, TURRET_RADIUS);
+
+			float velMagnitude = Vector2Length(t->flingVelocity);
+			if (velMagnitude > 0.5f)
+			{
+				bool exploded = false;
+				for (int j = 0; j < numBombs; ++j)
+				{
+					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, bombs[j].pos, BOMB_RADIUS))
+					{
+						exploded = true;
+						ExplodeBomb(j);
+						break;
+					}
+				}
+				if (exploded)
+				{
+					RemoveTurretFromGlobalList(i);
+					--i;
+					continue;
+				}
+			}
+
+			t->flingVelocity = Vector2Scale(t->flingVelocity, TURRET_FRICTION);
+		}
+
+		bool playerIsVisible = player.isAlive && IsPointVisibleFrom(t->pos, player.pos);
+		if (playerIsVisible)
+			t->lastKnownPlayerPos = player.pos;
+
+		bool triedToShoot = false;
+		if (player.isAlive && (t->lastKnownPlayerPos.x != 0 || t->lastKnownPlayerPos.y != 0))
+		{
+			float angleToPlayer = AngleBetween(t->pos, t->lastKnownPlayerPos);
+			float dAngle = WrapMinMax(angleToPlayer - t->lookAngle, -PI, +PI);
+
+			if (playerIsVisible && fabsf(dAngle) < 15 * DEG2RAD)
+			{
+				float s = sinf(t->lookAngle);
+				float c = cosf(t->lookAngle);
+				Vector2 bulletPos = {
+					t->pos.x + (TURRET_RADIUS + PixelsToTiles(15)) * c,
+					t->pos.y + (TURRET_RADIUS + PixelsToTiles(15)) * s
+				};
+				if (!IsPointBlockedByEnemiesFrom(bulletPos, player.pos))
+				{
+					triedToShoot = true;
+					t->framesUntilShoot--;
+					if (t->framesUntilShoot <= 0)
+					{
+						t->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE); // (Frame/sec) / (Shots/sec) = Frame/Shot
+						Vector2 bulletVel = {
+							BULLET_SPEED * c,
+							BULLET_SPEED * s,
+						};
+						SpawnBullet(bulletPos, bulletVel);
+						PlaySound(longShotSound);
+						SetSoundPitch(longShotSound, RandomFloat(&rng, 0.95f, 1.2f));
+					}
+				}
+			}
+
+			float turnSpeed = TURRET_TURN_SPEED;
+			if (dAngle < 0)
+				turnSpeed *= -1;
+			t->lookAngle += turnSpeed * DELTA_TIME;
+		}
+		else
+		{
+			t->framesUntilIdleMove--;
+			t->framesToIdleMove--;
+			if (t->framesUntilIdleMove <= 0)
+			{
+				t->framesToIdleMove = RandomInt(&rng, 30, 120);
+				t->framesUntilIdleMove = t->framesToIdleMove + RandomInt(&rng, 0, 60);
+				t->idleAngularVel = (RandomProbability(&rng, 0.5f) ? -1 : +1) * TURRET_TURN_SPEED / 3;
+			}
+			t->lookAngle += t->idleAngularVel * DELTA_TIME;
+		}
+
+		if (!triedToShoot)
+			t->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE); // (Frame/sec) / (Shots/sec) = Frame/Shot
+	}
+}
+void UpdateBombs(void)
+{
+	for (int i = 0; i < numBombs; ++i)
+	{
+		Bomb *b = &bombs[i];
+		if (b->wasFlung)
+		{
+			Vector2 vel = b->flungVel;
+			Vector2 expectedPos = Vector2Add(b->pos, Vector2Scale(vel, DELTA_TIME));
+
+			bool exploded = false;
+			b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
+			if (!Vector2Equal(b->pos, expectedPos))
+				exploded = true;
+
+			for (int j = 0; j < numTurrets; ++j)
+				if (CheckCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS))
+					exploded = true;
+			for (int j = 0; j < numBombs; ++j)
+				if (j != i)
+					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, bombs[j].pos, BOMB_RADIUS))
+						exploded = true;
+			for (int j = 0; j < numGlassBoxes; ++j)
+				if (CheckCollisionCircleRec(b->pos, BOMB_RADIUS, glassBoxes[j].rect))
+					exploded = true;
+			if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
+				exploded = true;
+
+			if (exploded)
+			{
+				ExplodeBomb(i);
+				--i;
+			}
+		}
+		else
+		{
+			bool playerIsVisible = player.isAlive && IsPointVisibleFrom(b->pos, player.pos);
+			if (playerIsVisible)
+				b->lastKnownPlayerPos = player.pos;
+
+			Vector2 vel = Vector2Zero();
+			bool chasedPlayer = false;
+
+			if (player.isAlive && (b->lastKnownPlayerPos.x != 0 || b->lastKnownPlayerPos.y != 0))
+			{
+				Vector2 toPlayer = Vector2Subtract(b->lastKnownPlayerPos, b->pos);
+				float length = Vector2Length(toPlayer);
+				float speed = Lerp(BOMB_SPEED, BOMB_SPEED_CLOSE, Smoothstep(1.5f * BOMB_CLOSE_THRESHOLD, 0.5f * BOMB_CLOSE_THRESHOLD, length));
+				if (speed * DELTA_TIME > length)
+					speed = length / DELTA_TIME;
+				if (speed > 0.001f)
+				{
+					chasedPlayer = true;
+					b->framesUntilIdleMove = RandomInt(&rng, 60, 120);
+					b->framesToIdleMove = 0;
+					vel = Vector2Scale(toPlayer, speed / length);
+				}
+			}
+
+			if (!chasedPlayer)
+			{
+				b->framesUntilIdleMove--;
+				b->framesToIdleMove--;
+				if (b->framesUntilIdleMove <= 0)
+				{
+					b->framesToIdleMove = RandomInt(&rng, 30, 120);
+					b->framesUntilIdleMove = b->framesToIdleMove + RandomInt(&rng, 0, 60);
+					b->idleMoveVel.x = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
+					b->idleMoveVel.y = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
+				}
+				if (b->framesToIdleMove > 0)
+					vel = b->idleMoveVel;
+			}
+
+			if (vel.x != 0 || vel.y != 0)
+			{
+				b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
+				for (int j = 0; j < numTurrets; ++j)
+					b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS);
+				for (int j = 0; j < numBombs; ++j)
+					if (i != j)
+						b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, bombs[j].pos, BOMB_RADIUS);
+			}
+
+			if (player.isAlive && CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
+			{
+				ExplodeBomb(i);
+				--i;
+			}
+		}
+	}
+}
+void UpdateExplosions(void)
+{
+	for (int i = 0; i < numExplosions; ++i)
+	{
+		Explosion *e = &explosions[i];
+		e->frame++;
+		if (e->frame > e->durationFrames)
+		{
+			RemoveExplosionsFromGlobalList(i);
+			--i;
+		}
+		else
+		{
+			float time = 2 * Clamp(e->frame / (float)e->durationFrames, 0, 1);
+			if (time <= 1)
+			{
+				float x = 1 - time;
+				float r = (1 - x * x * x * x * x * x) * e->radius;
+
+				for (int j = 0; j < numTurrets; ++j)
+				{
+					Turret *t = &turrets[j];
+					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, e->pos, r))
+					{
+						RemoveTurretFromGlobalList(j);
+						--j;
+					}
+				}
+				for (int j = 0; j < numBombs; ++j)
+				{
+					Bomb *b = &bombs[j];
+					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, e->pos, r))
+					{
+						ExplodeBomb(j);
+						--j;
+					}
+				}
+				for (int j = 0; j < numGlassBoxes; ++j)
+				{
+					GlassBox *b = &glassBoxes[j];
+					if (CheckCollisionCircleRec(e->pos, r, b->rect))
+					{
+						//@TODO: Glass shatter sound.
+						RemoveGlassBoxFromGlobalList(j);
+						--j;
+					}
+				}
+
+				if (CheckCollisionCircles(player.pos, PLAYER_RADIUS, e->pos, r))
+				{
+					Vector2 toPlayer = Vector2Subtract(player.pos, e->pos);
+					float distance = Vector2Length(toPlayer);
+					KillPlayer(toPlayer, 1 / (1 + distance));
+				}
+			}
+		}
+	}
+}
+void UpdateTriggerredMessages(void)
+{
+	for (int i = 0; i < numTriggerMessages; ++i)
+	{
+		TriggerMessage *tm = &triggerMessages[i];
+		bool innerOverlap = CheckCollisionPointRec(player.pos, tm->rect);
+		bool outerOverlap = CheckCollisionCircleRec(player.pos, PLAYER_RADIUS, tm->rect);
+		if (innerOverlap && !tm->isTriggered)
+		{
+			if (!tm->once || !tm->wasTriggerred)
+			{
+				tm->isTriggered = true;
+				tm->wasTriggerred = true;
+			}
+		}
+		else if (tm->isTriggered)
+		{
+			if (!outerOverlap)
+				tm->isTriggered = false;
+		}
+
+		if (tm->isTriggered)
+			tm->t += GetFrameTime();
+		else
+			tm->t -= GetFrameTime();
+		tm->t = Clamp(tm->t, 0, POPUP_ANIMATION_TIME);
 	}
 }
 
@@ -1152,507 +1673,87 @@ void DrawTriggerredMessages(bool debug)
 			DrawRectangleRec(tm.rect, ColorAlpha(ORANGE, 0.3f));
 		else
 		{
-			if (CheckCollisionCircleRec(player.pos, PLAYER_RADIUS, tm.rect))
+			if (tm.t > 0)
 			{
-				DrawTextCentered(tm.message, screenCenter.x, 100, 20, BLACK);
-			}
-		}
-	}
-}
+				float t = Clamp(tm.t / POPUP_ANIMATION_TIME, 0, 1);
+				const float flyInOutTime = 0.1f;
+				float t0 = Clamp(t / flyInOutTime, 0, 1);
+				float t1 = Clamp(t - flyInOutTime / (1 - flyInOutTime), 0, 1);
 
-// *---========---*
-// |/   Update   \|
-// *---========---*
-
-void UpdatePlayer(void)
-{
-	Vector2 mousePos = ScreenToTile(GetMousePosition());
-
-	Vector2 playerMove = Vec2Broadcast(0);
-	if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
-		playerMove.y += 1;
-	if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
-		playerMove.y -= 1;
-	if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
-		playerMove.x -= 1;
-	if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
-		playerMove.x += 1;
-
-	if (playerMove.x != 0 || playerMove.y != 0)
-	{
-		playerMove = Vector2Normalize(playerMove);
-		player.vel = Vector2Scale(playerMove, PLAYER_SPEED);
-		player.pos = ResolveCollisionsCircleRoom(player.pos, PLAYER_RADIUS, player.vel);
-		for (int i = 0; i < numTurrets; ++i)
-			player.pos = ResolveCollisionCircles(player.pos, PLAYER_RADIUS, turrets[i].pos, TURRET_RADIUS);
-	}
-
-	player.lookAngle = AngleBetween(player.pos, mousePos);
-	player.justSnapped = false; // Reset from previous frame.
-
-	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-	{
-		if (!player.hasCapture)
-		{
-			player.justSnapped = true;
-			PlaySound(flashSound);
-
-			for (int i = 0; i < numBullets; ++i)
-			{
-				Bullet *b = &bullets[i];
-				if (CheckCollisionConeCircle(player.pos,
-					PLAYER_CAPTURE_CONE_RADIUS,
-					player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
-					player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
-					b->pos, BULLET_RADIUS))
-				{
-					int index = numCapturedBullets++;
-					capturedBullets[index] = *b;
-					RemoveBulletFromGlobalList(i);
-					--i;
-				}
-			}
-
-			for (int i = 0; i < numBombs; ++i)
-			{
-				Bomb *b = &bombs[i];
-				if (CheckCollisionConeCircle(player.pos,
-					PLAYER_CAPTURE_CONE_RADIUS,
-					player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
-					player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
-					b->pos, BOMB_RADIUS))
-				{
-					int index = numCapturedBombs++;
-					capturedBombs[index] = *b;
-					RemoveBombFromGlobalList(i);
-					--i;
-				}
-			}
-
-			for (int i = 0; i < numTurrets; ++i)
-			{
-				Turret *t = &turrets[i];
-				if (CheckCollisionConeCircle(player.pos,
-					PLAYER_CAPTURE_CONE_RADIUS,
-					player.lookAngle - PLAYER_CAPTURE_CONE_HALF_ANGLE,
-					player.lookAngle + PLAYER_CAPTURE_CONE_HALF_ANGLE,
-					t->pos, TURRET_RADIUS))
-				{
-					int index = numCapturedTurrets++;
-					capturedTurrets[index] = *t;
-					RemoveTurretFromGlobalList(i);
-					--i;
-				}
-			}
-
-			int numCapturedItems = numCapturedBullets + numCapturedTurrets + numCapturedBombs;
-			if (numCapturedItems != 0)
-			{
-				Vector2 captureCenter = Vector2Zero();
-				for (int i = 0; i < numCapturedBullets; ++i)
-					captureCenter = Vector2Add(captureCenter, capturedBullets[i].pos);
-				for (int i = 0; i < numCapturedTurrets; ++i)
-					captureCenter = Vector2Add(captureCenter, capturedTurrets[i].pos);
-				for (int i = 0; i < numCapturedBombs; ++i)
-					captureCenter = Vector2Add(captureCenter, capturedBombs[i].pos);
-				captureCenter = Vector2Scale(captureCenter, 1.0f / numCapturedItems);
-
-				for (int i = 0; i < numCapturedBullets; ++i)
-					capturedBullets[i].pos = Vector2Subtract(capturedBullets[i].pos, captureCenter);
-				for (int i = 0; i < numCapturedTurrets; ++i)
-					capturedTurrets[i].pos = Vector2Subtract(capturedTurrets[i].pos, captureCenter);
-				for (int i = 0; i < numCapturedBombs; ++i)
-					capturedBombs[i].pos = Vector2Subtract(capturedBombs[i].pos, captureCenter);
-
-				player.hasCapture = true;
-			}
-		}
-		else
-		{
-			player.releasePos = mousePos;
-			player.isReleasingCapture = true;
-		}
-	}
-
-	if (player.isReleasingCapture && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
-	{
-		player.isReleasingCapture = false;
-		player.hasCapture = false;
-
-		Vector2 releaseDir = Vector2Subtract(mousePos, player.releasePos);
-		if (releaseDir.x == 0 || releaseDir.y == 0)
-		{
-			// If we don't have a direction we just have to pick one, otherwise 
-			// everything will just hang in the air indefinitely and never despawn.
-			// First try to send everything away from the player, 
-			// if that doesn't work either just pick a random direction.
-			releaseDir = Vector2Subtract(player.releasePos, player.pos);
-			while (releaseDir.x == 0 || releaseDir.y == 0)
-			{
-				releaseDir.x = RandomFloat(&rng, -1, +1);
-				releaseDir.y = RandomFloat(&rng, -1, +1);
-			}
-		}
-
-		float releaseSpeed = Vector2Length(releaseDir);
-		releaseDir = Vector2Scale(releaseDir, 1 / releaseSpeed);
-
-		Vector2 releaseVel = Vector2Scale(releaseDir, fmaxf(5 * releaseSpeed, 30));
-		for (int i = 0; i < numCapturedBullets; ++i)
-		{
-			Bullet b = capturedBullets[i];
-			Vector2 pos = Vector2Add(b.pos, player.releasePos);
-			SpawnBullet(pos, releaseVel);
-		}
-		for (int i = 0; i < numCapturedTurrets; ++i)
-		{
-			Turret t = capturedTurrets[i];
-			Vector2 pos = Vector2Add(t.pos, player.releasePos);
-			Turret *turret = SpawnTurret(pos, t.lookAngle);
-			if (turret)
-			{
-				turret->flingVelocity = releaseVel;
-			}
-		}
-		for (int i = 0; i < numCapturedBombs; ++i)
-		{
-			Bomb b = capturedBombs[i];
-			Vector2 pos = Vector2Add(b.pos, player.releasePos);
-			Bomb *bomb = SpawnBomb(pos);
-			if (bomb)
-			{
-				bomb->wasFlung = true;
-				bomb->flungOrigin = pos;
-				bomb->flungVel = releaseVel;
-			}
-		}
-		numCapturedBullets = 0;
-		numCapturedTurrets = 0;
-		numCapturedBombs = 0;
-	}
-}
-void UpdateBullets(void)
-{
-	for (int i = 0; i < numBullets; ++i)
-	{
-		Bullet *b = &bullets[i];
-		b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME));
-		if (!CheckCollisionCircleRec(b->pos, BULLET_RADIUS, ExpandRectangle(screenRectTiles, 20)))
-		{
-			RemoveBulletFromGlobalList(i);
-			--i;
-		}
-		else if (TileAtVec(b->pos) == TILE_WALL) // @TODO: This is treating bullets as mere points even though they have a radius..
-		{
-			RemoveBulletFromGlobalList(i);
-			--i;
-		}
-		else
-		{
-			bool collided = false;
-			for (int j = 0; j < numTurrets; ++j)
-			{
-				Turret *t = &turrets[j];
-				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, t->pos, TURRET_RADIUS))
-				{
-					RemoveBulletFromGlobalList(i);
-					RemoveTurretFromGlobalList(j);
-					PlaySound(turretDestroySound);
-					--i;
-					collided = true;
-					break;
-				}
-			}
-			if (collided)
-				continue;
-
-			for (int j = 0; j < numBombs; ++j)
-			{
-				Bomb *bomb = &bombs[j];
-				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, bomb->pos, BOMB_RADIUS))
-				{
-					RemoveBulletFromGlobalList(i);
-					ExplodeBomb(j);
-					--i;
-					collided = true;
-					break;
-				}
-			}
-			if (collided)
-				continue;
-
-			for (int j = 0; j < numGlassBoxes; ++j)
-			{
-				GlassBox *box = &glassBoxes[j];
-				if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
-				{
-					//@TODO: Glass shatter sound.
-					RemoveGlassBoxFromGlobalList(j);
-					--j;
-				}
-			}
+				char text[MAX_POPUP_MESSAGE_LENGTH];
+				memcpy(text, tm.message, sizeof tm.message);
+				text[MAX_POPUP_MESSAGE_LENGTH - 1] = 0;
+				int textLength = (int)strlen(text);
 			
-			if (CheckCollisionCircles(b->pos, BULLET_RADIUS, player.pos, PLAYER_RADIUS))
-			{
-				RemoveBulletFromGlobalList(i);
-				--i;
-				Vector2 toPlayer = Vector2Subtract(player.pos, b->pos);
-				KillPlayer(toPlayer, 0.1f);
-				continue;
-			}
-		}
-	}
-}
-void UpdateTurrets(void)
-{
-	for (int i = 0; i < numTurrets; ++i)
-	{
-		Turret *t = &turrets[i];
-		Vector2 dpos = Vector2Scale(t->flingVelocity, DELTA_TIME);
-		if (fabsf(dpos.x) > 0.00001f || fabsf(dpos.y) > 0.00001f)
-		{
-			t->pos = ResolveCollisionsCircleRoom(t->pos, TURRET_RADIUS, t->flingVelocity);
-			for (int j = 0; j < numTurrets; ++j)
-				if (i != j)
-					t->pos = ResolveCollisionCircles(t->pos, TURRET_RADIUS, turrets[j].pos, TURRET_RADIUS);
+				const float fontSize = 32;
+				Font font = GetFontDefault();
+				Vector2 textSize = MeasureTextEx(font, text, fontSize, 1);
 
-			float velMagnitude = Vector2Length(t->flingVelocity);
-			if (velMagnitude > 0.5f)
-			{
-				bool exploded = false;
-				for (int j = 0; j < numBombs; ++j)
-				{
-					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, bombs[j].pos, BOMB_RADIUS))
-					{
-						exploded = true;
-						ExplodeBomb(j);
-						break;
-					}
-				}
-				if (exploded)
-				{
-					RemoveTurretFromGlobalList(i);
-					--i;
-					continue;
-				}
-			}
-
-			t->flingVelocity = Vector2Scale(t->flingVelocity, TURRET_FRICTION);
-		}
-
-		bool playerIsVisible = player.isAlive && IsPointVisibleFrom(t->pos, player.pos);
-		if (playerIsVisible)
-			t->lastKnownPlayerPos = player.pos;
-
-		bool triedToShoot = false;
-		if (player.isAlive && (t->lastKnownPlayerPos.x != 0 || t->lastKnownPlayerPos.y != 0))
-		{
-			float angleToPlayer = AngleBetween(t->pos, t->lastKnownPlayerPos);
-			float dAngle = WrapMinMax(angleToPlayer - t->lookAngle, -PI, +PI);
-
-			if (playerIsVisible && fabsf(dAngle) < 15 * DEG2RAD)
-			{
-				float s = sinf(t->lookAngle);
-				float c = cosf(t->lookAngle);
-				Vector2 bulletPos = {
-					t->pos.x + (TURRET_RADIUS + PixelsToTiles(15)) * c,
-					t->pos.y + (TURRET_RADIUS + PixelsToTiles(15)) * s
+				const float centerX = screenCenter.x;
+				const float centerY = 200;
+				const float tapePadX = 30;
+				const float tapePadY = 10;
+				Rectangle tapeRect = {
+					centerX - 0.5f * textSize.x - tapePadX,
+					centerY - 0.5f * fontSize - tapePadY,
+					textSize.x + 2 * tapePadX,
+					textSize.y + 2 * tapePadY
 				};
-				if (!IsPointBlockedByEnemiesFrom(bulletPos, player.pos))
+				Rectangle reelRect = {
+					tapeRect.x,
+					tapeRect.y - 2,
+					30,
+					tapeRect.height + 4
+				};
+
+				float textOffsetX = 0;
+				if (tm.isTriggered)
 				{
-					triedToShoot = true;
-					t->framesUntilShoot--;
-					if (t->framesUntilShoot <= 0)
-					{
-						t->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE); // (Frame/sec) / (Shots/sec) = Frame/Shot
-						Vector2 bulletVel = {
-							BULLET_SPEED * c,
-							BULLET_SPEED * s,
-						};
-						SpawnBullet(bulletPos, bulletVel);
-						PlaySound(longShotSound);
-						SetSoundPitch(longShotSound, RandomFloat(&rng, 0.95f, 1.2f));
-					}
+					reelRect.x = Lerp(reelRect.x, tapeRect.x + tapeRect.width, t);
+					tapeRect.width = Lerp(0, tapeRect.width, t);
 				}
-			}
+				else
+				{
+					textOffsetX = Lerp(0, tapeRect.width, 1 - t);
+					reelRect.x = tapeRect.x + tapeRect.width;
+					tapeRect.x = Lerp(tapeRect.x, tapeRect.x + tapeRect.width, 1 - t);
+					tapeRect.width = Lerp(tapeRect.width, 0, 1 - t);
+				}
 
-			float turnSpeed = TURRET_TURN_SPEED;
-			if (dAngle < 0)
-				turnSpeed *= -1;
-			t->lookAngle += turnSpeed * DELTA_TIME;
-		}
-		else
-		{
-			t->framesUntilIdleMove--;
-			t->framesToIdleMove--;
-			if (t->framesUntilIdleMove <= 0)
-			{
-				t->framesToIdleMove = RandomInt(&rng, 30, 120);
-				t->framesUntilIdleMove = t->framesToIdleMove + RandomInt(&rng, 0, 60);
-				t->idleAngularVel = (RandomProbability(&rng, 0.5f) ? -1 : +1) * TURRET_TURN_SPEED / 3;
-			}
-			t->lookAngle += t->idleAngularVel * DELTA_TIME;
-		}
+				float textMaxWidth = tapeRect.width - tapePadX;
+				for (int i = 0; i < textLength; ++i)
+				{
+					char backup = text[i];
+					text[i] = 0;
+					Vector2 s = MeasureTextEx(font, text, fontSize, 1);
+					if (s.x > textMaxWidth)
+						break;
+					text[i] = backup;
+				}
 
-		if (!triedToShoot)
-			t->framesUntilShoot = (int)(FPS / TURRET_FIRE_RATE); // (Frame/sec) / (Shots/sec) = Frame/Shot
-	}
-}
-void UpdateBombs(void)
-{
-	for (int i = 0; i < numBombs; ++i)
-	{
-		Bomb *b = &bombs[i];
-		if (b->wasFlung)
-		{
-			Vector2 vel = b->flungVel;
-			Vector2 expectedPos = Vector2Add(b->pos, Vector2Scale(vel, DELTA_TIME));
-			
-			bool exploded = false;
-			b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
-			if (!Vector2Equal(b->pos, expectedPos))
-				exploded = true;
-			
-			for (int j = 0; j < numTurrets; ++j)
-				if (CheckCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS))
-					exploded = true;
-			for (int j = 0; j < numBombs; ++j)
-				if (j != i)
-					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, bombs[j].pos, BOMB_RADIUS))
-						exploded = true;
-			for (int j = 0; j < numGlassBoxes; ++j)
-				if (CheckCollisionCircleRec(b->pos, BOMB_RADIUS, glassBoxes[j].rect))
-					exploded = true;
-			if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
-				exploded = true;
+				Rectangle reelTop = {
+					reelRect.x - 3,
+					reelRect.y + reelRect.height,
+					reelRect.width + 6,
+					3
+				};
+				Rectangle reelBottom = {
+					reelRect.x - 3,
+					reelRect.y - 3,
+					reelRect.width + 6,
+					3
+				};
 
-			if (exploded)
-			{
-				ExplodeBomb(i);
-				--i;
+				//float 
+
+				DrawRectangleRec(tapeRect, Grayscale(0.15f));
+				DrawTextEx(font, text, Vec2(centerX - 0.5f * textSize.x + textOffsetX, centerY - 0.5f * textSize.y), fontSize, 1, RAYWHITE);
+				DrawRectangleRec(reelRect, Grayscale(0.4f));
+				DrawRectangleRec(ExpandRectangleEx(reelRect, +3, +3, -3.5f, -3.5f), Grayscale(0.1f));
+				DrawRectangleRec(reelTop, Grayscale(0.3f));
+				DrawRectangleRec(reelBottom, Grayscale(0.3f));
 			}
 		}
-		else
-		{
-			bool playerIsVisible = player.isAlive && IsPointVisibleFrom(b->pos, player.pos);
-			if (playerIsVisible)
-				b->lastKnownPlayerPos = player.pos;
-
-			Vector2 vel = Vector2Zero();
-			bool chasedPlayer = false;
-
-			if (player.isAlive && (b->lastKnownPlayerPos.x != 0 || b->lastKnownPlayerPos.y != 0))
-			{
-				Vector2 toPlayer = Vector2Subtract(b->lastKnownPlayerPos, b->pos);
-				float length = Vector2Length(toPlayer);
-				float speed = Lerp(BOMB_SPEED, BOMB_SPEED_CLOSE, Smoothstep(1.5f * BOMB_CLOSE_THRESHOLD, 0.5f * BOMB_CLOSE_THRESHOLD, length));
-				if (speed * DELTA_TIME > length)
-					speed = length / DELTA_TIME;
-				if (speed > 0.001f)
-				{
-					chasedPlayer = true;
-					b->framesUntilIdleMove = RandomInt(&rng, 60, 120);
-					b->framesToIdleMove = 0;
-					vel = Vector2Scale(toPlayer, speed / length);
-				}
-			}
-
-			if (!chasedPlayer)
-			{
-				b->framesUntilIdleMove--;
-				b->framesToIdleMove--;
-				if (b->framesUntilIdleMove <= 0)
-				{
-					b->framesToIdleMove = RandomInt(&rng, 30, 120);
-					b->framesUntilIdleMove = b->framesToIdleMove + RandomInt(&rng, 0, 60);
-					b->idleMoveVel.x = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
-					b->idleMoveVel.y = (RandomProbability(&rng, 0.5f) ? -1 : +1) * RandomFloat(&rng, 0.8f * BOMB_IDLE_SPEED, 1.2f * BOMB_IDLE_SPEED);
-				}
-				if (b->framesToIdleMove > 0)
-					vel = b->idleMoveVel;
-			}
-
-			if (vel.x != 0 || vel.y != 0)
-			{
-				b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
-				for (int j = 0; j < numTurrets; ++j)
-					b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS);
-				for (int j = 0; j < numBombs; ++j)
-					if (i != j)
-						b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, bombs[j].pos, BOMB_RADIUS);
-			}
-
-			if (player.isAlive && CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
-			{
-				ExplodeBomb(i);
-				--i;
-			}
-		}
-	}
-}
-void UpdateExplosions(void)
-{
-	for (int i = 0; i < numExplosions; ++i)
-	{
-		Explosion *e = &explosions[i];
-		e->frame++;
-		if (e->frame > e->durationFrames)
-		{
-			RemoveExplosionsFromGlobalList(i);
-			--i;
-		}
-		else
-		{
-			float time = 2 * Clamp(e->frame / (float)e->durationFrames, 0, 1);
-			if (time <= 1)
-			{
-				float x = 1 - time;
-				float r = (1 - x * x * x * x * x * x) * e->radius;
-
-				for (int j = 0; j < numTurrets; ++j)
-				{
-					Turret *t = &turrets[j];
-					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, e->pos, r))
-					{
-						RemoveTurretFromGlobalList(j);
-						--j;
-					}
-				}
-				for (int j = 0; j < numBombs; ++j)
-				{
-					Bomb *b = &bombs[j];
-					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, e->pos, r))
-					{
-						ExplodeBomb(j);
-						--j;
-					}
-				}
-				for (int j = 0; j < numGlassBoxes; ++j)
-				{
-					GlassBox *b = &glassBoxes[j];
-					if (CheckCollisionCircleRec(e->pos, r, b->rect))
-					{
-						//@TODO: Glass shatter sound.
-						RemoveGlassBoxFromGlobalList(j);
-						--j;
-					}
-				}
-
-				if (CheckCollisionCircles(player.pos, PLAYER_RADIUS, e->pos, r))
-				{
-					Vector2 toPlayer = Vector2Subtract(player.pos, e->pos);
-					float distance = Vector2Length(toPlayer);
-					KillPlayer(toPlayer, 1 / (1 + distance));
-				}
-			}
-		}
-	}
-}
-void UpdateTriggerredMessages(void)
-{
-	for (int i = 0; i < numTriggerMessages; ++i)
-	{
-		TriggerMessage *tm = &triggerMessages[i];
 	}
 }
 
@@ -2371,28 +2472,28 @@ void LevelEditor_Draw(void)
 				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.glassBox->rect.y);
 				y += 20;
 				selection.glassBox->rect.width = GuiSlider(Rect(x, y, 100, 20), "", "Width", selection.glassBox->rect.width, 0.5f, 30);
-				y += 20;
+				y += 25;
 				selection.glassBox->rect.height = GuiSlider(Rect(x, y, 100, 20), "", "Height", selection.glassBox->rect.height, 0.5f, 30);
-				y += 20;
+				y += 25;
 			} break;
 
 			case EDITOR_SELECTION_KIND_TRIGGER_MESSAGE:
 			{
-				Rectangle messageRect = Rect(x, y, 100, 40);
+				Rectangle messageRect = Rect(x, y, 180, 60);
 				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, messageRect);
 				isFocused = GuiTextBoxMulti(messageRect, selection.triggerMessage->message, sizeof selection.triggerMessage->message, isFocused);
-				y += 40;
+				y += 60;
 
 				GuiText(Rect(x, y, 100, 20), "X: %.2f", selection.triggerMessage->rect.x);
 				y += 20;
 				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.triggerMessage->rect.y);
 				y += 20;
 				selection.triggerMessage->rect.width = GuiSlider(Rect(x, y, 100, 20), "", "Width", selection.triggerMessage->rect.width, 1, 30);
-				y += 20;
+				y += 25;
 				selection.triggerMessage->rect.height = GuiSlider(Rect(x, y, 100, 20), "", "Height", selection.triggerMessage->rect.height, 1, 30);
-				y += 20;
-				selection.triggerMessage->once = GuiCheckBox(Rect(x, y, 20, 20), "       Trigger once", selection.triggerMessage->once);
-				y += 20;
+				y += 25;
+				selection.triggerMessage->once = GuiCheckBox(Rect(x, y, 20, 20), "Trigger once", selection.triggerMessage->once);
+				y += 25;
 			} break;
 
 			case EDITOR_SELECTION_KIND_TILE:

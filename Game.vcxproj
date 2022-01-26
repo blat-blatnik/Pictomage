@@ -148,7 +148,9 @@
   <ItemGroup>
     <Media Include="res\explosion.wav" />
     <Media Include="res\long-shot.wav" />
+    <Media Include="res\shutter1.wav" />
     <Media Include="res\snap.wav" />
+    <Media Include="res\turret-destroy.wav" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="credits.txt" />

@@ -35,7 +35,7 @@
 #define BOMB_EXPLOSION_DURATION 0.5f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
-#define RESTARTING_DURATION 1.0f
+#define RESTARTING_DURATION 0.8f
 
 // *---=======---*
 // |/   Types   \|
@@ -243,6 +243,7 @@ Sound flashSound;
 Sound longShotSound;
 Sound explosionSound;
 Sound turretDestroySound;
+Sound shutterSound;
 Player player;
 int numBullets;
 int numCapturedBullets;
@@ -263,6 +264,16 @@ Explosion explosions[MAX_EXPLOSIONS];
 // |/   Assets   \|
 // *---========---*
 
+void LoadAllSounds(void)
+{
+	flashSound = LoadSound("res/snap.wav");
+	longShotSound = LoadSound("res/long-shot.wav");
+	SetSoundVolume(longShotSound, 0.1f);
+	explosionSound = LoadSound("res/explosion.wav");
+	turretDestroySound = LoadSound("res/turret-destroy.wav");
+	SetSoundVolume(turretDestroySound, 0.3f);
+	shutterSound = LoadSound("res/shutter1.wav");
+}
 void StopAllLevelSounds(void)
 {
 	StopSound(flashSound);
@@ -1549,19 +1560,26 @@ void Paused_Draw(void)
 
 double restartingStartTime;
 bool restartingDone;
+bool restartingPlayedShutterSound;
 void Restarting_Init(GameState oldState)
 {
 	restartingStartTime = GetTime();
 	restartingDone = false;
+	restartingPlayedShutterSound = false;
 	StopAllLevelSounds();
 }
 GameState Restarting_Update(void)
 {
 	double time = GetTime() - restartingStartTime;
-	if (time > RESTARTING_DURATION / 2 && !restartingDone)
+	if (time > 0.5f * RESTARTING_DURATION && !restartingDone)
 	{
 		CopyRoomToGame(&currentRoom);
 		restartingDone = true;
+	}
+	if (time > 0.3f * RESTARTING_DURATION && !restartingPlayedShutterSound)
+	{
+		PlaySound(shutterSound);
+		restartingPlayedShutterSound = true;
 	}
 
 	if (time > RESTARTING_DURATION)
@@ -1572,8 +1590,8 @@ GameState Restarting_Update(void)
 void Restarting_Draw(void)
 {
 	Playing_Draw();
-	float time = (float)(GetTime() - restartingStartTime);
-	float t = 1 - fabsf(time - RESTARTING_DURATION / 2);
+	float time = (float)((GetTime() - restartingStartTime) / (0.5f * RESTARTING_DURATION));
+	float t = 1 - fabsf(time - 1);
 	DrawShutter(Clamp(t, 0, 1));
 }
 
@@ -2052,12 +2070,7 @@ void GameInit(void)
 
 	rng = SeedRandom(time(NULL));
 
-	flashSound = LoadSound("res/snap.wav");
-	longShotSound = LoadSound("res/long-shot.wav");
-	SetSoundVolume(longShotSound, 0.1f);
-	explosionSound = LoadSound("res/explosion.wav");
-	turretDestroySound = LoadSound("res/turret-destroy.wav");
-	SetSoundVolume(turretDestroySound, 0.3f);
+	LoadAllSounds();
 
 	if (devMode)
 		gameState = GAME_STATE_PLAYING;

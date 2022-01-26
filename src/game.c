@@ -118,6 +118,7 @@ typedef struct Turret
 	int framesUntilIdleMove;
 	int framesToIdleMove;
 	float idleAngularVel;
+	bool isDestroyed;
 } Turret;
 
 typedef struct Bomb
@@ -163,6 +164,7 @@ typedef struct Room
 	int numTurrets;
 	Vector2 turretPos[MAX_TURRETS];
 	float turretLookAngle[MAX_TURRETS];
+	bool turretIsDestroyed[MAX_TURRETS];
 
 	int numBombs;
 	Vector2 bombPos[MAX_BOMBS];
@@ -339,6 +341,8 @@ Texture playerTexture;
 Texture turretBaseTexture;
 Texture turretTopTexture;
 Texture bombTexture;
+Texture turretBaseDestroyedTexture;
+Texture turretTopDestroyedTexture;
 TextureVariants tileTextureVariants[TILE_ENUM_COUNT];
 
 void LoadTextureVariants(TextureVariants *tv, const char *baseName)
@@ -370,6 +374,8 @@ void LoadAllTextures(void)
 	turretBaseTexture = LoadTexture("res/turret-base.png");
 	turretTopTexture = LoadTexture("res/turret-top.png");
 	bombTexture = LoadTexture("res/bomb.png");
+	turretBaseDestroyedTexture = LoadTexture("res/turret-base-destroyed.png");
+	turretTopDestroyedTexture = LoadTexture("res/turret-top-destroyed.png");
 }
 
 // *---=======---*
@@ -571,6 +577,7 @@ Turret *SpawnTurret(Vector2 pos, float lookAngleRadians)
 	turret->framesUntilIdleMove = RandomInt(&rng, 30, 60);
 	turret->framesToIdleMove = 0;
 	turret->idleAngularVel = 0;
+	turret->isDestroyed = false;
 	return turret;
 }
 Bomb *SpawnBomb(Vector2 pos)
@@ -700,6 +707,7 @@ void KillPlayer(Vector2 direction, float intensity)
 	//@TODO: Spawn some gore?
 	direction = Vector2Normalize(direction);
 	player.isAlive = false;
+	ScreenShake(0.5f, 0.05f, 0);
 }
 
 void CenterCameraOnLevel(void)
@@ -734,6 +742,7 @@ bool LoadRoom(Room *room, const char *filename)
 	u8 numTurrets = 0;
 	Vector2 turretPos[MAX_TURRETS] = { 0 };
 	float turretLookAngle[MAX_TURRETS] = { 0 };
+	bool turretIsDestroyed[MAX_TURRETS] = { 0 };
 	u8 numBombs = 0;
 	Vector2 bombPos[MAX_BOMBS] = { 0 };
 	u8 numGlassBoxes = 0;
@@ -755,6 +764,7 @@ bool LoadRoom(Room *room, const char *filename)
 	fread(&numTurrets, sizeof numTurrets, 1, file);
 	fread(turretPos, sizeof turretPos[0], numTurrets, file);
 	fread(turretLookAngle, sizeof turretLookAngle[0], numTurrets, file);
+	fread(turretIsDestroyed, sizeof turretIsDestroyed[0], numTurrets, file);
 	fread(&numBombs, sizeof numBombs, 1, file);
 	fread(bombPos, sizeof bombPos[0], numBombs, file);
 	fread(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
@@ -780,6 +790,7 @@ bool LoadRoom(Room *room, const char *filename)
 	room->numTurrets = (int)numTurrets;
 	memcpy(room->turretPos, turretPos, sizeof turretPos);
 	memcpy(room->turretLookAngle, turretLookAngle, sizeof turretLookAngle);
+	memcpy(room->turretIsDestroyed, turretIsDestroyed, sizeof turretIsDestroyed);
 	room->numBombs = (int)numBombs;
 	memcpy(room->bombPos, bombPos, sizeof bombPos);
 	room->numGlassBoxes = (int)numGlassBoxes;
@@ -828,6 +839,7 @@ void SaveRoom(const Room *room)
 	fwrite(&numTurrets, sizeof numTurrets, 1, file);
 	fwrite(room->turretPos, sizeof room->turretPos[0], numTurrets, file);
 	fwrite(room->turretLookAngle, sizeof room->turretLookAngle[0], numTurrets, file);
+	fwrite(room->turretIsDestroyed, sizeof room->turretIsDestroyed[0], numTurrets, file);
 
 	u8 numBombs = (u8)room->numBombs;
 	fwrite(&numBombs, sizeof numBombs, 1, file);
@@ -882,7 +894,11 @@ void CopyRoomToGame(Room *room)
 
 	player.pos = room->playerDefaultPos;
 	for (int i = 0; i < room->numTurrets; ++i)
-		SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
+	{
+		Turret *turret = SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
+		if (turret)
+			turret->isDestroyed = room->turretIsDestroyed[i];
+	}
 	for (int i = 0; i < room->numBombs; ++i)
 		SpawnBomb(room->bombPos[i]);
 	for (int i = 0; i < room->numGlassBoxes; ++i)
@@ -911,6 +927,7 @@ void CopyGameToRoom(Room *room)
 		Turret t = turrets[i];
 		room->turretPos[i] = t.pos;
 		room->turretLookAngle[i] = t.lookAngle;
+		room->turretIsDestroyed[i] = t.isDestroyed;
 	}
 	room->numBombs = numBombs;
 	for (int i = 0; i < numBombs; ++i)
@@ -1085,6 +1102,7 @@ void UpdatePlayer(void)
 			Turret *turret = SpawnTurret(pos, t.lookAngle);
 			if (turret)
 			{
+				turret->isDestroyed = t.isDestroyed;
 				turret->flingVelocity = releaseVel;
 			}
 		}
@@ -1130,8 +1148,19 @@ void UpdateBullets(void)
 				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, t->pos, TURRET_RADIUS))
 				{
 					RemoveBulletFromGlobalList(i);
-					RemoveTurretFromGlobalList(j);
-					PlaySound(turretDestroySound);
+					if (t->isDestroyed)
+					{
+						ScreenShake(0.05f, 0.05f, 0);
+						SetSoundVolume(turretDestroySound, 0.1f);
+						PlaySound(turretDestroySound);
+					}
+					else
+					{
+						t->isDestroyed = true;
+						ScreenShake(0.2f, 0.1f, 0);
+						SetSoundVolume(turretDestroySound, 0.25f);
+						PlaySound(turretDestroySound);
+					}
 					--i;
 					collided = true;
 					break;
@@ -1181,7 +1210,7 @@ void UpdateTurrets(void)
 {
 	for (int i = 0; i < numTurrets; ++i)
 	{
-		Turret *t = &turrets[i];
+		Turret *t = &turrets[i];		
 		Vector2 dpos = Vector2Scale(t->flingVelocity, DELTA_TIME);
 		if (fabsf(dpos.x) > 0.00001f || fabsf(dpos.y) > 0.00001f)
 		{
@@ -1213,6 +1242,9 @@ void UpdateTurrets(void)
 
 			t->flingVelocity = Vector2Scale(t->flingVelocity, TURRET_FRICTION);
 		}
+
+		if (t->isDestroyed)
+			continue;
 
 		bool playerIsVisible = player.isAlive && IsPointVisibleFrom(t->pos, player.pos);
 		if (playerIsVisible)
@@ -1246,6 +1278,9 @@ void UpdateTurrets(void)
 						SpawnBullet(bulletPos, bulletVel);
 						PlaySound(longShotSound);
 						SetSoundPitch(longShotSound, RandomFloat(&rng, 0.95f, 1.2f));
+
+						//@TODO: Maybe remove?
+						ScreenShake(0.02f, 0.05f, 0);
 					}
 				}
 			}
@@ -1612,8 +1647,16 @@ void DrawTurrets(void)
 	for (int i = 0; i < numTurrets; ++i)
 	{
 		Turret t = turrets[i];
-		DrawTex(turretBaseTexture, t.pos, Vec2Broadcast(TURRET_RADIUS), WHITE);
-		DrawTexRotated(turretTopTexture, t.pos, Vec2Broadcast(1.5f * TURRET_RADIUS), WHITE, t.lookAngle);
+		if (t.isDestroyed)
+		{
+			DrawTex(turretBaseDestroyedTexture, t.pos, Vec2Broadcast(TURRET_RADIUS), WHITE);
+			DrawTexRotated(turretTopDestroyedTexture, t.pos, Vec2Broadcast(1.5f * TURRET_RADIUS), WHITE, t.lookAngle);
+		}
+		else
+		{
+			DrawTex(turretBaseTexture, t.pos, Vec2Broadcast(TURRET_RADIUS), WHITE);
+			DrawTexRotated(turretTopTexture, t.pos, Vec2Broadcast(1.5f * TURRET_RADIUS), WHITE, t.lookAngle);
+		}
 		//DrawCircleV(t.pos, TURRET_RADIUS, BLACK);
 		//DrawCircleV(t.pos, TURRET_RADIUS - PixelsToTiles(5), DARKGRAY);
 		//float lookAngleDegrees = RAD2DEG * t.lookAngle;
@@ -2545,7 +2588,9 @@ void LevelEditor_Draw(void)
 				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.turret->pos.y);
 				y += 20;
 				selection.turret->lookAngle = GuiSlider(Rect(x, y, 100, 20), "", "Look angle", selection.turret->lookAngle, -PI, +PI);
-				y += 20;
+				y += 25;
+				selection.turret->isDestroyed = GuiCheckBox(Rect(x, y, 20, 20), "Destroyed", selection.turret->isDestroyed);
+				y += 25;
 			} break;
 
 			case EDITOR_SELECTION_KIND_BOMB:

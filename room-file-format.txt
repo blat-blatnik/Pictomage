@@ -8,6 +8,7 @@ Vector2 playerDefaultPos
 uint8 numTurrets
 Vector2 turretPos[numTurrers]
 float turretLookAngle[numTurrets]
+bool turretIsDestroyed[numTurrets]
 uint8 numBombs
 Vector2 bombPos[numBombs]
 uint8 numGlassBoxes

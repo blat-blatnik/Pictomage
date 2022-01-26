@@ -1300,6 +1300,17 @@ void UpdateBullets(void)
 			}
 			if (collided)
 				continue;
+
+			for (int j = 0; j < numGlassBoxes; ++j)
+			{
+				GlassBox *box = &glassBoxes[j];
+				if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
+				{
+					//@TODO: Glass shatter sound.
+					RemoveGlassBoxFromGlobalList(j);
+					--j;
+				}
+			}
 			
 			if (CheckCollisionCircles(b->pos, BULLET_RADIUS, player.pos, PLAYER_RADIUS))
 			{
@@ -1429,6 +1440,9 @@ void UpdateBombs(void)
 				if (j != i)
 					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, bombs[j].pos, BOMB_RADIUS))
 						exploded = true;
+			for (int j = 0; j < numGlassBoxes; ++j)
+				if (CheckCollisionCircleRec(b->pos, BOMB_RADIUS, glassBoxes[j].rect))
+					exploded = true;
 			if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
 				exploded = true;
 
@@ -1530,6 +1544,16 @@ void UpdateExplosions(void)
 					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, e->pos, r))
 					{
 						ExplodeBomb(j);
+						--j;
+					}
+				}
+				for (int j = 0; j < numGlassBoxes; ++j)
+				{
+					GlassBox *b = &glassBoxes[j];
+					if (CheckCollisionCircleRec(e->pos, r, b->rect))
+					{
+						//@TODO: Glass shatter sound.
+						RemoveGlassBoxFromGlobalList(j);
 						--j;
 					}
 				}
@@ -1946,7 +1970,7 @@ GameState LevelEditor_Update(void)
 
 				for (int i = 0; i < numGlassBoxes; ++i)
 				{
-					if (CheckCollisionPointRec(mousePosTiles, glassBoxes->rect))
+					if (CheckCollisionPointRec(mousePosTiles, glassBoxes[i].rect))
 					{
 						selection.kind = EDITOR_SELECTION_KIND_GLASS_BOX;
 						selection.glassBox = &glassBoxes[i];

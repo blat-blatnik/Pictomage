@@ -335,6 +335,10 @@ void StopAllLevelSounds(void)
 }
 
 Texture missingTexture;
+Texture playerTexture;
+Texture turretBaseTexture;
+Texture turretTopTexture;
+Texture bombTexture;
 TextureVariants tileTextureVariants[TILE_ENUM_COUNT];
 
 void LoadTextureVariants(TextureVariants *tv, const char *baseName)
@@ -361,6 +365,11 @@ void LoadAllTextures(void)
 	LoadTextureVariants(&tileTextureVariants[TILE_WALL], "wall");
 	LoadTextureVariants(&tileTextureVariants[TILE_ENTRANCE], "entrance");
 	LoadTextureVariants(&tileTextureVariants[TILE_EXIT], "exit-closed");
+
+	playerTexture = LoadTexture("res/player.png");
+	turretBaseTexture = LoadTexture("res/turret-base.png");
+	turretTopTexture = LoadTexture("res/turret-top.png");
+	bombTexture = LoadTexture("res/bomb.png");
 }
 
 // *---=======---*
@@ -1418,9 +1427,8 @@ void UpdateTriggerredMessages(void)
 	for (int i = 0; i < numTriggerMessages; ++i)
 	{
 		TriggerMessage *tm = &triggerMessages[i];
-		bool innerOverlap = CheckCollisionPointRec(player.pos, tm->rect);
-		bool outerOverlap = CheckCollisionCircleRec(player.pos, PLAYER_RADIUS, tm->rect);
-		if (innerOverlap && !tm->isTriggered)
+		bool overlap = CheckCollisionPointRec(player.pos, tm->rect);
+		if (!tm->isTriggered && overlap)
 		{
 			if (!tm->once || !tm->wasTriggerred)
 			{
@@ -1429,13 +1437,10 @@ void UpdateTriggerredMessages(void)
 				tm->wasTriggerred = true;
 			}
 		}
-		else if (tm->isTriggered)
+		else if (tm->isTriggered && !overlap)
 		{
-			if (!outerOverlap)
-			{
-				tm->isTriggered = false;
-				tm->leaveTime = GetTime();
-			}
+			tm->isTriggered = false;
+			tm->leaveTime = GetTime();
 		}
 	}
 }
@@ -1463,7 +1468,7 @@ void SetupScreenCoordinateDrawing(void)
 
 void DrawPlayer(void)
 {
-	DrawCircleV(player.pos, PLAYER_RADIUS, DARKGREEN);
+	DrawTexRotated(playerTexture, player.pos, Vec2Broadcast(PLAYER_RADIUS), WHITE, player.lookAngle);
 }
 void DrawPlayerCaptureCone(void)
 {
@@ -1607,12 +1612,14 @@ void DrawTurrets(void)
 	for (int i = 0; i < numTurrets; ++i)
 	{
 		Turret t = turrets[i];
-		DrawCircleV(t.pos, TURRET_RADIUS, BLACK);
-		DrawCircleV(t.pos, TURRET_RADIUS - PixelsToTiles(5), DARKGRAY);
-		float lookAngleDegrees = RAD2DEG * t.lookAngle;
-		Rectangle gunBarrel = { t.pos.x, t.pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
-		DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, MAROON);
-		DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), ORANGE);
+		DrawTex(turretBaseTexture, t.pos, Vec2Broadcast(TURRET_RADIUS), WHITE);
+		DrawTexRotated(turretTopTexture, t.pos, Vec2Broadcast(1.5f * TURRET_RADIUS), WHITE, t.lookAngle);
+		//DrawCircleV(t.pos, TURRET_RADIUS, BLACK);
+		//DrawCircleV(t.pos, TURRET_RADIUS - PixelsToTiles(5), DARKGRAY);
+		//float lookAngleDegrees = RAD2DEG * t.lookAngle;
+		//Rectangle gunBarrel = { t.pos.x, t.pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
+		//DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, MAROON);
+		//DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), ORANGE);
 	}
 }
 void DrawBombs(void)
@@ -1643,7 +1650,7 @@ void DrawBombs(void)
 			}
 			rlEnd();
 		}
-		DrawCircleV(b.pos, BOMB_RADIUS, BLACK);
+		DrawTex(bombTexture, b.pos, Vec2Broadcast(BOMB_RADIUS), WHITE);
 	}
 }
 void DrawExplosions(void)
@@ -2599,10 +2606,10 @@ void LevelEditor_Draw(void)
 
 				if (GuiButton(Rect(x, y, 100, 20), "Fill"))
 				{
-					for (int y = 0; y < numTilesY; ++y)
-						for (int x = 0; x < numTilesX; ++x)
-							if (tiles[y][x] == selection.tile)
-								tileVariants[y][x] = selection.tileVariant;
+					for (int ty = 0; ty < numTilesY; ++ty)
+						for (int tx = 0; tx < numTilesX; ++tx)
+							if (tiles[ty][tx] == selection.tile)
+								tileVariants[ty][tx] = selection.tileVariant;
 				}
 			} break;
 
@@ -2653,7 +2660,7 @@ void LevelEditor_Draw(void)
 
 void GameInit(void)
 {
-	SetConfigFlags(FLAG_MSAA_4X_HINT);
+	//SetConfigFlags(FLAG_MSAA_4X_HINT);
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Snapper");
 	SetTargetFPS(FPS);
 	InitAudioDevice();

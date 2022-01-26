@@ -566,3 +566,83 @@ void DrawRectangleVCentered(Vector2 center, Vector2 size, Color color)
 	Vector2 pos = { center.x - size.x / 2, center.y - size.y / 2 };
 	DrawRectangleV(pos, size, color);
 }
+void DrawTex(Texture t, Vector2 center, Vector2 extent, Color tint)
+{
+	rlBegin(RL_QUADS);
+	{
+		rlColor(tint);
+		rlSetTexture(t.id);
+		rlTexCoord2f(0, 0); rlVertex2f(center.x - extent.x, center.y - extent.y);
+		rlTexCoord2f(1, 0); rlVertex2f(center.x + extent.x, center.y - extent.y);
+		rlTexCoord2f(1, 1); rlVertex2f(center.x + extent.x, center.y + extent.y);
+		rlTexCoord2f(0, 1); rlVertex2f(center.x - extent.x, center.y + extent.y);
+	}
+	rlEnd();
+}
+void DrawTexRotated(Texture t, Vector2 center, Vector2 extent, Color tint, float angleRadians)
+{
+	float s = sinf(angleRadians);
+	float c = cosf(angleRadians);
+	float ew = extent.x;
+	float eh = extent.y;
+	float cx = center.x;
+	float cy = center.y;
+	float x00 = cx + c * (-ew) - s * (-eh);
+	float x10 = cx + c * (+ew) - s * (-eh);
+	float x11 = cx + c * (+ew) - s * (+eh);
+	float x01 = cx + c * (-ew) - s * (+eh);
+	float y00 = cy + s * (-ew) + c * (-eh);
+	float y10 = cy + s * (+ew) + c * (-eh);
+	float y11 = cy + s * (+ew) + c * (+eh);
+	float y01 = cy + s * (-ew) + c * (+eh);
+	rlBegin(RL_QUADS);
+	{
+		rlColor(tint);
+		rlSetTexture(t.id);
+		rlTexCoord2f(0, 0); rlVertex2f(x00, y00);
+		rlTexCoord2f(1, 0); rlVertex2f(x10, y10);
+		rlTexCoord2f(1, 1); rlVertex2f(x11, y11);
+		rlTexCoord2f(0, 1); rlVertex2f(x01, y01);
+	}
+	rlEnd();
+}
+void DrawTexRec(Texture t, Rectangle rect, Color tint)
+{
+	rlBegin(RL_QUADS);
+	{
+		rlColor(tint);
+		rlSetTexture(t.id);
+		rlTexCoord2f(0, 0); rlVertex2f(rect.x, rect.y);
+		rlTexCoord2f(1, 0); rlVertex2f(rect.x + rect.width, rect.y);
+		rlTexCoord2f(1, 1); rlVertex2f(rect.x + rect.width, rect.y + rect.height);
+		rlTexCoord2f(0, 1); rlVertex2f(rect.x, rect.y + rect.height);
+	}
+	rlEnd();
+}
+void DrawTexRecRotated(Texture t, Rectangle rect, Color tint, float angleRadians)
+{
+	float s = sinf(angleRadians);
+	float c = cosf(angleRadians);
+	float ew = 0.5f * rect.width;
+	float eh = 0.5f * rect.height;
+	float cx = rect.x + ew;
+	float cy = rect.y + eh;
+	float x00 = cx + c * (-ew) - s * (-eh);
+	float x10 = cx + c * (+ew) - s * (-eh);
+	float x11 = cx + c * (+ew) - s * (+eh);
+	float x01 = cx + c * (-ew) - s * (+eh);
+	float y00 = cy + s * (-ew) + c * (-eh);
+	float y10 = cy + s * (+ew) + c * (-eh);
+	float y11 = cy + s * (+ew) + c * (+eh);
+	float y01 = cy + s * (-ew) + c * (+eh);
+	rlBegin(RL_QUADS);
+	{
+		rlColor(tint);
+		rlSetTexture(t.id);
+		rlTexCoord2f(0, 0); rlVertex2f(x00, y00);
+		rlTexCoord2f(1, 0); rlVertex2f(x10, y10);
+		rlTexCoord2f(1, 1); rlVertex2f(x11, y11);
+		rlTexCoord2f(0, 1); rlVertex2f(x01, y01);
+	}
+	rlEnd();
+}

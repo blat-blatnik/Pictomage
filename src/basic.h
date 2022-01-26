@@ -133,3 +133,7 @@ void DrawTextCentered(const char *text, float cx, float cy, float fontSize, Colo
 void DrawTextFormat(float x, float y, float fontSize, Color color, FORMAT_STRING format, ...);
 void DrawTextFormatv(float x, float y, float fontSize, Color color, FORMAT_STRING format, va_list args);
 void DrawRectangleVCentered(Vector2 center, Vector2 size, Color color);
+void DrawTex(Texture t, Vector2 center, Vector2 extent, Color tint);
+void DrawTexRotated(Texture t, Vector2 center, Vector2 extent, Color tint, float angleRadians);
+void DrawTexRec(Texture t, Rectangle rect, Color tint);
+void DrawTexRecRotated(Texture t, Rectangle rect, Color tint, float angleRadians);

@@ -156,6 +156,13 @@ Vector4 Vec4(float x, float y, float z, float w)
 {
 	return (Vector4) { x, y, z, w };
 }
+Vector2 Vec2FromPolar(float length, float angleRadians)
+{
+	float s = sinf(angleRadians);
+	float c = cosf(angleRadians);
+	Vector2 result = { c * length, s * length };
+	return result;
+}
 Vector2 Vec2Broadcast(float xy)
 {
 	return (Vector2) { xy, xy };
@@ -187,6 +194,10 @@ Color RGBA8(int r, int g, int b, int a)
 		(u8)(ClampInt(a, 0, 255)),
 	};
 	return result;
+}
+Color Grayscale(float whiteness)
+{
+	return FloatRGBA(whiteness, whiteness, whiteness, 1);
 }
 Rectangle Rect(float x, float y, float width, float height)
 {

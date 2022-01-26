@@ -35,6 +35,7 @@
 #define BOMB_EXPLOSION_DURATION 0.5f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
+#define RESTARTING_DURATION 1.0f
 
 // *---=======---*
 // |/   Types   \|
@@ -49,6 +50,7 @@ typedef enum GameState
 	GAME_STATE_GAME_OVER,
 	GAME_STATE_SCORE,
 	GAME_STATE_CREDITS,
+	GAME_STATE_RESTARTING,
 } GameState;
 
 typedef enum Direction
@@ -256,6 +258,18 @@ Bomb bombs[MAX_BOMBS];
 Bomb capturedBombs[MAX_BOMBS];
 int numExplosions;
 Explosion explosions[MAX_EXPLOSIONS];
+
+// *---========---*
+// |/   Assets   \|
+// *---========---*
+
+void StopAllLevelSounds(void)
+{
+	StopSound(flashSound);
+	StopSound(longShotSound);
+	StopSound(explosionSound);
+	StopSound(turretDestroySound);
+}
 
 // *---=======---*
 // |/   Tiles   \|
@@ -666,9 +680,7 @@ void CopyRoomToGame(Room *room)
 	memcpy(previousRoomName, room->prev, sizeof previousRoomName);
 	memcpy(nextRoomName, room->next, sizeof nextRoomName);
 
-	StopSound(explosionSound);
-	StopSound(turretDestroySound);
-	StopSound(longShotSound);
+	StopAllLevelSounds();
 
 	numBullets = 0;
 	numTurrets = 0;
@@ -951,6 +963,42 @@ void DrawExplosions(void)
 		float x = 1 - t;
 		float r = (1 - x * x * x * x * x * x) * e->radius;
 		DrawCircleV(e->pos, r, ColorAlpha(RED, 0.5f));
+	}
+}
+void DrawShutter(float t) // t = 0 (fully open), t = 1 (fully closed)
+{
+	float angle = 0;
+	for (int i = 0; i < 6; ++i)
+	{
+		float angle1 = angle;
+		float angle2 = angle + 60 * DEG2RAD;
+		const float size = 1.6f * fmaxf(SCREEN_HEIGHT, SCREEN_WIDTH);
+
+		Vector2 v[3] = {
+			screenCenter,
+			Vector2Add(screenCenter, Vec2(size * cos(angle1), size * sin(angle1))),
+			Vector2Add(screenCenter, Vec2(size * cos(angle2), size * sin(angle2))),
+		};
+
+		Vector2 direction = Vector2Normalize(Vector2Subtract(v[2], v[1]));
+		for (int j = 0; j < 3; ++j)
+			v[j] = Vector2Add(v[j], Vector2Scale(direction, (1 - t) * size));
+
+		DrawTriangle(v[0], v[1], v[2], Grayscale(0.3f));
+
+		Vector2 center = Vector2Zero();
+		for (int j = 0; j < 3; ++j)
+			center = Vector2Add(center, v[j]);
+		center = Vector2Scale(center, 1 / 3.0f);
+
+		for (int j = 0; j < 3; ++j)
+		{
+			Vector2 toCenter = Vector2Normalize(Vector2Subtract(center, v[j]));
+			v[j] = Vector2Add(v[j], Vector2Scale(toCenter, 10));
+		}
+
+		DrawTriangle(v[0], v[1], v[2], Grayscale(0.1f));
+		angle = angle2;
 	}
 }
 
@@ -1399,6 +1447,8 @@ GameState Playing_Update(void)
 		return GAME_STATE_LEVEL_EDITOR;
 	if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER))
 		return GAME_STATE_PAUSED;
+	if (IsKeyPressed(KEY_R))
+		return GAME_STATE_RESTARTING;
 
 	UpdatePlayer();
 	UpdateBullets();
@@ -1444,6 +1494,11 @@ void Playing_Draw(void)
 
 	SetupScreenCoordinateDrawing();
 	{
+		//float time = 2 * fmod(GetTime(), 1);
+		//float t = fabsf(time - 1);
+		//DrawShutter(t);
+		//DrawShutter(1);
+		//DrawDebugText("%.2f", GetTime());
 		//DrawFPS(100, 100);
 		//Vector2 mp = ScreenToTile(GetMousePosition());
 		//DrawDebugText("[%.1f %.1f] [%.1f %.1f]", mp.x, mp.y, cameraPos.x, cameraPos.y);
@@ -1478,6 +1533,40 @@ void Paused_Draw(void)
 	DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2, edgeColor, centerColor);
 	DrawRectangleGradientV(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2, centerColor, edgeColor);
 	DrawTextCentered("[PAUSED]", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 40, BLACK);
+}
+
+// *---============---*
+// |/   Restarting   \|
+// *---============---*
+
+double restartingStartTime;
+bool restartingDone;
+void Restarting_Init(GameState oldState)
+{
+	restartingStartTime = GetTime();
+	restartingDone = false;
+	StopAllLevelSounds();
+}
+GameState Restarting_Update(void)
+{
+	double time = GetTime() - restartingStartTime;
+	if (time > RESTARTING_DURATION / 2 && !restartingDone)
+	{
+		CopyRoomToGame(&currentRoom);
+		restartingDone = true;
+	}
+
+	if (time > RESTARTING_DURATION)
+		return GAME_STATE_PLAYING;
+	else
+		return GAME_STATE_RESTARTING;
+}
+void Restarting_Draw(void)
+{
+	Playing_Draw();
+	float time = (float)(GetTime() - restartingStartTime);
+	float t = 1 - fabsf(time - RESTARTING_DURATION / 2);
+	DrawShutter(Clamp(t, 0, 1));
 }
 
 // *---==============---*
@@ -1986,6 +2075,7 @@ void GameLoopOneIteration(void)
 		case GAME_STATE_LEVEL_EDITOR: gameState = LevelEditor_Update(); break;
 		case GAME_STATE_SCORE:        assert(false);                    break;
 		case GAME_STATE_CREDITS:      assert(false);                    break;
+		case GAME_STATE_RESTARTING:   gameState = Restarting_Update();  break;
 	}
 
 	if (gameState != oldState)
@@ -1999,6 +2089,7 @@ void GameLoopOneIteration(void)
 			case GAME_STATE_LEVEL_EDITOR: LevelEditor_Init(oldState); break;
 			case GAME_STATE_SCORE:        assert(false);              break;
 			case GAME_STATE_CREDITS:      assert(false);              break;
+			case GAME_STATE_RESTARTING:   Restarting_Init(oldState);  break;
 		}
 	}
 	
@@ -2014,6 +2105,7 @@ void GameLoopOneIteration(void)
 			case GAME_STATE_LEVEL_EDITOR: LevelEditor_Draw(); break;
 			case GAME_STATE_SCORE:        assert(false);      break;
 			case GAME_STATE_CREDITS:      assert(false);      break;
+			case GAME_STATE_RESTARTING:   Restarting_Draw();  break;
 		}
 	}
 	EndDrawing();

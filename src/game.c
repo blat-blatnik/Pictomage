@@ -36,6 +36,7 @@
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
 #define RESTARTING_DURATION 0.8f
+#define GRACE_PERIOD 1.0f
 
 // *---=======---*
 // |/   Types   \|
@@ -88,6 +89,7 @@ typedef struct Player
 	bool hasCapture;
 	bool isReleasingCapture; // True while the button is held down, before the capture is released.
 	Vector2 releasePos;
+	bool isAlive;
 } Player;
 
 typedef struct Bullet
@@ -227,7 +229,7 @@ void ScreenShake(float intensity, float duration, float damping)
 // *---=========---*
 
 bool godMode = true; //@TODO: Disable this for release.
-const bool devMode = true; //@TODO: Disable this for release.
+bool devMode = true; //@TODO: Disable this for release.
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
@@ -570,6 +572,12 @@ void ExplodeBomb(int index)
 	ScreenShake(1, 0.2f, 0);
 	RemoveBombFromGlobalList(index);
 }
+void KillPlayer(Vector2 direction, float intensity)
+{
+	//@TODO: Spawn some gore?
+	direction = Vector2Normalize(direction);
+	player.isAlive = false;
+}
 
 void CenterCameraOnLevel(void)
 {
@@ -699,9 +707,13 @@ void CopyRoomToGame(Room *room)
 	numCapturedBullets = 0;
 	numCapturedTurrets = 0;
 	numCapturedBombs = 0;
+	numExplosions = 0;
 	player.hasCapture = false;
 	player.justSnapped = false;
 	player.isReleasingCapture = false;
+	player.vel = Vector2Zero();
+	player.releasePos = Vector2Zero();
+	player.isAlive = true;
 	screenShakeDuration = 0;
 	screenShakeIntensity = 0;
 	screenShakeDamping = 0;
@@ -1013,6 +1025,10 @@ void DrawShutter(float t) // t = 0 (fully open), t = 1 (fully closed)
 	}
 }
 
+// *---========---*
+// |/   Update   \|
+// *---========---*
+
 void UpdatePlayer(void)
 {
 	Vector2 mousePos = ScreenToTile(GetMousePosition());
@@ -1234,6 +1250,8 @@ void UpdateBullets(void)
 			{
 				RemoveBulletFromGlobalList(i);
 				--i;
+				Vector2 toPlayer = Vector2Subtract(player.pos, b->pos);
+				KillPlayer(toPlayer, 0.1f);
 				continue;
 			}
 		}
@@ -1421,10 +1439,10 @@ void UpdateExplosions(void)
 		}
 		else
 		{
-			float t = 2 * Clamp(e->frame / (float)e->durationFrames, 0, 1);
-			if (t <= 1)
+			float time = 2 * Clamp(e->frame / (float)e->durationFrames, 0, 1);
+			if (time <= 1)
 			{
-				float x = 1 - t;
+				float x = 1 - time;
 				float r = (1 - x * x * x * x * x * x) * e->radius;
 
 				for (int j = 0; j < numTurrets; ++j)
@@ -1446,7 +1464,12 @@ void UpdateExplosions(void)
 					}
 				}
 
-				// @TODO: Collision check with player!
+				if (CheckCollisionCircles(player.pos, PLAYER_RADIUS, e->pos, r))
+				{
+					Vector2 toPlayer = Vector2Subtract(player.pos, e->pos);
+					float distance = Vector2Length(toPlayer);
+					KillPlayer(toPlayer, 1 / (1 + distance));
+				}
 			}
 		}
 	}
@@ -1456,8 +1479,15 @@ void UpdateExplosions(void)
 // |/   Playing   \|
 // *---=========---*
 
+double gracePeriodStartTime;
+bool hasGracePeriod;
 void Playing_Init(GameState oldState)
 {
+	if (oldState != GAME_STATE_PAUSED)
+	{
+		gracePeriodStartTime = GetTime();
+		hasGracePeriod = true;
+	}
 	CenterCameraOnLevel();
 }
 GameState Playing_Update(void)
@@ -1469,12 +1499,23 @@ GameState Playing_Update(void)
 	if (IsKeyPressed(KEY_R))
 		return GAME_STATE_RESTARTING;
 
-	UpdatePlayer();
-	UpdateBullets();
-	UpdateTurrets();
-	UpdateBombs();
-	UpdateExplosions();
+	double gracePeriodTime = GetTime() - gracePeriodStartTime;
+	if (gracePeriodTime > GRACE_PERIOD)
+		hasGracePeriod = false;
 
+	Vector2 initialPos = player.pos;
+	UpdatePlayer();
+	if (!Vector2Equal(initialPos, player.pos))
+		hasGracePeriod = false;
+
+	if (!hasGracePeriod)
+	{
+		UpdateBullets();
+		UpdateTurrets();
+		UpdateBombs();
+		UpdateExplosions();
+	}
+	
 	Tile playerTile = TileAtVec(player.pos);
 	if (playerTile == TILE_EXIT && NumRemainingEnemies() == 0)
 	{
@@ -1485,6 +1526,9 @@ GameState Playing_Update(void)
 			CenterCameraOnLevel();
 		}
 	}
+
+	if (!player.isAlive)
+		return GAME_STATE_GAME_OVER;
 
 	return GAME_STATE_PLAYING;
 }
@@ -1554,6 +1598,40 @@ void Paused_Draw(void)
 	DrawTextCentered("[PAUSED]", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 40, BLACK);
 }
 
+// *---===========---*
+// |/   Game Over   \|
+// *---===========---*
+
+double gameOverStartTime;
+void GameOver_Init(GameState oldState)
+{
+	gameOverStartTime = GetTime();
+}
+GameState GameOver_Update(void)
+{
+	if (IsKeyPressed(KEY_GRAVE))
+		return GAME_STATE_LEVEL_EDITOR;
+	if (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER))
+		return GAME_STATE_RESTARTING;
+
+	UpdateBullets();
+	UpdateTurrets();
+	UpdateBombs();
+	UpdateExplosions();
+
+	return GAME_STATE_GAME_OVER;
+}
+void GameOver_Draw(void)
+{
+	Playing_Draw();
+
+	Color edgeColor = ColorAlpha(BLACK, 0.9f);
+	Color centerColor = ColorAlpha(BLACK, 0.1f);
+	DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2, edgeColor, centerColor);
+	DrawRectangleGradientV(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2, centerColor, edgeColor);
+	DrawTextCentered("- YOU DIED -", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 40, BLACK);
+}
+
 // *---============---*
 // |/   Restarting   \|
 // *---============---*
@@ -1599,6 +1677,7 @@ void Restarting_Draw(void)
 // |/   Level Editor   \|
 // *---==============---*
 
+bool isFirstLevelEditorFrame; // @HACK: On the first frame, the console is focused and will receive the '`' that switched to the editor.
 EditorSelection selection;
 Vector2 lastMouseClickPos;
 char consoleInputBuffer[256];
@@ -1624,14 +1703,20 @@ void DoTileButton(Tile tile, float x, float y)
 
 void LevelEditor_Init(GameState oldState)
 {
+	isFirstLevelEditorFrame = true;
 	cameraPos = Vector2Zero();
 	cameraZoom = 1;
 	CopyRoomToGame(&currentRoom);
 	ShiftCamera(-(numTilesX - MAX_TILES_X) / 2.0f, -(numTilesY - MAX_TILES_Y) / 2.0f);
 	ZoomInToPoint(screenCenter, powf(1.1f, -7));
+	
+	// Focus on the console when you first pull up the editor.
+	lastMouseClickPos.x = consoleInputRect.x + 1;
+	lastMouseClickPos.y = consoleInputRect.y + 1;
 }
 GameState LevelEditor_Update(void)
 {
+	isFirstLevelEditorFrame = false;
 	Vector2 mousePos = GetMousePosition();
 	Vector2 mouseDelta = GetMouseDelta();
 	Vector2 mousePosTiles = ScreenToTile(mousePos);
@@ -1883,7 +1968,7 @@ void LevelEditor_Draw(void)
 
 	GuiWindowBox(consoleWindowRect, "Console");
 	{
-		bool isFocused = CheckCollisionPointRec(lastMouseClickPos, consoleInputRect);
+		bool isFocused = !isFirstLevelEditorFrame && CheckCollisionPointRec(lastMouseClickPos, consoleInputRect);
 		GuiTextBox(consoleInputRect, consoleInputBuffer, sizeof consoleInputBuffer, isFocused);
 		if (isFocused && IsKeyPressed(KEY_ENTER))
 		{
@@ -1896,13 +1981,43 @@ void LevelEditor_Draw(void)
 				const char **args = &split[1];
 				if (TextIsEqual(command, "lr") || TextIsEqual(command, "loadroom"))
 				{
-					if (splitCount == 2)
+					if (argCount == 1)
 					{
 						if (LoadRoom(&currentRoom, args[0]))
 							CopyRoomToGame(&currentRoom);
 					}
-					else if (splitCount < 2) TraceLog(LOG_ERROR, "Command '%s' requires the name of the room to load.", command);
-					else if (splitCount > 2) TraceLog(LOG_ERROR, "Command '%s' requires only 1 argument, but %d were given.", command, argCount);
+					else if (argCount < 2) TraceLog(LOG_ERROR, "Command '%s' requires the name of the room to load.", command);
+					else if (argCount > 2) TraceLog(LOG_ERROR, "Command '%s' requires only 1 argument, but %d were given.", command, argCount);
+				}
+				else if (TextIsEqual(command, "gm") || TextIsEqual(command, "godmode"))
+				{
+					if (argCount == 0)
+						godMode = !godMode;
+					else if (argCount == 1)
+					{
+						if (TextIsEqual(args[0], "1"))
+							godMode = true;
+						else if (TextIsEqual(args[0], "0"))
+							godMode = false;
+						else
+							TraceLog(LOG_ERROR, "Command '%s' accepts either '1' or '0', but '%s' was given.", command, args[0]);
+					}
+					else if (argCount > 1) TraceLog(LOG_ERROR, "Command '%s' requires 1 or 0 arguments, but %d were given.", command, argCount);
+				}
+				else if (TextIsEqual(command, "dm") || TextIsEqual(command, "devmode"))
+				{
+					if (argCount == 0)
+						devMode = !devMode;
+					else if (argCount == 1)
+					{
+						if (TextIsEqual(args[0], "1"))
+							devMode = true;
+						else if (TextIsEqual(args[0], "0"))
+							devMode = false;
+						else
+							TraceLog(LOG_ERROR, "Command '%s' accepts either '1' or '0', but '%s' was given.", command, args[0]);
+					}
+					else if (argCount > 1) TraceLog(LOG_ERROR, "Command '%s' requires 1 or 0 arguments, but %d were given.", command, argCount);
 				}
 			}
 
@@ -2092,7 +2207,7 @@ void GameLoopOneIteration(void)
 		case GAME_STATE_START_MENU:   assert(false);                    break;
 		case GAME_STATE_PLAYING:      gameState = Playing_Update();     break;
 		case GAME_STATE_PAUSED:       gameState = Paused_Update();      break;
-		case GAME_STATE_GAME_OVER:    assert(false);                    break;
+		case GAME_STATE_GAME_OVER:    gameState = GameOver_Update();    break;
 		case GAME_STATE_LEVEL_EDITOR: gameState = LevelEditor_Update(); break;
 		case GAME_STATE_SCORE:        assert(false);                    break;
 		case GAME_STATE_CREDITS:      assert(false);                    break;
@@ -2106,7 +2221,7 @@ void GameLoopOneIteration(void)
 			case GAME_STATE_START_MENU:   assert(false);              break;
 			case GAME_STATE_PLAYING:      Playing_Init(oldState);     break;
 			case GAME_STATE_PAUSED:       Paused_Init(oldState);      break;
-			case GAME_STATE_GAME_OVER:    assert(false);              break;
+			case GAME_STATE_GAME_OVER:    GameOver_Init(oldState);    break;
 			case GAME_STATE_LEVEL_EDITOR: LevelEditor_Init(oldState); break;
 			case GAME_STATE_SCORE:        assert(false);              break;
 			case GAME_STATE_CREDITS:      assert(false);              break;
@@ -2122,7 +2237,7 @@ void GameLoopOneIteration(void)
 			case GAME_STATE_START_MENU:   assert(false);      break;
 			case GAME_STATE_PLAYING:      Playing_Draw();     break;
 			case GAME_STATE_PAUSED:       Paused_Draw();      break;
-			case GAME_STATE_GAME_OVER:    assert(false);      break;
+			case GAME_STATE_GAME_OVER:    GameOver_Draw();    break;
 			case GAME_STATE_LEVEL_EDITOR: LevelEditor_Draw(); break;
 			case GAME_STATE_SCORE:        assert(false);      break;
 			case GAME_STATE_CREDITS:      assert(false);      break;

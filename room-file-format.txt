@@ -12,3 +12,7 @@ Vector2 bombPos[numBombs]
 uint8 numGlassBoxes
 Rectangle glassBoxRects[numGlassBoxes]
 float glassBoxRotations[numGlassBoxes]
+uint8 numTriggerMessages
+Rectangle triggerMessageRects[numTriggerMessages]
+bool triggerMessageOnce[numTriggerMessages]
+char triggerMessages[numTriggerMessages][128]

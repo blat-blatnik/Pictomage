@@ -18,6 +18,8 @@
 #define MAX_DOORS_PER_ROOM 4
 #define MAX_ROOM_NAME 64
 #define MAX_GLASS_BOXES 50
+#define MAX_POPUP_MESSAGE_LENGTH 128
+#define MAX_TRIGGER_MESSAGES 10
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
@@ -80,6 +82,7 @@ typedef enum EditorSelectionKind
 	EDITOR_SELECTION_KIND_TURRET,
 	EDITOR_SELECTION_KIND_BOMB,
 	EDITOR_SELECTION_KIND_GLASS_BOX,
+	EDITOR_SELECTION_KIND_TRIGGER_MESSAGE,
 } EditorSelectionKind;
 
 typedef struct Player
@@ -130,6 +133,15 @@ typedef struct GlassBox
 	Rectangle rect;
 } GlassBox;
 
+typedef struct TriggerMessage
+{
+	Rectangle rect;
+	float t; // For animations.
+	bool once;
+	bool wasTriggerred;
+	char message[MAX_POPUP_MESSAGE_LENGTH];
+} TriggerMessage;
+
 typedef struct Room
 {
 	char name[MAX_ROOM_NAME];
@@ -150,6 +162,11 @@ typedef struct Room
 
 	int numGlassBoxes;
 	Rectangle glassBoxRects[MAX_GLASS_BOXES];
+
+	int numTriggerMessages;
+	Rectangle triggerMessagesRects[MAX_TRIGGER_MESSAGES];
+	bool triggerMessagesOnce[MAX_TRIGGER_MESSAGES];
+	char triggerMessages[MAX_TRIGGER_MESSAGES][MAX_POPUP_MESSAGE_LENGTH];
 } Room;
 
 typedef struct Explosion
@@ -170,6 +187,7 @@ typedef struct EditorSelection
 		Turret *turret;
 		Bomb *bomb;
 		GlassBox *glassBox;
+		TriggerMessage *triggerMessage;
 	};
 } EditorSelection;
 
@@ -275,6 +293,8 @@ int numExplosions;
 Explosion explosions[MAX_EXPLOSIONS];
 int numGlassBoxes;
 GlassBox glassBoxes[MAX_GLASS_BOXES];
+int numTriggerMessages;
+TriggerMessage triggerMessages[MAX_TRIGGER_MESSAGES];
 
 // *---========---*
 // |/   Assets   \|
@@ -538,6 +558,21 @@ GlassBox *SpawnGlassBox(Rectangle rect)
 	box->rect = rect;
 	return box;
 }
+TriggerMessage *SpawnTriggerMessage(Rectangle rect, bool once, const char *message)
+{
+	if (numTriggerMessages >= MAX_TRIGGER_MESSAGES)
+		return NULL;
+
+	TriggerMessage *tm = &triggerMessages[numTriggerMessages++];
+	tm->rect = rect;
+	tm->t = 0;
+	tm->once = once;
+	tm->wasTriggerred = false;
+	memset(tm->message, 0, sizeof tm->message);
+	snprintf(tm->message, sizeof tm->message, "%s", message);
+	return tm;
+}
+
 void RemoveBulletFromGlobalList(int index)
 {
 	ASSERT(index >= 0 && index < numBullets);
@@ -568,6 +603,13 @@ void RemoveGlassBoxFromGlobalList(int index)
 	SwapMemory(glassBoxes + index, glassBoxes + numGlassBoxes - 1, sizeof glassBoxes[0]);
 	--numGlassBoxes;
 }
+void RemoveTriggerMessageFromGlobalList(int index)
+{
+	ASSERT(index >= 0 && index < numTriggerMessages);
+	SwapMemory(triggerMessages + index, triggerMessages + numTriggerMessages - 1, sizeof triggerMessages[0]);
+	--numTriggerMessages;
+}
+
 void ShiftAllObjectsBy(float dx, float dy)
 {
 	player.pos.x += dx;
@@ -594,6 +636,7 @@ void ExplodeBomb(int index)
 	Bomb *bomb = &bombs[index];
 	SpawnExplosion(bomb->pos, BOMB_EXPLOSION_DURATION, BOMB_EXPLOSION_RADIUS);
 	PlaySound(explosionSound);
+	SetSoundPitch(explosionSound, RandomFloat(&rng, 0.8f, 1.2f));
 	ScreenShake(1, 0.2f, 0);
 	RemoveBombFromGlobalList(index);
 }
@@ -639,6 +682,10 @@ bool LoadRoom(Room *room, const char *filename)
 	Vector2 bombPos[MAX_BOMBS] = { 0 };
 	u8 numGlassBoxes = 0;
 	Rectangle glassBoxRects[MAX_GLASS_BOXES] = { 0 };
+	u8 numTriggerMessages = 0;
+	Rectangle triggerMessagesRects[MAX_TRIGGER_MESSAGES] = { 0 };
+	bool triggerMessagesOnce[MAX_TRIGGER_MESSAGES] = { 0 };
+	char triggerMessages[MAX_TRIGGER_MESSAGES][MAX_POPUP_MESSAGE_LENGTH] = { 0 };
 
 	fread(&flags, sizeof flags, 1, file);
 	fread(next, sizeof next, 1, file);
@@ -654,6 +701,10 @@ bool LoadRoom(Room *room, const char *filename)
 	fread(bombPos, sizeof bombPos[0], numBombs, file);
 	fread(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
 	fread(glassBoxRects, sizeof glassBoxRects[0], numGlassBoxes, file);
+	fread(&numTriggerMessages, sizeof numTriggerMessages, 1, file);
+	fread(triggerMessagesRects, sizeof triggerMessagesRects[0], numTriggerMessages, file);
+	fread(triggerMessagesOnce, sizeof triggerMessagesOnce[0], numTriggerMessages, file);
+	fread(triggerMessages, sizeof triggerMessages[0], numTriggerMessages, file);
 	fclose(file);
 
 	char name[sizeof room->name];
@@ -674,6 +725,10 @@ bool LoadRoom(Room *room, const char *filename)
 	memcpy(room->bombPos, bombPos, sizeof bombPos);
 	room->numGlassBoxes = (int)numGlassBoxes;
 	memcpy(room->glassBoxRects, glassBoxRects, sizeof glassBoxRects);
+	room->numTriggerMessages = numTriggerMessages;
+	memcpy(room->triggerMessagesRects, triggerMessagesRects, sizeof triggerMessagesRects);
+	memcpy(room->triggerMessagesOnce, triggerMessagesOnce, sizeof triggerMessagesOnce);
+	memcpy(room->triggerMessages, triggerMessages, sizeof triggerMessages);
 
 	TraceLog(LOG_INFO, "Loaded room '%s'.", filepath);
 	return true;
@@ -721,6 +776,12 @@ void SaveRoom(const Room *room)
 	fwrite(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
 	fwrite(room->glassBoxRects, sizeof room->glassBoxRects[0], numGlassBoxes, file);
 
+	u8 numTriggerMessages = (u8)room->numTriggerMessages;
+	fwrite(&numTriggerMessages, sizeof numTriggerMessages, 1, file);
+	fwrite(room->triggerMessagesRects, sizeof room->triggerMessagesRects[0], numTriggerMessages, file);
+	fwrite(room->triggerMessagesOnce, sizeof room->triggerMessagesOnce[0], numTriggerMessages, file);
+	fwrite(room->triggerMessages, sizeof room->triggerMessages[0], numTriggerMessages, file);
+
 	fclose(file);
 	TraceLog(LOG_INFO, "Saved room '%s'.", filepath);
 }
@@ -735,6 +796,7 @@ void CopyRoomToGame(Room *room)
 	numTurrets = 0;
 	numBombs = 0;
 	numGlassBoxes = 0;
+	numTriggerMessages = 0;
 	numCapturedBullets = 0;
 	numCapturedTurrets = 0;
 	numCapturedBombs = 0;
@@ -761,6 +823,8 @@ void CopyRoomToGame(Room *room)
 		SpawnBomb(room->bombPos[i]);
 	for (int i = 0; i < room->numGlassBoxes; ++i)
 		SpawnGlassBox(room->glassBoxRects[i]);
+	for (int i = 0; i < room->numTriggerMessages; ++i)
+		SpawnTriggerMessage(room->triggerMessagesRects[0], room->triggerMessagesOnce[0], room->triggerMessages[0]);
 }
 void CopyGameToRoom(Room *room)
 {
@@ -792,6 +856,14 @@ void CopyGameToRoom(Room *room)
 	{
 		GlassBox box = glassBoxes[i];
 		room->glassBoxRects[i] = box.rect;
+	}
+	room->numTriggerMessages = numTriggerMessages;
+	for (int i = 0; i < numTriggerMessages; ++i)
+	{
+		TriggerMessage tm = triggerMessages[i];
+		room->triggerMessagesRects[i] = tm.rect;
+		room->triggerMessagesOnce[i] = tm.once;
+		memcpy(&room->triggerMessages[i], tm.message, sizeof tm.message);
 	}
 }
 
@@ -1069,6 +1141,22 @@ void DrawGlassBoxes(void)
 		GlassBox box = glassBoxes[i];
 		//DrawRectanglePro(box.rect, RectangleCenter(box.rect), RAD2DEG * box.rotation, ColorAlpha(BLUE, 0.2f));
 		DrawRectangleRec(box.rect, ColorAlpha(BLUE, 0.2f));
+	}
+}
+void DrawTriggerredMessages(bool debug)
+{
+	for (int i = 0; i < numTriggerMessages; ++i)
+	{
+		TriggerMessage tm = triggerMessages[i];
+		if (debug)
+			DrawRectangleRec(tm.rect, ColorAlpha(ORANGE, 0.3f));
+		else
+		{
+			if (CheckCollisionCircleRec(player.pos, PLAYER_RADIUS, tm.rect))
+			{
+				DrawTextCentered(tm.message, screenCenter.x, 100, 20, BLACK);
+			}
+		}
 	}
 }
 
@@ -1560,6 +1648,13 @@ void UpdateExplosions(void)
 		}
 	}
 }
+void UpdateTriggerredMessages(void)
+{
+	for (int i = 0; i < numTriggerMessages; ++i)
+	{
+		TriggerMessage *tm = &triggerMessages[i];
+	}
+}
 
 // *---=========---*
 // |/   Playing   \|
@@ -1600,6 +1695,7 @@ GameState Playing_Update(void)
 		UpdateTurrets();
 		UpdateBombs();
 		UpdateExplosions();
+		UpdateTriggerredMessages();
 	}
 	
 	Tile playerTile = TileAtVec(player.pos);
@@ -1644,6 +1740,7 @@ void Playing_Draw(void)
 
 	SetupScreenCoordinateDrawing();
 	{
+		DrawTriggerredMessages(false);
 		//float time = 2 * fmod(GetTime(), 1);
 		//float t = fabsf(time - 1);
 		//DrawShutter(t);
@@ -1942,6 +2039,15 @@ GameState LevelEditor_Update(void)
 			{
 				selection.kind = EDITOR_SELECTION_KIND_NONE;
 
+				for (int i = 0; i < numTriggerMessages; ++i)
+				{
+					if (CheckCollisionPointRec(mousePosTiles, triggerMessages[i].rect))
+					{
+						selection.kind = EDITOR_SELECTION_KIND_TRIGGER_MESSAGE;
+						selection.triggerMessage = &triggerMessages[i];
+					}
+				}
+
 				for (int i = 0; i < numTurrets; ++i)
 				{
 					if (CheckCollisionPointCircle(mousePosTiles, turrets[i].pos, TURRET_RADIUS))
@@ -2046,6 +2152,14 @@ GameState LevelEditor_Update(void)
 				if (CheckCollisionPointRec(mousePosTiles, newRect))
 					selection.glassBox->rect = newRect;
 			} break;
+			case EDITOR_SELECTION_KIND_TRIGGER_MESSAGE:
+			{
+				Rectangle newRect = selection.triggerMessage->rect;
+				newRect.x += mouseDeltaTiles.x;
+				newRect.y += mouseDeltaTiles.y;
+				if (CheckCollisionPointRec(mousePosTiles, newRect))
+					selection.triggerMessage->rect = newRect;
+			} break;
 			case EDITOR_SELECTION_KIND_PLAYER:
 			{
 				Vector2 newPos = Vector2Add(selection.player->pos, mouseDeltaTiles);
@@ -2066,6 +2180,7 @@ void LevelEditor_Draw(void)
 		DrawTurrets();
 		DrawBombs();
 		DrawPlayer();
+		DrawTriggerredMessages(true);
 	}
 	SetupScreenCoordinateDrawing();
 
@@ -2173,6 +2288,18 @@ void LevelEditor_Draw(void)
 		}
 		DrawRectangleRec(Rect(x + 10, y + 10, 40, 40), ColorAlpha(BLACK, 0.2f));
 		x += 70;
+
+		if (GuiButton(Rect(x, y, 60, 60), "Message"))
+		{
+			TriggerMessage *tm = SpawnTriggerMessage(Rect(0, 0, 1, 1), false, "");
+			if (tm)
+			{
+				selection.kind = EDITOR_SELECTION_KIND_TRIGGER_MESSAGE;
+				selection.triggerMessage = tm;
+			}
+		}
+		DrawRectangleRec(Rect(x + 10, y + 10, 40, 40), ColorAlpha(BLACK, 0.2f));
+		x += 70;
 	}
 
 	GuiWindowBox(tilesWindowRect, "Tiles");
@@ -2243,9 +2370,28 @@ void LevelEditor_Draw(void)
 				y += 20;
 				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.glassBox->rect.y);
 				y += 20;
-				selection.glassBox->rect.width = GuiSlider(Rect(x, y, 100, 20), "", "Width", selection.glassBox->rect.width, 0, 30);
+				selection.glassBox->rect.width = GuiSlider(Rect(x, y, 100, 20), "", "Width", selection.glassBox->rect.width, 0.5f, 30);
 				y += 20;
-				selection.glassBox->rect.height = GuiSlider(Rect(x, y, 100, 20), "", "Height", selection.glassBox->rect.height, 0, 30);
+				selection.glassBox->rect.height = GuiSlider(Rect(x, y, 100, 20), "", "Height", selection.glassBox->rect.height, 0.5f, 30);
+				y += 20;
+			} break;
+
+			case EDITOR_SELECTION_KIND_TRIGGER_MESSAGE:
+			{
+				Rectangle messageRect = Rect(x, y, 100, 40);
+				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, messageRect);
+				isFocused = GuiTextBoxMulti(messageRect, selection.triggerMessage->message, sizeof selection.triggerMessage->message, isFocused);
+				y += 40;
+
+				GuiText(Rect(x, y, 100, 20), "X: %.2f", selection.triggerMessage->rect.x);
+				y += 20;
+				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.triggerMessage->rect.y);
+				y += 20;
+				selection.triggerMessage->rect.width = GuiSlider(Rect(x, y, 100, 20), "", "Width", selection.triggerMessage->rect.width, 1, 30);
+				y += 20;
+				selection.triggerMessage->rect.height = GuiSlider(Rect(x, y, 100, 20), "", "Height", selection.triggerMessage->rect.height, 1, 30);
+				y += 20;
+				selection.triggerMessage->once = GuiCheckBox(Rect(x, y, 20, 20), "       Trigger once", selection.triggerMessage->once);
 				y += 20;
 			} break;
 

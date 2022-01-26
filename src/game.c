@@ -1664,7 +1664,7 @@ void DrawGlassBoxes(void)
 		DrawRectangleRec(box.rect, ColorAlpha(BLUE, 0.2f));
 	}
 }
-void DrawTriggerredMessages(bool debug)
+void DrawTriggerMessages(bool debug)
 {
 	for (int i = 0; i < numTriggerMessages; ++i)
 	{
@@ -1675,16 +1675,16 @@ void DrawTriggerredMessages(bool debug)
 		{
 			if (tm.t > 0)
 			{
-				float t = Clamp(tm.t / POPUP_ANIMATION_TIME, 0, 1);
 				const float flyInOutTime = 0.1f;
+				float t = Clamp(tm.t / POPUP_ANIMATION_TIME, 0, 1);
 				float t0 = Clamp(t / flyInOutTime, 0, 1);
-				float t1 = Clamp(t - flyInOutTime / (1 - flyInOutTime), 0, 1);
+				float t1 = Clamp((t - flyInOutTime) / (1 - flyInOutTime), 0, 1);
 
 				char text[MAX_POPUP_MESSAGE_LENGTH];
 				memcpy(text, tm.message, sizeof tm.message);
 				text[MAX_POPUP_MESSAGE_LENGTH - 1] = 0;
 				int textLength = (int)strlen(text);
-			
+
 				const float fontSize = 32;
 				Font font = GetFontDefault();
 				Vector2 textSize = MeasureTextEx(font, text, fontSize, 1);
@@ -1693,42 +1693,75 @@ void DrawTriggerredMessages(bool debug)
 				const float centerY = 200;
 				const float tapePadX = 30;
 				const float tapePadY = 10;
-				Rectangle tapeRect = {
-					centerX - 0.5f * textSize.x - tapePadX,
-					centerY - 0.5f * fontSize - tapePadY,
-					textSize.x + 2 * tapePadX,
-					textSize.y + 2 * tapePadY
-				};
-				Rectangle reelRect = {
-					tapeRect.x,
-					tapeRect.y - 2,
-					30,
-					tapeRect.height + 4
-				};
+				Rectangle reelRect;
 
-				float textOffsetX = 0;
-				if (tm.isTriggered)
+				if (t < flyInOutTime)
 				{
-					reelRect.x = Lerp(reelRect.x, tapeRect.x + tapeRect.width, t);
-					tapeRect.width = Lerp(0, tapeRect.width, t);
+					float height = textSize.y + 2 * tapePadY + 4;
+					float x0 = centerX - 0.5f * textSize.x - tapePadX;
+					float x1 = x0 + textSize.x + 2 * tapePadX;
+					float y0 = -height;
+					float y1 = centerY - 0.5f * fontSize - tapePadX - 2;
+					reelRect = Rect(
+						x0,
+						y1,
+						30,
+						height);
+
+					if (tm.isTriggered)
+					{
+						reelRect.x = x0;
+						reelRect.y = Lerp(y0, y1, t0);
+					}
+					else
+					{
+						reelRect.x = x1;
+						reelRect.y = Lerp(y1, y0, 1 - t0);
+					}
 				}
 				else
 				{
-					textOffsetX = Lerp(0, tapeRect.width, 1 - t);
-					reelRect.x = tapeRect.x + tapeRect.width;
-					tapeRect.x = Lerp(tapeRect.x, tapeRect.x + tapeRect.width, 1 - t);
-					tapeRect.width = Lerp(tapeRect.width, 0, 1 - t);
-				}
+					Rectangle tapeRect = Rect(
+						centerX - 0.5f * textSize.x - tapePadX,
+						centerY - 0.5f * fontSize - tapePadY,
+						textSize.x + 2 * tapePadX,
+						textSize.y + 2 * tapePadY);
+					reelRect = Rect(
+						tapeRect.x,
+						tapeRect.y - 2,
+						30,
+						tapeRect.height + 4);
 
-				float textMaxWidth = tapeRect.width - tapePadX;
-				for (int i = 0; i < textLength; ++i)
-				{
-					char backup = text[i];
-					text[i] = 0;
-					Vector2 s = MeasureTextEx(font, text, fontSize, 1);
-					if (s.x > textMaxWidth)
-						break;
-					text[i] = backup;
+					float textOffsetX = 0;
+					if (tm.isTriggered)
+					{
+						reelRect.x = Lerp(reelRect.x, tapeRect.x + tapeRect.width, t1);
+						tapeRect.width = Lerp(0, tapeRect.width, t1);
+					}
+					else
+					{
+						textOffsetX = Lerp(0, tapeRect.width, 1 - t1);
+						reelRect.x = tapeRect.x + tapeRect.width;
+						tapeRect.x = Lerp(tapeRect.x, tapeRect.x + tapeRect.width, 1 - t1);
+						tapeRect.width = Lerp(tapeRect.width, 0, 1 - t1);
+					}
+
+					if (t > flyInOutTime)
+					{
+						float textMaxWidth = tapeRect.width - tapePadX;
+						for (int j = 0; j < textLength; ++j)
+						{
+							char backup = text[j];
+							text[j] = 0;
+							Vector2 s = MeasureTextEx(font, text, fontSize, 1);
+							if (s.x > textMaxWidth)
+								break;
+							text[j] = backup;
+						}
+
+						DrawRectangleRec(tapeRect, Grayscale(0.15f));
+						DrawTextEx(font, text, Vec2(centerX - 0.5f * textSize.x + textOffsetX, centerY - 0.5f * textSize.y), fontSize, 1, RAYWHITE);
+					}
 				}
 
 				Rectangle reelTop = {
@@ -1744,10 +1777,6 @@ void DrawTriggerredMessages(bool debug)
 					3
 				};
 
-				//float 
-
-				DrawRectangleRec(tapeRect, Grayscale(0.15f));
-				DrawTextEx(font, text, Vec2(centerX - 0.5f * textSize.x + textOffsetX, centerY - 0.5f * textSize.y), fontSize, 1, RAYWHITE);
 				DrawRectangleRec(reelRect, Grayscale(0.4f));
 				DrawRectangleRec(ExpandRectangleEx(reelRect, +3, +3, -3.5f, -3.5f), Grayscale(0.1f));
 				DrawRectangleRec(reelTop, Grayscale(0.3f));
@@ -1841,7 +1870,7 @@ void Playing_Draw(void)
 
 	SetupScreenCoordinateDrawing();
 	{
-		DrawTriggerredMessages(false);
+		DrawTriggerMessages(false);
 		//float time = 2 * fmod(GetTime(), 1);
 		//float t = fabsf(time - 1);
 		//DrawShutter(t);
@@ -2281,7 +2310,7 @@ void LevelEditor_Draw(void)
 		DrawTurrets();
 		DrawBombs();
 		DrawPlayer();
-		DrawTriggerredMessages(true);
+		DrawTriggerMessages(true);
 	}
 	SetupScreenCoordinateDrawing();
 

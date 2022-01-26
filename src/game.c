@@ -1320,15 +1320,23 @@ void UpdateBombs(void)
 		{
 			Vector2 vel = b->flungVel;
 			Vector2 expectedPos = Vector2Add(b->pos, Vector2Scale(vel, DELTA_TIME));
-			if (vel.x != 0 || vel.y != 0)
-			{
-				b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
-				for (int j = 0; j < numTurrets; ++j)
-					b->pos = ResolveCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS);
-			}
+			
+			bool exploded = false;
+			b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
+			if (!Vector2Equal(b->pos, expectedPos))
+				exploded = true;
+			
+			for (int j = 0; j < numTurrets; ++j)
+				if (CheckCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS))
+					exploded = true;
+			for (int j = 0; j < numBombs; ++j)
+				if (j != i)
+					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, bombs[j].pos, BOMB_RADIUS))
+						exploded = true;
+			if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
+				exploded = true;
 
-			bool collidedWithPlayer = CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS);
-			if (collidedWithPlayer || !Vector2Equal(b->pos, expectedPos))
+			if (exploded)
 			{
 				ExplodeBomb(i);
 				--i;

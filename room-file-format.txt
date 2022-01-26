@@ -1,5 +1,4 @@
 uint64 flags
-char previousRoomName[64]
 char nextRoomName[64]
 uint8 numTilesX
 uint8 numTilesY

@@ -133,7 +133,6 @@ typedef struct GlassBox
 typedef struct Room
 {
 	char name[MAX_ROOM_NAME];
-	char prev[MAX_ROOM_NAME];
 	char next[MAX_ROOM_NAME];
 
 	int numTilesX;
@@ -248,7 +247,6 @@ const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
 char roomName[MAX_ROOM_NAME];
-char previousRoomName[MAX_ROOM_NAME];
 char nextRoomName[MAX_ROOM_NAME];
 int numTilesX = MAX_TILES_X;
 int numTilesY = MAX_TILES_Y;
@@ -629,7 +627,6 @@ bool LoadRoom(Room *room, const char *filename)
 	}
 
 	u64 flags = 0;
-	char prev[MAX_ROOM_NAME];
 	char next[MAX_ROOM_NAME];
 	u8 numTilesX = 1;
 	u8 numTilesY = 1;
@@ -644,7 +641,6 @@ bool LoadRoom(Room *room, const char *filename)
 	Rectangle glassBoxRects[MAX_GLASS_BOXES] = { 0 };
 
 	fread(&flags, sizeof flags, 1, file);
-	fread(prev, sizeof prev, 1, file);
 	fread(next, sizeof next, 1, file);
 	fread(&numTilesX, sizeof numTilesX, 1, file);
 	fread(&numTilesY, sizeof numTilesY, 1, file);
@@ -664,7 +660,6 @@ bool LoadRoom(Room *room, const char *filename)
 	snprintf(name, sizeof name, "%s", filename);
 	memset(room, 0, sizeof room[0]);
 	memcpy(room->name, name, sizeof room->name);
-	memcpy(room->prev, prev, sizeof room->prev);
 	memcpy(room->next, next, sizeof room->next);
 	room->numTilesX = (int)numTilesX;
 	room->numTilesY = (int)numTilesY;
@@ -695,7 +690,6 @@ void SaveRoom(const Room *room)
 
 	u64 flags = 0;
 	fwrite(&flags, sizeof flags, 1, file);
-	fwrite(room->prev, sizeof room->prev, 1, file);
 	fwrite(room->next, sizeof room->next, 1, file);
 
 	u8 numTilesX = (u8)room->numTilesX;
@@ -733,7 +727,6 @@ void SaveRoom(const Room *room)
 void CopyRoomToGame(Room *room)
 {
 	memcpy(roomName, room->name, sizeof roomName);
-	memcpy(previousRoomName, room->prev, sizeof previousRoomName);
 	memcpy(nextRoomName, room->next, sizeof nextRoomName);
 
 	StopAllLevelSounds();
@@ -775,7 +768,6 @@ void CopyGameToRoom(Room *room)
 	memcpy(name, room->name, sizeof name);
 	memset(room, 0, sizeof room[0]);
 	memcpy(room->name, name, sizeof name);
-	memcpy(room->prev, previousRoomName, sizeof room->prev);
 	memcpy(room->next, nextRoomName, sizeof room->next);
 	room->numTilesX = numTilesX;
 	room->numTilesY = numTilesY;
@@ -2172,7 +2164,7 @@ void LevelEditor_Draw(void)
 
 		if (GuiButton(Rect(x, y, 60, 60), "Glass"))
 		{
-			GlassBox *box = SpawnGlassBox(Rect(0, 0, 1, 1), 0);
+			GlassBox *box = SpawnGlassBox(Rect(0, 0, 1, 1));
 			if (box)
 			{
 				selection.kind = EDITOR_SELECTION_KIND_GLASS_BOX;
@@ -2189,7 +2181,6 @@ void LevelEditor_Draw(void)
 		float y0 = tilesWindowRect.y + 30;
 		float x = x0;
 		float y = y0;
-		int state;
 
 		x = x0;
 		DoTileButton(TILE_FLOOR, x, y);
@@ -2269,12 +2260,6 @@ void LevelEditor_Draw(void)
 				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, roomNameRect);
 				GuiTextBox(roomNameRect, currentRoom.name, sizeof currentRoom.name, isFocused);
 				GuiLabel(Rect(x + 145, y, 20, 20), "Name");
-				y += 25;
-
-				Rectangle prevNameRect = Rect(x, y, 140, 20);
-				isFocused = CheckCollisionPointRec(lastMouseClickPos, prevNameRect);
-				GuiTextBox(prevNameRect, previousRoomName, sizeof previousRoomName, isFocused);
-				GuiLabel(Rect(x + 145, y, 20, 20), "Prev");
 				y += 25;
 
 				Rectangle nextNameRect = Rect(x, y, 140, 20);

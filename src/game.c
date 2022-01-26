@@ -1554,15 +1554,25 @@ void DrawPlayerRelease(void)
 }
 void DrawTiles(void)
 {
+	rlBegin(RL_QUADS);
 	for (int y = 0; y < numTilesY; ++y)
 	{
 		for (int x = 0; x < numTilesX; ++x)
 		{
-			Tile t = tiles[y][x];
+			Tile tile = tiles[y][x];
 			u8 variant = tileVariants[y][x];
-			DrawTexture(tileTextureVariants[t].variants[variant], x, y, ((x + y) % 2 == 0) ? Grayscale(1) : Grayscale(0.95f));
+			Texture2D texture = tileTextureVariants[tile].variants[variant];
+			Color tint = ((x + y) % 2 == 0) ? Grayscale(1) : Grayscale(0.95f);
+			
+			rlColor(tint);
+			rlSetTexture(texture.id);
+			rlTexCoord2f(0, 0); rlVertex2f(x + 0, y + 0);
+			rlTexCoord2f(1, 0); rlVertex2f(x + 1, y + 0);
+			rlTexCoord2f(1, 1); rlVertex2f(x + 1, y + 1);
+			rlTexCoord2f(0, 1); rlVertex2f(x + 0, y + 1);
 		}
 	}
+	rlEnd();
 }
 void DrawBullets(void)
 {

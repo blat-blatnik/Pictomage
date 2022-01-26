@@ -1764,7 +1764,7 @@ void DrawTriggerMessages(bool debug)
 				};
 
 				float textOffsetX = tape.x - tapeX0;
-				float textMaxWidth = tape.width;
+				float textMaxWidth = tape.width - tapePadX;
 				for (int j = 0; j < textLength; ++j)
 				{
 					char backup = text[j];

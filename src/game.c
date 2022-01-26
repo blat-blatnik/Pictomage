@@ -2026,6 +2026,40 @@ void DoTileButton(Tile tile, float x, float y)
 	DrawRectangleRec(Rect(x + 10, y + 10, 30, 30), ColorAlpha(BLACK, 0.2f));
 	GuiSetState(state);
 }
+void FillAllTilesBetween(Vector2 p0, Vector2 p1, Tile tile, u8 variant)
+{
+	// https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+
+	int x0 = ClampInt((int)p0.x, 0, numTilesX - 1);
+	int y0 = ClampInt((int)p0.y, 0, numTilesY - 1);
+	int x1 = ClampInt((int)p1.x, 0, numTilesX - 1);
+	int y1 = ClampInt((int)p1.y, 0, numTilesY - 1);
+	int dx = +abs(x1 - x0);
+	int dy = -abs(y1 - y0);
+	int sx = x0 < x1 ? 1 : -1;
+	int sy = y0 < y1 ? 1 : -1;
+	int err = dx + dy;
+	while (true)
+	{
+		tiles[y0][x0] = tile;
+		tileVariants[y0][x0] = variant;
+		if (x0 == x1 && y0 == y1)
+			break;
+		int e2 = 2 * err;
+		if (e2 >= dy)
+		{
+			if (x0 == x1) break;
+			err += dy;
+			x0 += sx;
+		}
+		if (e2 <= dx)
+		{
+			if (y0 == y1) break;
+			err += dx;
+			y0 += sy;
+		}
+	}
+}
 
 void LevelEditor_Init(GameState oldState)
 {
@@ -2158,8 +2192,9 @@ GameState LevelEditor_Update(void)
 		int tileY = (int)mousePosTiles.y;
 		if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
 		{
-			tiles[tileY][tileX] = selection.tile;
-			tileVariants[tileY][tileX] = selection.tileVariant;
+			Vector2 p1 = mousePosTiles;
+			Vector2 p0 = Vector2Subtract(mousePosTiles, mouseDeltaTiles);
+			FillAllTilesBetween(p0, p1, selection.tile, selection.tileVariant);
 		}
 	}
 
@@ -2562,6 +2597,14 @@ void LevelEditor_Draw(void)
 				selection.tileVariant = ClampInt(variant, 0, numVariants - 1);
 				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
 				y += 25;
+
+				if (GuiButton(Rect(x, y, 100, 20), "Fill"))
+				{
+					for (int y = 0; y < numTilesY; ++y)
+						for (int x = 0; x < numTilesX; ++x)
+							if (tiles[y][x] == selection.tile)
+								tileVariants[y][x] = selection.tileVariant;
+				}
 			} break;
 
 			default: // Room properties

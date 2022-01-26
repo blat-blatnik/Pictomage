@@ -141,6 +141,8 @@ typedef struct TriggerMessage
 	bool once;
 	bool isTriggered;
 	bool wasTriggerred;
+	double enterTime; // For animations.
+	double leaveTime;
 	char message[MAX_POPUP_MESSAGE_LENGTH];
 } TriggerMessage;
 
@@ -571,6 +573,8 @@ TriggerMessage *SpawnTriggerMessage(Rectangle rect, bool once, const char *messa
 	tm->once = once;
 	tm->isTriggered = false;
 	tm->wasTriggerred = false;
+	tm->enterTime = 0;
+	tm->leaveTime = 0;
 	memset(tm->message, 0, sizeof tm->message);
 	snprintf(tm->message, sizeof tm->message, "%s", message);
 	return tm;

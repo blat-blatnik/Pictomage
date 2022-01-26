@@ -80,6 +80,7 @@ Color Grayscale(float whiteness);
 Rectangle Rect(float x, float y, float width, float height);
 Rectangle RectVec(Vector2 pos, Vector2 size); 
 Rectangle RectMinMax(Vector2 min, Vector2 max);
+Vector2 RectanglePos(Rectangle rect);
 Vector2 RectangleCenter(Rectangle rect);
 Rectangle ExpandRectangle(Rectangle rect, float expansion);
 Rectangle ExpandRectangleEx(Rectangle rect, float left, float right, float up, float down);
@@ -122,6 +123,8 @@ void rlVertex2fv(Vector2 v);
 float DistanceLineToPoint(Vector2 p0, Vector2 p1, Vector2 p);
 bool CheckCollisionConeCircle(Vector2 coneCenter, float coneRadius, float coneAngleStart, float coneAngleEnd, Vector2 circleCenter, float circleRadius);
 bool CheckCollisionLineCircle(Vector2 p0, Vector2 p1, Vector2 center, float radius);
+Vector2 ResolveCollisionCircleRec(Vector2 center, float radius, Rectangle rect);
+Vector2 ResolveCollisionCircles(Vector2 center, float radius, Vector2 obstacleCenter, float obstacleRadius);
 
 void GuiText(Rectangle rect, FORMAT_STRING format, ...);
 

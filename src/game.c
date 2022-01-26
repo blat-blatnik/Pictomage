@@ -17,6 +17,7 @@
 #define MAX_TILES_Y (SCREEN_HEIGHT/TILE_SIZE)
 #define MAX_DOORS_PER_ROOM 4
 #define MAX_ROOM_NAME 64
+#define MAX_GLASS_BOXES 50
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
@@ -78,6 +79,7 @@ typedef enum EditorSelectionKind
 	EDITOR_SELECTION_KIND_PLAYER,
 	EDITOR_SELECTION_KIND_TURRET,
 	EDITOR_SELECTION_KIND_BOMB,
+	EDITOR_SELECTION_KIND_GLASS_BOX,
 } EditorSelectionKind;
 
 typedef struct Player
@@ -123,6 +125,11 @@ typedef struct Bomb
 	int framesToIdleMove;
 } Bomb;
 
+typedef struct GlassBox
+{
+	Rectangle rect;
+} GlassBox;
+
 typedef struct Room
 {
 	char name[MAX_ROOM_NAME];
@@ -141,6 +148,9 @@ typedef struct Room
 
 	int numBombs;
 	Vector2 bombPos[MAX_BOMBS];
+
+	int numGlassBoxes;
+	Rectangle glassBoxRects[MAX_GLASS_BOXES];
 } Room;
 
 typedef struct Explosion
@@ -160,6 +170,7 @@ typedef struct EditorSelection
 		Player *player;
 		Turret *turret;
 		Bomb *bomb;
+		GlassBox *glassBox;
 	};
 } EditorSelection;
 
@@ -264,6 +275,8 @@ Bomb bombs[MAX_BOMBS];
 Bomb capturedBombs[MAX_BOMBS];
 int numExplosions;
 Explosion explosions[MAX_EXPLOSIONS];
+int numGlassBoxes;
+GlassBox glassBoxes[MAX_GLASS_BOXES];
 
 // *---========---*
 // |/   Assets   \|
@@ -275,6 +288,7 @@ void LoadAllSounds(void)
 	longShotSound = LoadSound("res/long-shot.wav");
 	SetSoundVolume(longShotSound, 0.1f);
 	explosionSound = LoadSound("res/explosion.wav");
+	SetSoundVolume(explosionSound, 0.5f);
 	turretDestroySound = LoadSound("res/turret-destroy.wav");
 	SetSoundVolume(turretDestroySound, 0.3f);
 	shutterSound = LoadSound("res/shutter1.wav");
@@ -410,10 +424,26 @@ bool IsPointBlockedByEnemiesFrom(Vector2 pos, Vector2 target)
 }
 Vector2 ResolveCollisionsCircleRoom(Vector2 center, float radius, Vector2 velocity)
 {
-	// https://www.youtube.com/watch?v=D2a5fHX-Qrs
-
 	Vector2 p0f = center;
 	Vector2 p1f = Vector2Add(center, Vector2Scale(velocity, DELTA_TIME));
+
+	// Room boundaries
+	if (p1f.x - radius < 0)
+		p1f.x = radius;
+	if (p1f.y - radius < 0)
+		p1f.y = radius;
+	if (p1f.x + radius > numTilesX)
+		p1f.x = (float)numTilesX - radius;
+	if (p1f.y + radius > numTilesY)
+		p1f.y = (float)numTilesY - radius;
+
+	// Glass Boxes
+	for (int i = 0; i < numGlassBoxes; ++i)
+	{
+		GlassBox box = glassBoxes[i];
+		p1f = ResolveCollisionCircleRec(p1f, radius, box.rect);
+	}
+
 	int minx = (int)floorf(fminf(p0f.x, p1f.x) - radius) - 1;
 	int miny = (int)floorf(fminf(p0f.y, p1f.y) - radius) - 1;
 	int maxx = (int)ceilf(fmaxf(p0f.x, p1f.x) + radius) + 1;
@@ -434,40 +464,11 @@ Vector2 ResolveCollisionsCircleRoom(Vector2 center, float radius, Vector2 veloci
 		{
 			Tile tile = TileAt(tx, ty);
 			if (!TileIsPassable(tile))
-			{
-				Vector2 nearestPoint;
-				nearestPoint.x = Clamp(p1f.x, tx, tx + 1);
-				nearestPoint.y = Clamp(p1f.y, ty, ty + 1);
-				
-				Vector2 toNearest = Vector2Subtract(nearestPoint, p1f);
-				float len = Vector2Length(toNearest);
-				float overlap = radius - len;
-				if (overlap > 0 && len > 0)
-					p1f = Vector2Subtract(p1f, Vector2Scale(toNearest, overlap / len));
-			}
+				p1f = ResolveCollisionCircleRec(p1f, radius, Rect(tx, ty, 1, 1));
 		}
 	}
 
-	// Room boundaries
-	if (p1f.x - radius < 0)
-		p1f.x = radius;
-	if (p1f.y - radius < 0)
-		p1f.y = radius;
-	if (p1f.x + radius > numTilesX)
-		p1f.x = (float)numTilesX - radius;
-	if (p1f.y + radius > numTilesY)
-		p1f.y = (float)numTilesY - radius;
-
 	return p1f;
-}
-Vector2 ResolveCollisionCircles(Vector2 center, float radius, Vector2 obstacleCenter, float obstacleRadius)
-{
-	Vector2 normal = Vector2Subtract(center, obstacleCenter);
-	float length = Vector2Length(normal);
-	float penetration = (radius + obstacleRadius) - length;
-	if (penetration > 0 && length > 0)
-		center = Vector2Add(center, Vector2Scale(normal, penetration / length));
-	return center;
 }
 
 Bullet *SpawnBullet(Vector2 pos, Vector2 vel)
@@ -530,6 +531,15 @@ Explosion *SpawnExplosion(Vector2 pos, float durationSeconds, float radius)
 	explosion->radius = radius;
 	return explosion;
 }
+GlassBox *SpawnGlassBox(Rectangle rect)
+{
+	if (numGlassBoxes >= MAX_GLASS_BOXES)
+		return NULL;
+
+	GlassBox *box = &glassBoxes[numGlassBoxes++];
+	box->rect = rect;
+	return box;
+}
 void RemoveBulletFromGlobalList(int index)
 {
 	ASSERT(index >= 0 && index < numBullets);
@@ -554,6 +564,12 @@ void RemoveExplosionsFromGlobalList(int index)
 	SwapMemory(explosions + index, explosions + numExplosions - 1, sizeof explosions[0]);
 	--numExplosions;
 }
+void RemoveGlassBoxFromGlobalList(int index)
+{
+	ASSERT(index >= 0 && index < numGlassBoxes);
+	SwapMemory(glassBoxes + index, glassBoxes + numGlassBoxes - 1, sizeof glassBoxes[0]);
+	--numGlassBoxes;
+}
 void ShiftAllObjectsBy(float dx, float dy)
 {
 	player.pos.x += dx;
@@ -567,6 +583,11 @@ void ShiftAllObjectsBy(float dx, float dy)
 	{
 		bombs[i].pos.x += dx;
 		bombs[i].pos.y += dy;
+	}
+	for (int i = 0; i < numGlassBoxes; ++i)
+	{
+		glassBoxes[i].rect.x += dx;
+		glassBoxes[i].rect.y += dy;
 	}
 }
 void ExplodeBomb(int index)
@@ -619,6 +640,8 @@ bool LoadRoom(Room *room, const char *filename)
 	float turretLookAngle[MAX_TURRETS] = { 0 };
 	u8 numBombs = 0;
 	Vector2 bombPos[MAX_BOMBS] = { 0 };
+	u8 numGlassBoxes = 0;
+	Rectangle glassBoxRects[MAX_GLASS_BOXES] = { 0 };
 
 	fread(&flags, sizeof flags, 1, file);
 	fread(prev, sizeof prev, 1, file);
@@ -633,6 +656,8 @@ bool LoadRoom(Room *room, const char *filename)
 	fread(turretLookAngle, sizeof turretLookAngle[0], numTurrets, file);
 	fread(&numBombs, sizeof numBombs, 1, file);
 	fread(bombPos, sizeof bombPos[0], numBombs, file);
+	fread(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
+	fread(glassBoxRects, sizeof glassBoxRects[0], numGlassBoxes, file);
 	fclose(file);
 
 	char name[sizeof room->name];
@@ -652,6 +677,8 @@ bool LoadRoom(Room *room, const char *filename)
 	memcpy(room->turretLookAngle, turretLookAngle, sizeof turretLookAngle);
 	room->numBombs = (int)numBombs;
 	memcpy(room->bombPos, bombPos, sizeof bombPos);
+	room->numGlassBoxes = (int)numGlassBoxes;
+	memcpy(room->glassBoxRects, glassBoxRects, sizeof glassBoxRects);
 
 	TraceLog(LOG_INFO, "Loaded room '%s'.", filepath);
 	return true;
@@ -696,6 +723,10 @@ void SaveRoom(const Room *room)
 	fwrite(&numBombs, sizeof numBombs, 1, file);
 	fwrite(room->bombPos, sizeof room->bombPos[0], numBombs, file);
 
+	u8 numGlassBoxes = (u8)room->numGlassBoxes;
+	fwrite(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
+	fwrite(room->glassBoxRects, sizeof room->glassBoxRects[0], numGlassBoxes, file);
+
 	fclose(file);
 	TraceLog(LOG_INFO, "Saved room '%s'.", filepath);
 }
@@ -710,6 +741,7 @@ void CopyRoomToGame(Room *room)
 	numBullets = 0;
 	numTurrets = 0;
 	numBombs = 0;
+	numGlassBoxes = 0;
 	numCapturedBullets = 0;
 	numCapturedTurrets = 0;
 	numCapturedBombs = 0;
@@ -734,6 +766,8 @@ void CopyRoomToGame(Room *room)
 		SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
 	for (int i = 0; i < room->numBombs; ++i)
 		SpawnBomb(room->bombPos[i]);
+	for (int i = 0; i < room->numGlassBoxes; ++i)
+		SpawnGlassBox(room->glassBoxRects[i]);
 }
 void CopyGameToRoom(Room *room)
 {
@@ -760,6 +794,12 @@ void CopyGameToRoom(Room *room)
 	{
 		Bomb b = bombs[i];
 		room->bombPos[i] = b.pos;
+	}
+	room->numGlassBoxes = numGlassBoxes;
+	for (int i = 0; i < numGlassBoxes; ++i)
+	{
+		GlassBox box = glassBoxes[i];
+		room->glassBoxRects[i] = box.rect;
 	}
 }
 
@@ -1028,6 +1068,15 @@ void DrawShutter(float t) // t = 0 (fully open), t = 1 (fully closed)
 
 		DrawTriangle(v[0], v[1], v[2], Grayscale(0.1f));
 		angle = angle2;
+	}
+}
+void DrawGlassBoxes(void)
+{
+	for (int i = 0; i < numGlassBoxes; ++i)
+	{
+		GlassBox box = glassBoxes[i];
+		//DrawRectanglePro(box.rect, RectangleCenter(box.rect), RAD2DEG * box.rotation, ColorAlpha(BLUE, 0.2f));
+		DrawRectangleRec(box.rect, ColorAlpha(BLUE, 0.2f));
 	}
 }
 
@@ -1566,6 +1615,7 @@ void Playing_Draw(void)
 		}
 
 		DrawTiles();
+		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
 		DrawPlayer();
@@ -1894,6 +1944,15 @@ GameState LevelEditor_Update(void)
 					}
 				}
 
+				for (int i = 0; i < numGlassBoxes; ++i)
+				{
+					if (CheckCollisionPointRec(mousePosTiles, glassBoxes->rect))
+					{
+						selection.kind = EDITOR_SELECTION_KIND_GLASS_BOX;
+						selection.glassBox = &glassBoxes[i];
+					}
+				}
+
 				if (CheckCollisionPointCircle(mousePosTiles, player.pos, PLAYER_RADIUS))
 				{
 					selection.kind = EDITOR_SELECTION_KIND_PLAYER;
@@ -1931,19 +1990,23 @@ GameState LevelEditor_Update(void)
 				int index = (int)(selection.turret - turrets);
 				RemoveTurretFromGlobalList(index);
 				selection.kind = EDITOR_SELECTION_KIND_NONE;
-				break;
-			}
+			} break;
 			case EDITOR_SELECTION_KIND_BOMB:
 			{
 				int index = (int)(selection.bomb - bombs);
 				RemoveBombFromGlobalList(index);
 				selection.kind = EDITOR_SELECTION_KIND_NONE;
-				break;
-			}
+			} break;
+			case EDITOR_SELECTION_KIND_GLASS_BOX:
+			{
+				int index = (int)(selection.glassBox - glassBoxes);
+				RemoveGlassBoxFromGlobalList(index);
+				selection.kind = EDITOR_SELECTION_KIND_NONE;
+			} break;
 		}
 	}
 
-	if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+	if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && (mouseDeltaTiles.x != 0 || mouseDeltaTiles.y != 0))
 	{
 		switch (selection.kind)
 		{
@@ -1952,22 +2015,27 @@ GameState LevelEditor_Update(void)
 				Vector2 newPos = Vector2Add(selection.turret->pos, mouseDeltaTiles);
 				if (CheckCollisionPointCircle(mousePosTiles, newPos, TURRET_RADIUS))
 					selection.turret->pos = newPos;
-				break;
-			}
+			} break;
 			case EDITOR_SELECTION_KIND_BOMB:
 			{
 				Vector2 newPos = Vector2Add(selection.bomb->pos, mouseDeltaTiles);
 				if (CheckCollisionPointCircle(mousePosTiles, newPos, BOMB_RADIUS))
 					selection.bomb->pos = newPos;
-				break;
-			}
+			} break;
+			case EDITOR_SELECTION_KIND_GLASS_BOX:
+			{
+				Rectangle newRect = selection.glassBox->rect;
+				newRect.x += mouseDeltaTiles.x;
+				newRect.y += mouseDeltaTiles.y;
+				if (CheckCollisionPointRec(mousePosTiles, newRect))
+					selection.glassBox->rect = newRect;
+			} break;
 			case EDITOR_SELECTION_KIND_PLAYER:
 			{
 				Vector2 newPos = Vector2Add(selection.player->pos, mouseDeltaTiles);
 				if (CheckCollisionPointCircle(mousePosTiles, newPos, PLAYER_RADIUS))
 					selection.player->pos = newPos;
-				break;
-			}
+			} break;
 		}
 	}
 
@@ -1978,6 +2046,7 @@ void LevelEditor_Draw(void)
 	SetupTileCoordinateDrawing();
 	{
 		DrawTiles();
+		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
 		DrawPlayer();
@@ -2076,6 +2145,18 @@ void LevelEditor_Draw(void)
 		}
 		DrawRectangleRec(Rect(x + 10, y + 10, 40, 40), ColorAlpha(BLACK, 0.2f));
 		x += 70;
+
+		if (GuiButton(Rect(x, y, 60, 60), "Glass"))
+		{
+			GlassBox *box = SpawnGlassBox(Rect(0, 0, 1, 1), 0);
+			if (box)
+			{
+				selection.kind = EDITOR_SELECTION_KIND_GLASS_BOX;
+				selection.glassBox = box;
+			}
+		}
+		DrawRectangleRec(Rect(x + 10, y + 10, 40, 40), ColorAlpha(BLACK, 0.2f));
+		x += 70;
 	}
 
 	GuiWindowBox(tilesWindowRect, "Tiles");
@@ -2105,6 +2186,7 @@ void LevelEditor_Draw(void)
 		case EDITOR_SELECTION_KIND_PLAYER: propertiesTitle = "Player properties"; break;
 		case EDITOR_SELECTION_KIND_TURRET: propertiesTitle = "Turret properties"; break;
 		case EDITOR_SELECTION_KIND_BOMB: propertiesTitle = "Bomb properties"; break;
+		case EDITOR_SELECTION_KIND_GLASS_BOX: propertiesTitle = "Glass properties"; break;
 		case EDITOR_SELECTION_KIND_TILE: propertiesTitle = "Tile properties"; break;
 		default: propertiesTitle = "Room properties"; break;
 	}
@@ -2129,6 +2211,7 @@ void LevelEditor_Draw(void)
 				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.turret->pos.y);
 				y += 20;
 				selection.turret->lookAngle = GuiSlider(Rect(x, y, 100, 20), "", "Look angle", selection.turret->lookAngle, -PI, +PI);
+				y += 20;
 			} break;
 
 			case EDITOR_SELECTION_KIND_BOMB:
@@ -2136,6 +2219,18 @@ void LevelEditor_Draw(void)
 				GuiText(Rect(x, y, 100, 20), "X: %.2f", selection.bomb->pos.x);
 				y += 20;
 				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.bomb->pos.y);
+				y += 20;
+			} break;
+
+			case EDITOR_SELECTION_KIND_GLASS_BOX:
+			{
+				GuiText(Rect(x, y, 100, 20), "X: %.2f", selection.glassBox->rect.x);
+				y += 20;
+				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.glassBox->rect.y);
+				y += 20;
+				selection.glassBox->rect.width = GuiSlider(Rect(x, y, 100, 20), "", "Width", selection.glassBox->rect.width, 0, 30);
+				y += 20;
+				selection.glassBox->rect.height = GuiSlider(Rect(x, y, 100, 20), "", "Height", selection.glassBox->rect.height, 0, 30);
 				y += 20;
 			} break;
 

@@ -217,6 +217,10 @@ Rectangle RectMinMax(Vector2 min, Vector2 max)
 	};
 	return result;
 }
+Vector2 RectanglePos(Rectangle rect)
+{
+	return Vec2(rect.x, rect.y);
+}
 Vector2 RectangleCenter(Rectangle rect)
 {
 	Vector2 center = {
@@ -496,6 +500,31 @@ bool CheckCollisionLineCircle(Vector2 p0, Vector2 p1, Vector2 center, float radi
 {
 	float d = DistanceLineToPoint(p0, p1, center);
 	return d < radius;
+}
+Vector2 ResolveCollisionCircleRec(Vector2 center, float radius, Rectangle rect)
+{
+	// https://www.youtube.com/watch?v=D2a5fHX-Qrs
+
+	Vector2 nearestPoint;
+	nearestPoint.x = Clamp(center.x, rect.x, rect.x + rect.width);
+	nearestPoint.y = Clamp(center.y, rect.y, rect.y + rect.height);
+
+	Vector2 toNearest = Vector2Subtract(nearestPoint, center);
+	float len = Vector2Length(toNearest);
+	float overlap = radius - len;
+	if (overlap > 0 && len > 0)
+		return Vector2Subtract(center, Vector2Scale(toNearest, overlap / len));
+	else
+		return center;
+}
+Vector2 ResolveCollisionCircles(Vector2 center, float radius, Vector2 obstacleCenter, float obstacleRadius)
+{
+	Vector2 normal = Vector2Subtract(center, obstacleCenter);
+	float length = Vector2Length(normal);
+	float penetration = (radius + obstacleRadius) - length;
+	if (penetration > 0 && length > 0)
+		center = Vector2Add(center, Vector2Scale(normal, penetration / length));
+	return center;
 }
 
 void GuiText(Rectangle rect, FORMAT_STRING format, ...)

@@ -10,3 +10,6 @@ Vector2 turretPos[numTurrers]
 float turretLookAngle[numTurrets]
 uint8 numBombs
 Vector2 bombPos[numBombs]
+uint8 numGlassBoxes
+Rectangle glassBoxRects[numGlassBoxes]
+float glassBoxRotations[numGlassBoxes]

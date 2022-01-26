@@ -41,7 +41,7 @@
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
 #define RESTARTING_DURATION 0.8f
 #define GRACE_PERIOD 1.0f
-#define POPUP_ANIMATION_TIME 1.0f
+#define POPUP_ANIMATION_TIME 0.6f
 
 // *---=======---*
 // |/   Types   \|
@@ -1716,13 +1716,13 @@ void DrawTriggerMessages(bool debug)
 			float leaveTime = Clamp((timeNow - tm.leaveTime) / POPUP_ANIMATION_TIME, 0, 1);
 			if (tm.leaveTime < tm.enterTime)
 				leaveTime = 0;
-			if (tm.isTriggered || (leaveTime > 0 && leaveTime < POPUP_ANIMATION_TIME))
+			if (tm.isTriggered || (leaveTime > 0 && leaveTime < 1))
 			{
-				const float flyInOutTime = 0.1f;
-				float t0Enter = Clamp(enterTime / flyInOutTime, 0, 1);
+				const float flyInOutTime = 0.2f;
+				float t0Enter = Clamp((enterTime) / flyInOutTime, 0, 1);
 				float t0Leave = Clamp((leaveTime - 1 + flyInOutTime) / flyInOutTime, 0, 1);
 				float t1Enter = Clamp((enterTime - flyInOutTime) / (1 - flyInOutTime), 0, 1);
-				float t1Leave = Clamp(leaveTime / (1 - flyInOutTime), 0, 1);
+				float t1Leave = Clamp((leaveTime) / (1 - flyInOutTime), 0, 1);
 
 				char text[MAX_POPUP_MESSAGE_LENGTH];
 				memcpy(text, tm.message, sizeof tm.message);
@@ -1759,7 +1759,6 @@ void DrawTriggerMessages(bool debug)
 					30,
 					tape.height + 4
 				};
-
 				Rectangle reelTop = {
 					reel.x - 3,
 					reel.y + reel.height,

@@ -189,7 +189,7 @@ typedef struct EditorSelection
 	EditorSelectionKind kind;
 	union
 	{
-		Tile tile;
+		struct { Tile tile; u8 tileVariant; };
 		Player *player;
 		Turret *turret;
 		Bomb *bomb;
@@ -2021,6 +2021,7 @@ void DoTileButton(Tile tile, float x, float y)
 	{
 		selection.kind = EDITOR_SELECTION_KIND_TILE;
 		selection.tile = tile;
+		selection.tileVariant = 0;
 	}
 	DrawRectangleRec(Rect(x + 10, y + 10, 30, 30), ColorAlpha(BLACK, 0.2f));
 	GuiSetState(state);
@@ -2156,7 +2157,10 @@ GameState LevelEditor_Update(void)
 		int tileX = (int)mousePosTiles.x;
 		int tileY = (int)mousePosTiles.y;
 		if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
+		{
 			tiles[tileY][tileX] = selection.tile;
+			tileVariants[tileY][tileX] = selection.tileVariant;
+		}
 	}
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -2164,11 +2168,17 @@ GameState LevelEditor_Update(void)
 		lastMouseClickPos = mousePos;
 		if (selection.kind == EDITOR_SELECTION_KIND_TILE)
 		{
-			int tileX = (int)mousePosTiles.x;
-			int tileY = (int)mousePosTiles.y;
-			if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
-				tiles[tileY][tileX] = selection.tile;
-			else selection.kind = EDITOR_SELECTION_KIND_NONE;
+			if (!CheckCollisionPointRec(mousePos, propertiesWindowRect))
+			{
+				int tileX = (int)mousePosTiles.x;
+				int tileY = (int)mousePosTiles.y;
+				if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
+				{
+					tiles[tileY][tileX] = selection.tile;
+					tileVariants[tileY][tileX] = selection.tileVariant;
+				}
+				else selection.kind = EDITOR_SELECTION_KIND_NONE;
+			}
 		}
 
 		if (selection.kind != EDITOR_SELECTION_KIND_TILE) // Checking this again because it might change above.
@@ -2538,7 +2548,20 @@ void LevelEditor_Draw(void)
 
 			case EDITOR_SELECTION_KIND_TILE:
 			{
+				Tile tile = selection.tile;
+				int variant = selection.tileVariant;
+				int numVariants = tileTextureVariants[tile].numVariants;
+				Texture texture = tileTextureVariants[tile].variants[variant];
+				DrawRectangle(x, y, texture.width + 4, texture.height + 4, BLACK);
+				DrawTexture(texture, x + 2, y + 2, WHITE);
+				y += texture.height + 6;
 
+				Rectangle spinnerRect = Rect(x, y, 80, 20);
+				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, spinnerRect);
+				isFocused = GuiSpinner(spinnerRect, "", &variant, 0, numVariants - 1, isFocused);
+				selection.tileVariant = ClampInt(variant, 0, numVariants - 1);
+				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
+				y += 25;
 			} break;
 
 			default: // Room properties

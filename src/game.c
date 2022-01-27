@@ -1208,111 +1208,107 @@ void UpdatePlayer(void)
 }
 void UpdateBullets(void)
 {
-	for (int i = 0; i < numBullets; ++i)
+	// Step each bullet 4 times for increased collision precision.
+	// Otherwise bullets phase through 1 tile thin walls.
+	const int numIterations = 4;
+	for (int iter = 0; iter < numIterations; ++iter)
 	{
-		Bullet *b = &bullets[i];
-		b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME));
-		if (!CheckCollisionCircleRec(b->pos, BULLET_RADIUS, ExpandRectangle(screenRectTiles, 20)))
+		for (int i = 0; i < numBullets; ++i)
 		{
-			DespawnBullet(i);
-			--i;
-		}
-		else if (!TileIsPassable(TileAtVec(b->pos))) // @TODO: This is treating bullets as mere points even though they have a radius..
-		{
-			int tx = (int)b->pos.x;
-			int ty = (int)b->pos.y;
-			
-			Ray ray;
-			ray.position = (Vector3){ b->origin.x, b->origin.y, 0.5f };
-			ray.direction = (Vector3){ b->vel.x, b->vel.y, 0 };
-
-			BoundingBox box;
-			box.min = (Vector3){ tx, ty, 0 };
-			box.max = (Vector3){ tx + 1, ty + 1, 1 };
-
-			RayCollision collision = GetRayCollisionBox(ray, box);
-			Vector2 normal = { collision.normal.x, collision.normal.y };
-			Vector2 pos = { collision.point.x, collision.point.y };
-
-			DoCollisionSparks(b->vel, normal, pos, 10, 20, 0, 1);
-
-			//@TODO: Hit sound
-			DespawnBullet(i);
-			--i;
-		}
-		else
-		{
-			bool collided = false;
-			for (int j = 0; j < numTurrets; ++j)
-			{
-				Turret *t = &turrets[j];
-				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, t->pos, TURRET_RADIUS))
-				{
-					DespawnBullet(i);
-
-					Vector2 pos = ResolveCollisionCircles(b->pos, 0.01f, t->pos, TURRET_RADIUS);
-					Vector2 normal = Vector2Normalize(Vector2Subtract(pos, t->pos));
-					Vector2 incident = Vector2Normalize(b->vel);
-					DoCollisionSparks(incident, normal, pos, 10, 20, 10, 20);
-
-					if (t->isDestroyed)
-					{
-						ScreenShake(0.05f, 0.05f, 0);
-						SetSoundVolume(turretDestroySound, 0.1f);
-						PlaySound(turretDestroySound);
-					}
-					else
-					{
-						t->isDestroyed = true;
-						ScreenShake(0.2f, 0.1f, 0);
-						SetSoundVolume(turretDestroySound, 0.25f);
-						PlaySound(turretDestroySound);
-					}
-					--i;
-					collided = true;
-					break;
-				}
-			}
-			if (collided)
-				continue;
-
-			for (int j = 0; j < numBombs; ++j)
-			{
-				Bomb *bomb = &bombs[j];
-				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, bomb->pos, BOMB_RADIUS))
-				{
-					DespawnBullet(i);
-					ExplodeBomb(j);
-					--i;
-					collided = true;
-					break;
-				}
-			}
-			if (collided)
-				continue;
-
-			for (int j = 0; j < numGlassBoxes; ++j)
-			{
-				GlassBox *box = &glassBoxes[j];
-				if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
-				{
-					float area = box->rect.x * box->rect.y;
-					float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
-					SetSoundPitch(glassShatterSound, pitch);
-					PlaySound(glassShatterSound);
-
-					DespawnGlassBox(j);
-					--j;
-				}
-			}
-
-			if (CheckCollisionCircles(b->pos, BULLET_RADIUS, player.pos, PLAYER_RADIUS))
+			Bullet *b = &bullets[i];
+			b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME / numIterations));
+			if (!CheckCollisionCircleRec(b->pos, BULLET_RADIUS, ExpandRectangle(screenRectTiles, 20)))
 			{
 				DespawnBullet(i);
 				--i;
-				Vector2 toPlayer = Vector2Subtract(player.pos, b->pos);
-				KillPlayer(toPlayer, 0.1f);
-				continue;
+			}
+			else if (!TileIsPassable(TileAtVec(b->pos))) // @TODO: This is treating bullets as mere points even though they have a radius..
+			{
+				int tx = (int)b->pos.x;
+				int ty = (int)b->pos.y;
+				RayCollision collision = GetProjectileCollisionWithRect(b->origin, b->vel, Rect(tx, ty, 1, 1));
+				Vector2 normal = { collision.normal.x, collision.normal.y };
+				Vector2 pos = { collision.point.x, collision.point.y };
+				DoCollisionSparks(b->vel, normal, pos, 10, 20, 0, 1);
+
+				//@TODO: Hit sound
+				DespawnBullet(i);
+				--i;
+			}
+			else
+			{
+				bool collided = false;
+				for (int j = 0; j < numTurrets; ++j)
+				{
+					Turret *t = &turrets[j];
+					if (CheckCollisionCircles(b->pos, BULLET_RADIUS, t->pos, TURRET_RADIUS))
+					{
+						DespawnBullet(i);
+
+						Vector2 pos = ResolveCollisionCircles(b->pos, 0.01f, t->pos, TURRET_RADIUS);
+						Vector2 normal = Vector2Normalize(Vector2Subtract(pos, t->pos));
+						Vector2 incident = Vector2Normalize(b->vel);
+						DoCollisionSparks(incident, normal, pos, 10, 20, 10, 20);
+
+						if (t->isDestroyed)
+						{
+							ScreenShake(0.05f, 0.05f, 0);
+							SetSoundVolume(turretDestroySound, 0.1f);
+							PlaySound(turretDestroySound);
+						}
+						else
+						{
+							t->isDestroyed = true;
+							ScreenShake(0.2f, 0.1f, 0);
+							SetSoundVolume(turretDestroySound, 0.25f);
+							PlaySound(turretDestroySound);
+						}
+						--i;
+						collided = true;
+						break;
+					}
+				}
+				if (collided)
+					continue;
+
+				for (int j = 0; j < numBombs; ++j)
+				{
+					Bomb *bomb = &bombs[j];
+					if (CheckCollisionCircles(b->pos, BULLET_RADIUS, bomb->pos, BOMB_RADIUS))
+					{
+						DespawnBullet(i);
+						ExplodeBomb(j);
+						--i;
+						collided = true;
+						break;
+					}
+				}
+				if (collided)
+					continue;
+
+				for (int j = 0; j < numGlassBoxes; ++j)
+				{
+					GlassBox *box = &glassBoxes[j];
+					if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
+					{
+						float area = box->rect.x * box->rect.y;
+						float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
+						SetSoundPitch(glassShatterSound, pitch);
+						PlaySound(glassShatterSound);
+
+						DespawnGlassBox(j);
+						--j;
+					}
+				}
+
+				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, player.pos, PLAYER_RADIUS))
+				{
+					DespawnBullet(i);
+					--i;
+					Vector2 toPlayer = Vector2Subtract(player.pos, b->pos);
+					KillPlayer(toPlayer, 0.1f);
+					continue;
+				}
 			}
 		}
 	}

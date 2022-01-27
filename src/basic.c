@@ -562,6 +562,18 @@ Vector2 ResolveCollisionCircles(Vector2 center, float radius, Vector2 obstacleCe
 		center = Vector2Add(center, Vector2Scale(normal, penetration / length));
 	return center;
 }
+RayCollision GetProjectileCollisionWithRect(Vector2 pos, Vector2 vel, Rectangle rect)
+{
+	Ray ray;
+	ray.position = (Vector3){ pos.x, pos.y, 0.5f };
+	ray.direction = (Vector3){ vel.x, vel.y, 0 };
+
+	BoundingBox box;
+	box.min = (Vector3){ rect.x, rect.y, 0 };
+	box.max = (Vector3){ rect.x + rect.width, rect.y + rect.height, 1 };
+
+	return GetRayCollisionBox(ray, box);
+}
 
 void GuiText(Rectangle rect, FORMAT_STRING format, ...)
 {

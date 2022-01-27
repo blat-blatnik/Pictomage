@@ -1,1 +1,5 @@
 Explosion sound (res/explosion.wav) -- EFlexMusic (boyermanproductionz@gmail.com) -- https://freesound.org/people/EFlexMusic/sounds/388528/
+Glass shatter sound (res/shatter.wav) -- Profispiesser -- https://freesound.org/people/Profispiesser/sounds/583065/
+Camera snap (res/shutter1.wav) -- HughGuiney (@LordPancreas) -- https://freesound.org/people/HughGuiney/sounds/352832/
+Turret hit (res/turret-destroy.wav) -- TROLlox_78 -- https://freesound.org/people/TROLlox_78/sounds/274119/
+Turret shot (res/long-shot.wav) -- morganpurkis -- https://freesound.org/people/morganpurkis/sounds/388194/

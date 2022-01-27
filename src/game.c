@@ -22,6 +22,7 @@
 #define MAX_TRIGGER_MESSAGES 10
 #define MAX_TEXTURE_VARIANTS 32
 #define MAX_SPARKS 100
+#define MAX_SHARDS 200
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
@@ -215,6 +216,13 @@ typedef struct Spark
 	Vector2 vel;
 } Spark;
 
+typedef struct Shard
+{
+	double spawnTime;
+	Vector2 pos;
+	Vector2 vel;
+} Shard;
+
 // *---========---*
 // |/   Camera   \|
 // *---========---*
@@ -318,6 +326,9 @@ int numTriggerMessages;
 TriggerMessage triggerMessages[MAX_TRIGGER_MESSAGES];
 int numSparks;
 Spark sparks[MAX_SPARKS];
+int numShards;
+int shardCursor;
+Shard shards[MAX_SHARDS];
 
 // *---========---*
 // |/   Assets   \|
@@ -328,6 +339,7 @@ Sound longShotSound;
 Sound explosionSound;
 Sound turretDestroySound;
 Sound shutterSound;
+Sound glassShatterSound;
 
 void LoadAllSounds(void)
 {
@@ -339,6 +351,7 @@ void LoadAllSounds(void)
 	turretDestroySound = LoadSound("res/turret-destroy.wav");
 	SetSoundVolume(turretDestroySound, 0.3f);
 	shutterSound = LoadSound("res/shutter1.wav");
+	glassShatterSound = LoadSound("res/shatter.wav");
 }
 void StopAllLevelSounds(void)
 {
@@ -346,6 +359,7 @@ void StopAllLevelSounds(void)
 	StopSound(longShotSound);
 	StopSound(explosionSound);
 	StopSound(turretDestroySound);
+	StopSound(glassShatterSound);
 }
 
 Texture missingTexture;
@@ -838,6 +852,7 @@ bool LoadRoom(Room *room, const char *filename)
 	memcpy(room->triggerMessagesRects, triggerMessagesRects, sizeof triggerMessagesRects);
 	memcpy(room->triggerMessagesOnce, triggerMessagesOnce, sizeof triggerMessagesOnce);
 	memcpy(room->triggerMessages, triggerMessages, sizeof triggerMessages);
+	
 
 	TraceLog(LOG_INFO, "Loaded room '%s'.", filepath);
 	return true;
@@ -914,6 +929,8 @@ void CopyRoomToGame(Room *room)
 	numCapturedBombs = 0;
 	numExplosions = 0;
 	numSparks = 0;
+	numShards = 0;
+	shardCursor = 0;
 	player.hasCapture = false;
 	player.justSnapped = false;
 	player.isReleasingCapture = false;
@@ -1254,6 +1271,11 @@ void UpdateBullets(void)
 				if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
 				{
 					//@TODO: Glass shatter sound.
+					float area = box->rect.x * box->rect.y;
+					float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
+					SetSoundPitch(glassShatterSound, pitch);
+					PlaySound(glassShatterSound);
+
 					DespawnGlassBox(j);
 					--j;
 				}

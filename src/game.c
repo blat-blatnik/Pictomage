@@ -2252,15 +2252,19 @@ void DrawDecals(void)
 		Vector2 center = decal->pos;
 		float ew = decal->size.x / 2;
 		float eh = decal->size.y / 2;
-		
+
+		u64 hash = HashBytes(&decal->pos, sizeof decal->pos);
+		Random rand = SeedRandom(hash);
+
 		float angles[16];
 		angles[0] = 0;
 		for (int j = 1; j < COUNTOF(angles) - 1; ++j)
 			angles[j] = ((float)j / COUNTOF(angles)) * 2 * PI;
 		angles[COUNTOF(angles) - 1] = 2 * PI;
-
-		u64 hash = HashBytes(&decal->pos, sizeof decal->pos);
-		Random rand = SeedRandom(hash);
+		
+		//float offset = RandomFloat(&rand, 0, PI);
+		//for (int j = 0; j < COUNTOF(angles); ++j)
+		//	angles[j] += offset;
 
 		Vector2 points[COUNTOF(angles)];
 		for (int j = 0; j < COUNTOF(points); ++j)
@@ -2268,7 +2272,7 @@ void DrawDecals(void)
 			float angle = angles[j];
 			float s = sinf(angle);
 			float c = cosf(angle);
-			float r = RandomFloat(&rand, 0.5f, 1.5f);
+			float r = RandomFloat(&rand, 0.6f, 1.4f);
 			points[j].x = center.x + (c * r) * ew;
 			points[j].y = center.y + (s * r) * eh;
 		}

@@ -225,6 +225,13 @@ typedef struct Shard
 	Color color;
 } Shard;
 
+typedef struct Decal
+{
+	Texture *texture;
+	Vector2 pos;
+	Vector2 size;
+} Decal;
+
 // *---========---*
 // |/   Camera   \|
 // *---========---*
@@ -768,6 +775,22 @@ void ExplodeBomb(int index)
 	assert(index >= 0 && index < numBombs);
 	Bomb *bomb = &bombs[index];
 	SpawnExplosion(bomb->pos, BOMB_EXPLOSION_DURATION, BOMB_EXPLOSION_RADIUS);
+
+	int debrisCount = RandomInt(&rng, 50, 100);
+	for (int i = 0; i < debrisCount; ++i)
+	{
+		float speed = RandomFloat(&rng, 15, 25);
+		Vector2 dir = RandomVector(&rng, speed);
+		Vector2 size = {
+			RandomFloat(&rng, 0.1f, 0.2f),
+			RandomFloat(&rng, 0.1f, 0.2f),
+		};
+
+		Color accent = RandomProbability(&rng, 0.5f) ? RED : GRAY;
+		Color color = LerpColor(BLACK, accent, RandomFloat(&rng, 0, 0.25f));
+		SpawnShard(bomb->pos, dir, size, color, 0.85f);
+	}
+
 	PlaySound(explosionSound);
 	SetSoundPitch(explosionSound, RandomFloat(&rng, 0.8f, 1.2f));
 	ScreenShake(1, 0.2f, 0);

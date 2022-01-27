@@ -4,13 +4,19 @@ uint8 numTilesX
 uint8 numTilesY
 uint8 tiles[numTilesY][numTilesX]
 uint8 tileVariants[numTilesY][numTilesX]
+// Color evenTileTint0
+// Color evenTileTint1
+// Color oddTileTint0
+// Color oddTileTint1
 Vector2 playerDefaultPos
 uint8 numTurrets
 Vector2 turretPos[numTurrers]
 float turretLookAngle[numTurrets]
+uint8 turretVariants[numTurrets]
 bool turretIsDestroyed[numTurrets]
 uint8 numBombs
 Vector2 bombPos[numBombs]
+uint8 bombVariants[numBombs]
 uint8 numGlassBoxes
 Rectangle glassBoxRects[numGlassBoxes]
 float glassBoxRotations[numGlassBoxes]

@@ -23,6 +23,7 @@
 #define MAX_TEXTURE_VARIANTS 32
 #define MAX_SPARKS 100
 #define MAX_SHARDS 500
+#define MAX_DECALS 30
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
@@ -121,6 +122,7 @@ typedef struct Turret
 	int framesToIdleMove;
 	float idleAngularVel;
 	bool isDestroyed;
+	u8 variant;
 } Turret;
 
 typedef struct Bomb
@@ -133,6 +135,7 @@ typedef struct Bomb
 	Vector2 flungVel;
 	int framesUntilIdleMove;
 	int framesToIdleMove;
+	u8 variant;
 } Bomb;
 
 typedef struct GlassBox
@@ -160,16 +163,23 @@ typedef struct Room
 	int numTilesY;
 	Tile tiles[MAX_TILES_Y][MAX_TILES_X];
 	u8 tileVariants[MAX_TILES_Y][MAX_TILES_X];
-	
+
+	Color evenTileTint0;
+	Color evenTileTint1;
+	Color oddTileTint0;
+	Color oddTileTint1;
+
 	Vector2 playerDefaultPos;
 	
 	int numTurrets;
 	Vector2 turretPos[MAX_TURRETS];
 	float turretLookAngle[MAX_TURRETS];
 	bool turretIsDestroyed[MAX_TURRETS];
+	u8 turretVariants[MAX_TURRETS];
 
 	int numBombs;
 	Vector2 bombPos[MAX_BOMBS];
+	u8 bombVariants[MAX_BOMBS];
 
 	int numGlassBoxes;
 	Rectangle glassBoxRects[MAX_GLASS_BOXES];
@@ -230,6 +240,7 @@ typedef struct Decal
 	Texture *texture;
 	Vector2 pos;
 	Vector2 size;
+	float rotation;
 } Decal;
 
 // *---========---*
@@ -256,6 +267,10 @@ void ShiftCamera(float dx, float dy)
 {
 	cameraPos.x += dx * cameraZoom;
 	cameraPos.y += dy * cameraZoom;
+}
+float TilesToPixels(float tiles)
+{
+	return tiles * TILE_SIZE;
 }
 float PixelsToTiles(float pixels)
 {
@@ -306,6 +321,10 @@ double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
+Color evenTileTint0;
+Color evenTileTint1;
+Color oddTileTint0;
+Color oddTileTint1;
 char roomName[MAX_ROOM_NAME];
 char nextRoomName[MAX_ROOM_NAME];
 int numTilesX = MAX_TILES_X;
@@ -338,6 +357,9 @@ Spark sparks[MAX_SPARKS];
 int numShards;
 int shardCursor;
 Shard shards[MAX_SHARDS];
+int numDecals;
+int decalCursor;
+Decal decals[MAX_DECALS];
 
 // *---========---*
 // |/   Assets   \|
@@ -375,15 +397,18 @@ void StopAllLevelSounds(void)
 
 Texture missingTexture;
 Texture playerTexture;
-Texture turretBaseTexture;
-Texture turretTopTexture;
-Texture bombTexture;
-Texture turretBaseDestroyedTexture;
-Texture turretTopDestroyedTexture;
 TextureVariants tileTextureVariants[TILE_ENUM_COUNT];
+TextureVariants turretBaseVariants;
+TextureVariants turretTopVariants;
+TextureVariants destroyedTurretBaseVariants;
+TextureVariants destroyedTurretTopVariants;
+TextureVariants bombVariants;
 
 void LoadTextureVariants(TextureVariants *tv, const char *baseName)
 {
+	for (int i = 0; i < MAX_TEXTURE_VARIANTS; ++i)
+		tv->variants[i] = missingTexture;
+
 	tv->numVariants = 0;
 	for (int i = 0;; ++i)
 	{
@@ -397,22 +422,18 @@ void LoadTextureVariants(TextureVariants *tv, const char *baseName)
 void LoadAllTextures(void)
 {
 	missingTexture = LoadTexture("res/missing.png");
-
-	for (int i = 0; i < TILE_ENUM_COUNT; ++i)
-		for (int j = 0; j < MAX_TEXTURE_VARIANTS; ++j)
-			tileTextureVariants[i].variants[j] = missingTexture;
-
 	LoadTextureVariants(&tileTextureVariants[TILE_FLOOR], "floor");
 	LoadTextureVariants(&tileTextureVariants[TILE_WALL], "wall");
 	LoadTextureVariants(&tileTextureVariants[TILE_ENTRANCE], "entrance");
 	LoadTextureVariants(&tileTextureVariants[TILE_EXIT], "exit-closed");
 
+	LoadTextureVariants(&turretBaseVariants, "turret-base");
+	LoadTextureVariants(&turretTopVariants, "turret-top");
+	LoadTextureVariants(&bombVariants, "bomb");
+	LoadTextureVariants(&destroyedTurretBaseVariants, "turret-base-destroyed");
+	LoadTextureVariants(&destroyedTurretTopVariants, "turret-top-destroyed");
+
 	playerTexture = LoadTexture("res/player.png");
-	turretBaseTexture = LoadTexture("res/turret-base.png");
-	turretTopTexture = LoadTexture("res/turret-top.png");
-	bombTexture = LoadTexture("res/bomb.png");
-	turretBaseDestroyedTexture = LoadTexture("res/turret-base-destroyed.png");
-	turretTopDestroyedTexture = LoadTexture("res/turret-top-destroyed.png");
 }
 
 // *---=======---*
@@ -622,6 +643,7 @@ Turret *SpawnTurret(Vector2 pos, float lookAngleRadians)
 	turret->framesToIdleMove = 0;
 	turret->idleAngularVel = 0;
 	turret->isDestroyed = false;
+	turret->variant = 0;
 	return turret;
 }
 Bomb *SpawnBomb(Vector2 pos)
@@ -639,6 +661,7 @@ Bomb *SpawnBomb(Vector2 pos)
 	bomb->wasFlung = false;
 	bomb->flungOrigin = Vector2Zero();
 	bomb->flungVel = Vector2Zero();
+	bomb->variant = 0;
 	return bomb;
 }
 Explosion *SpawnExplosion(Vector2 pos, float durationSeconds, float radius)
@@ -705,6 +728,21 @@ Shard *SpawnShard(Vector2 pos, Vector2 vel, Vector2 size, Color color, float fri
 	shard->color = color;
 	shard->friction = friction;
 	return shard;
+}
+Decal *SpawnDecal(Vector2 pos, Vector2 size, float angleRadians)
+{
+	Decal *decal = &decals[decalCursor++];
+	++numDecals;
+	if (numDecals > MAX_DECALS)
+		numDecals = MAX_DECALS;
+	if (decalCursor >= MAX_DECALS)
+		decalCursor = 0;
+
+	decal->pos = pos;
+	decal->size = size;
+	decal->rotation = angleRadians;
+	decal->texture = NULL;
+	return decal;
 }
 
 void DespawnBullet(int index)
@@ -791,6 +829,8 @@ void ExplodeBomb(int index)
 		SpawnShard(bomb->pos, dir, size, color, 0.85f);
 	}
 
+	SpawnDecal(bomb->pos, Vec2Broadcast(2.0f), 0);
+
 	PlaySound(explosionSound);
 	SetSoundPitch(explosionSound, RandomFloat(&rng, 0.8f, 1.2f));
 	ScreenShake(1, 0.2f, 0);
@@ -849,17 +889,17 @@ void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForc
 	int count = (int)Lerp(20, 200, Clamp(area / 10, 0, 1));
 	for (int i = 0; i < count; ++i)
 	{
-		Vector2 pos = {
+		Vector2 debrisPos = {
 			RandomFloat(&rng, rect.x, rect.x + rect.width),
 			RandomFloat(&rng, rect.y, rect.y + rect.height)
 		};
 
-		Vector2 offset = Vector2Normalize(Vector2Subtract(pos, center));
+		Vector2 offset = Vector2Normalize(Vector2Subtract(debrisPos, center));
 		float dot = Clamp(Vector2DotProduct(offset, incident), 0, 1);
 		float force = 20 * Lerp(unalignedForce, alignedForce, dot);
 		Vector2 vel = Vector2Scale(offset, force * RandomFloat(&rng, 0.1f, +1.1f));
 		Color color = LerpColor(color1, color2, RandomFloat01(&rng));
-		SpawnShard(pos, vel, Vec2(RandomFloat(&rng, 0.15f, 0.25f), RandomFloat(&rng, 0.15f, 0.25f)), color, 0.95f);
+		SpawnShard(debrisPos, vel, Vec2(RandomFloat(&rng, 0.15f, 0.25f), RandomFloat(&rng, 0.15f, 0.25f)), color, 0.95f);
 	}
 
 	DespawnGlassBox(index);
@@ -898,8 +938,10 @@ bool LoadRoom(Room *room, const char *filename)
 	Vector2 turretPos[MAX_TURRETS] = { 0 };
 	float turretLookAngle[MAX_TURRETS] = { 0 };
 	bool turretIsDestroyed[MAX_TURRETS] = { 0 };
+	u8 turretVariants[MAX_TURRETS] = { 0 };
 	u8 numBombs = 0;
 	Vector2 bombPos[MAX_BOMBS] = { 0 };
+	u8 bombVariants[MAX_BOMBS] = { 0 };
 	u8 numGlassBoxes = 0;
 	Rectangle glassBoxRects[MAX_GLASS_BOXES] = { 0 };
 	u8 numTriggerMessages = 0;
@@ -920,8 +962,10 @@ bool LoadRoom(Room *room, const char *filename)
 	fread(turretPos, sizeof turretPos[0], numTurrets, file);
 	fread(turretLookAngle, sizeof turretLookAngle[0], numTurrets, file);
 	fread(turretIsDestroyed, sizeof turretIsDestroyed[0], numTurrets, file);
+	fread(turretVariants, sizeof turretVariants[0], numTurrets, file);
 	fread(&numBombs, sizeof numBombs, 1, file);
 	fread(bombPos, sizeof bombPos[0], numBombs, file);
+	fread(bombVariants, sizeof bombVariants[0], numBombs, file);
 	fread(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
 	fread(glassBoxRects, sizeof glassBoxRects[0], numGlassBoxes, file);
 	fread(&numTriggerMessages, sizeof numTriggerMessages, 1, file);
@@ -946,8 +990,10 @@ bool LoadRoom(Room *room, const char *filename)
 	memcpy(room->turretPos, turretPos, sizeof turretPos);
 	memcpy(room->turretLookAngle, turretLookAngle, sizeof turretLookAngle);
 	memcpy(room->turretIsDestroyed, turretIsDestroyed, sizeof turretIsDestroyed);
+	memcpy(room->turretVariants, turretVariants, sizeof turretVariants);
 	room->numBombs = (int)numBombs;
 	memcpy(room->bombPos, bombPos, sizeof bombPos);
+	memcpy(room->bombVariants, bombVariants, sizeof bombVariants);
 	room->numGlassBoxes = (int)numGlassBoxes;
 	memcpy(room->glassBoxRects, glassBoxRects, sizeof glassBoxRects);
 	room->numTriggerMessages = numTriggerMessages;
@@ -955,7 +1001,6 @@ bool LoadRoom(Room *room, const char *filename)
 	memcpy(room->triggerMessagesOnce, triggerMessagesOnce, sizeof triggerMessagesOnce);
 	memcpy(room->triggerMessages, triggerMessages, sizeof triggerMessages);
 	
-
 	TraceLog(LOG_INFO, "Loaded room '%s'.", filepath);
 	return true;
 }
@@ -996,10 +1041,12 @@ void SaveRoom(const Room *room)
 	fwrite(room->turretPos, sizeof room->turretPos[0], numTurrets, file);
 	fwrite(room->turretLookAngle, sizeof room->turretLookAngle[0], numTurrets, file);
 	fwrite(room->turretIsDestroyed, sizeof room->turretIsDestroyed[0], numTurrets, file);
+	fwrite(room->turretVariants, sizeof room->turretVariants[0], numTurrets, file);
 
 	u8 numBombs = (u8)room->numBombs;
 	fwrite(&numBombs, sizeof numBombs, 1, file);
 	fwrite(room->bombPos, sizeof room->bombPos[0], numBombs, file);
+	fwrite(room->bombVariants, sizeof room->bombVariants, numBombs, file);
 
 	u8 numGlassBoxes = (u8)room->numGlassBoxes;
 	fwrite(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
@@ -1033,6 +1080,8 @@ void CopyRoomToGame(Room *room)
 	numSparks = 0;
 	numShards = 0;
 	shardCursor = 0;
+	numDecals = 0;
+	decalCursor = 0;
 	player.hasCapture = false;
 	player.justSnapped = false;
 	player.isReleasingCapture = false;
@@ -1056,10 +1105,19 @@ void CopyRoomToGame(Room *room)
 	{
 		Turret *turret = SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
 		if (turret)
+		{
+			turret->variant = room->turretVariants[i];
 			turret->isDestroyed = room->turretIsDestroyed[i];
+		}
 	}
 	for (int i = 0; i < room->numBombs; ++i)
-		SpawnBomb(room->bombPos[i]);
+	{
+		Bomb *bomb = SpawnBomb(room->bombPos[i]);
+		if (bomb)
+		{
+			bomb->variant = room->bombVariants[i];
+		}
+	}
 	for (int i = 0; i < room->numGlassBoxes; ++i)
 		SpawnGlassBox(room->glassBoxRects[i]);
 	for (int i = 0; i < room->numTriggerMessages; ++i)
@@ -1087,12 +1145,14 @@ void CopyGameToRoom(Room *room)
 		room->turretPos[i] = t.pos;
 		room->turretLookAngle[i] = t.lookAngle;
 		room->turretIsDestroyed[i] = t.isDestroyed;
+		room->turretVariants[i] = t.variant;
 	}
 	room->numBombs = numBombs;
 	for (int i = 0; i < numBombs; ++i)
 	{
 		Bomb b = bombs[i];
 		room->bombPos[i] = b.pos;
+		room->bombVariants[i] = b.variant;
 	}
 	room->numGlassBoxes = numGlassBoxes;
 	for (int i = 0; i < numGlassBoxes; ++i)
@@ -1345,7 +1405,7 @@ void UpdateBullets(void)
 						float hitAngle = Vec2Angle(incident);
 						int debrisCount = RandomInt(&rng, 10, 20);
 						Vector2 debrisPos = Vector2Scale(Vector2Add(pos, t->pos), 0.5f);
-						for (int i = 0; i < debrisCount; ++i)
+						for (int k = 0; k < debrisCount; ++k)
 						{
 							float randAngle = Clamp(RandomNormal(&rng, 0, PI / 8).x, -PI / 2, +PI / 2);
 							float angle = hitAngle + randAngle;
@@ -1507,7 +1567,7 @@ void UpdateTurrets(void)
 						SetSoundPitch(longShotSound, RandomFloat(&rng, 0.95f, 1.2f));
 
 						int sparkCount = RandomInt(&rng, 10, 20);
-						for (int i = 0; i < sparkCount; ++i)
+						for (int k = 0; k < sparkCount; ++k)
 						{
 							float speed = RandomFloat(&rng, 5, 8);
 							float angle = RandomNormal(&rng, 0, PI / 4).x;
@@ -1798,7 +1858,9 @@ void SetupScreenCoordinateDrawing(void)
 
 void DrawPlayer(void)
 {
-	DrawTexRotated(playerTexture, player.pos, Vec2Broadcast(PLAYER_RADIUS), WHITE, player.lookAngle);
+	float ew = PixelsToTiles(playerTexture.width) / 2;
+	float eh = PixelsToTiles(playerTexture.height) / 2;
+	DrawTexRotated(playerTexture, player.pos, Vec2(ew, eh), WHITE, player.lookAngle);
 }
 void DrawPlayerCaptureCone(void)
 {
@@ -1887,7 +1949,7 @@ void DrawPlayerRelease(void)
 		Vector2Add(arrowPos1, Vector2Scale(arrowDir, arrowheadLength)),
 		arrowColor);
 }
-void DrawTiles(void)
+void DrawTiles(bool passable)
 {
 	rlBegin(RL_QUADS);
 	for (int y = 0; y < numTilesY; ++y)
@@ -1895,16 +1957,20 @@ void DrawTiles(void)
 		for (int x = 0; x < numTilesX; ++x)
 		{
 			Tile tile = tiles[y][x];
-			u8 variant = tileVariants[y][x];
-			Texture2D texture = tileTextureVariants[tile].variants[variant];
-			Color tint = ((x + y) % 2 == 0) ? Grayscale(1) : Grayscale(0.95f);
-			
-			rlColor(tint);
-			rlSetTexture(texture.id);
-			rlTexCoord2f(0, 0); rlVertex2f(x + 0, y + 0);
-			rlTexCoord2f(1, 0); rlVertex2f(x + 1, y + 0);
-			rlTexCoord2f(1, 1); rlVertex2f(x + 1, y + 1);
-			rlTexCoord2f(0, 1); rlVertex2f(x + 0, y + 1);
+			if (TileIsPassable(tile) == passable)
+			{
+				u8 variant = tileVariants[y][x];
+				Texture2D texture = tileTextureVariants[tile].variants[variant];
+				Color tint = ((x + y) % 2 == 0) ? Grayscale(1) : Grayscale(0.95f);
+				//Color tint = ((x + y) % 2 == 0) ? Grayscale(1) : Grayscale(1);
+
+				rlColor(tint);
+				rlSetTexture(texture.id);
+				rlTexCoord2f(0, 0); rlVertex2f(x + 0, y + 0);
+				rlTexCoord2f(1, 0); rlVertex2f(x + 1, y + 0);
+				rlTexCoord2f(1, 1); rlVertex2f(x + 1, y + 1);
+				rlTexCoord2f(0, 1); rlVertex2f(x + 0, y + 1);
+			}
 		}
 	}
 	rlEnd();
@@ -1942,22 +2008,20 @@ void DrawTurrets(void)
 	for (int i = 0; i < numTurrets; ++i)
 	{
 		Turret t = turrets[i];
+		Texture topTex;
+		Texture botTex;
 		if (t.isDestroyed)
 		{
-			DrawTex(turretBaseDestroyedTexture, t.pos, Vec2Broadcast(TURRET_RADIUS), WHITE);
-			DrawTexRotated(turretTopDestroyedTexture, t.pos, Vec2Broadcast(1.5f * TURRET_RADIUS), WHITE, t.lookAngle);
+			topTex = destroyedTurretTopVariants.variants[t.variant];
+			botTex = destroyedTurretBaseVariants.variants[t.variant];
 		}
 		else
 		{
-			DrawTex(turretBaseTexture, t.pos, Vec2Broadcast(TURRET_RADIUS), WHITE);
-			DrawTexRotated(turretTopTexture, t.pos, Vec2Broadcast(1.5f * TURRET_RADIUS), WHITE, t.lookAngle);
+			topTex = turretTopVariants.variants[t.variant];
+			botTex = turretBaseVariants.variants[t.variant];
 		}
-		//DrawCircleV(t.pos, TURRET_RADIUS, BLACK);
-		//DrawCircleV(t.pos, TURRET_RADIUS - PixelsToTiles(5), DARKGRAY);
-		//float lookAngleDegrees = RAD2DEG * t.lookAngle;
-		//Rectangle gunBarrel = { t.pos.x, t.pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
-		//DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, MAROON);
-		//DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), ORANGE);
+		DrawTex(botTex, t.pos, Vec2Broadcast(TURRET_RADIUS), WHITE);
+		DrawTexRotated(topTex, t.pos, Vec2Broadcast(1.5f * TURRET_RADIUS), WHITE, t.lookAngle);
 	}
 }
 void DrawBombs(void)
@@ -1988,7 +2052,9 @@ void DrawBombs(void)
 			}
 			rlEnd();
 		}
-		DrawTex(bombTexture, b.pos, Vec2Broadcast(BOMB_RADIUS), WHITE);
+
+		Texture tex = bombVariants.variants[b.variant];
+		DrawTex(tex, b.pos, Vec2Broadcast(BOMB_RADIUS), WHITE);
 	}
 }
 void DrawExplosions(void)
@@ -2159,7 +2225,6 @@ void DrawShards(void)
 {
 	for (int i = 0; i < numShards; ++i)
 	{
-		// Shards are drawn on top of tiles, but this means they can appear on top of walls and such, which we dont want.
 		// @SPEED: We don't really need to do this. It looks a tiny bit better but not much.
 		Shard shard = shards[i];
 		float x = shard.pos.x;
@@ -2176,6 +2241,14 @@ void DrawShards(void)
 			if (TileIsPassable(tile))
 				DrawRectangleRec((Rectangle) { x, y, w, h }, shard.color);
 		}
+	}
+}
+void DrawDecals(void)
+{
+	for (int i = 0; i < numDecals; ++i)
+	{
+		Decal *decal = &decals[i];
+		DrawCircleGradient(decal->pos.x, decal->pos.y, 3 * decal->size.x, BLACK, RGBA8(0, 0, 0, 0));
 	}
 }
 
@@ -2251,8 +2324,10 @@ void Playing_Draw(void)
 			rlTranslatef(cameraOffset.x, cameraOffset.y, 0);
 		}
 
-		DrawTiles();
+		DrawTiles(true);
+		DrawDecals();
 		DrawShards();
+		DrawTiles(false);
 		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
@@ -2747,7 +2822,8 @@ void LevelEditor_Draw(void)
 {
 	SetupTileCoordinateDrawing();
 	{
-		DrawTiles();
+		DrawTiles(true);
+		DrawTiles(false);
 		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
@@ -2932,6 +3008,49 @@ void LevelEditor_Draw(void)
 				y += 25;
 				selection.turret->isDestroyed = GuiCheckBox(Rect(x, y, 20, 20), "Destroyed", selection.turret->isDestroyed);
 				y += 25;
+
+				int numVariants1 = turretBaseVariants.numVariants;
+				int numVariants2 = turretTopVariants.numVariants;
+				int numVariants3 = destroyedTurretBaseVariants.numVariants;
+				int numVariants4 = destroyedTurretTopVariants.numVariants;
+				int minVariants = numVariants1;
+				if (minVariants > numVariants2) minVariants = numVariants2;
+				if (minVariants > numVariants3) minVariants = numVariants3;
+				if (minVariants > numVariants4) minVariants = numVariants4;
+
+				if (numVariants1 != minVariants || numVariants2 != minVariants || numVariants3 != minVariants || numVariants4 != minVariants)
+				{
+					GuiText(Rect(x, y, 180, 20), "!!! WARNING !!!");
+					y += 20;
+					GuiText(Rect(x, y, 180, 20), "Missmatched number of variants");
+					y += 20;
+					GuiText(Rect(x, y, 180, 20), "------------------------------");
+					y += 20;
+					GuiText(Rect(x, y, 180, 20), "%d base variants", numVariants1);
+					y += 20;
+					GuiText(Rect(x, y, 180, 20), "%d top variants", numVariants2);
+					y += 20;
+					GuiText(Rect(x, y, 180, 20), "%d destroyed base variants", numVariants3);
+					y += 20;
+					GuiText(Rect(x, y, 180, 20), "%d destroyed top variants", numVariants4);
+					y += 20;
+				}
+
+				Rectangle spinnerRect = Rect(x, y, 80, 20);
+				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, spinnerRect);
+				int variant = selection.turret->variant;
+				isFocused = GuiSpinner(spinnerRect, "", &variant, 0, minVariants - 1, isFocused);
+				selection.turret->variant = (u8)ClampInt(variant, 0, minVariants - 1);
+				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
+				y += 25;
+
+				if (GuiButton(Rect(x, y, 100, 20), "Fill"))
+				{
+					for (int i = 0; i < numTurrets; ++i)
+						turrets[i].variant = (u8)selection.turret->variant;
+				}
+				y += 25;
+
 			} break;
 
 			case EDITOR_SELECTION_KIND_BOMB:
@@ -2940,6 +3059,22 @@ void LevelEditor_Draw(void)
 				y += 20;
 				GuiText(Rect(x, y, 100, 20), "Y: %.2f", selection.bomb->pos.y);
 				y += 20;
+
+				Rectangle spinnerRect = Rect(x, y, 80, 20);
+				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, spinnerRect);
+				int variant = selection.bomb->variant;
+				int numVariants = bombVariants.numVariants;
+				isFocused = GuiSpinner(spinnerRect, "", &variant, 0, numVariants - 1, isFocused);
+				selection.bomb->variant = (u8)ClampInt(variant, 0, numVariants - 1);
+				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
+				y += 25;
+
+				if (GuiButton(Rect(x, y, 100, 20), "Fill"))
+				{
+					for (int i = 0; i < numBombs; ++i)
+						bombs[i].variant = (u8)selection.bomb->variant;
+				}
+				y += 25;
 			} break;
 
 			case EDITOR_SELECTION_KIND_GLASS_BOX:
@@ -3028,6 +3163,38 @@ void LevelEditor_Draw(void)
 				y += 20;
 				GuiText(Rect(x, y, 100, 20), "Tiles Y: %d", numTilesY);
 				y += 20;
+
+				/*
+				float et0 = evenTileTint0.a / 255.0f;
+				float et1 = evenTileTint1.a / 255.0f;
+				float ot0 = oddTileTint0.a / 255.0f;
+				float ot1 = oddTileTint1.a / 255.0f;
+				
+				GuiText(Rect(x, y, 100, 20), "Even tint 0"); y += 20;
+				evenTileTint0 = GuiColorPicker(Rect(x, y, 60, 60), evenTileTint0);
+				et0 = GuiColorBarHue(Rect(x + 100, y, 20, 60), et0);
+				y += 60;
+
+				GuiText(Rect(x, y, 100, 20), "Even tint 1"); y += 20;
+				evenTileTint1 = GuiColorPicker(Rect(x, y, 60, 60), evenTileTint1); 
+				et1 = GuiColorBarHue(Rect(x + 100, y, 20, 60), et1);
+				y += 60;
+				
+				GuiText(Rect(x, y, 100, 20), "Odd tint 0"); y += 20;
+				oddTileTint0 = GuiColorPicker(Rect(x, y, 60, 60), oddTileTint0); 
+				ot0 = GuiColorBarHue(Rect(x + 100, y, 20, 60), ot0);
+				y += 60;
+				
+				GuiText(Rect(x, y, 100, 20), "Odd tint 1"); y += 20;
+				oddTileTint1 = GuiColorPicker(Rect(x, y, 60, 60), oddTileTint1); 
+				ot1 = GuiColorBarHue(Rect(x + 100, y, 20, 60), ot1);
+				y += 60;
+
+				evenTileTint0.a = (u8)(et0 * 255.5f);
+				evenTileTint1.a = (u8)(et1 * 255.5f);
+				oddTileTint0.a = (u8)(ot0 * 255.5f);
+				oddTileTint1.a = (u8)(ot1 * 255.5f);
+				*/
 			} break;
 		}
 

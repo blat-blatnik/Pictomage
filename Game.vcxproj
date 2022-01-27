@@ -146,6 +146,7 @@
     <Natvis Include="debug.natvis" />
   </ItemGroup>
   <ItemGroup>
+    <Media Include="res\bullet-wall.wav" />
     <Media Include="res\explosion.wav" />
     <Media Include="res\long-shot.wav" />
     <Media Include="res\shatter.wav" />
@@ -158,7 +159,8 @@
     <Text Include="room-file-format.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="res\bomb.png" />
+    <Image Include="res\bomb0.png" />
+    <Image Include="res\bomb1.png" />
     <Image Include="res\entrance0.png" />
     <Image Include="res\exit-closed0.png" />
     <Image Include="res\exit-open0.png" />
@@ -166,10 +168,14 @@
     <Image Include="res\floor1.png" />
     <Image Include="res\missing.png" />
     <Image Include="res\player.png" />
-    <Image Include="res\turret-base-destroyed.png" />
-    <Image Include="res\turret-base.png" />
-    <Image Include="res\turret-top-destroyed.png" />
-    <Image Include="res\turret-top.png" />
+    <Image Include="res\turret-base-destroyed0.png" />
+    <Image Include="res\turret-base-destroyed1.png" />
+    <Image Include="res\turret-base0.png" />
+    <Image Include="res\turret-base1.png" />
+    <Image Include="res\turret-top-destroyed0.png" />
+    <Image Include="res\turret-top-destroyed1.png" />
+    <Image Include="res\turret-top0.png" />
+    <Image Include="res\turret-top1.png" />
     <Image Include="res\wall0.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

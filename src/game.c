@@ -44,7 +44,6 @@
 #define RESTARTING_DURATION 0.8f
 #define GRACE_PERIOD 2.0f
 #define POPUP_ANIMATION_TIME 0.6f
-#define SPARK_LIFETIME 0.5f
 
 // *---=======---*
 // |/   Types   \|
@@ -212,6 +211,7 @@ typedef struct TextureVariants
 typedef struct Spark
 {
 	double spawnTime;
+	float lifetime;
 	Vector2 pos;
 	Vector2 vel;
 } Spark;
@@ -670,7 +670,7 @@ TriggerMessage *SpawnTriggerMessage(Rectangle rect, bool once, const char *messa
 	snprintf(tm->message, sizeof tm->message, "%s", message);
 	return tm;
 }
-Spark *SpawnSpark(Vector2 pos, Vector2 vel)
+Spark *SpawnSpark(Vector2 pos, Vector2 vel, float lifetime)
 {
 	if (numSparks >= MAX_SPARKS)
 		return NULL;
@@ -679,6 +679,7 @@ Spark *SpawnSpark(Vector2 pos, Vector2 vel)
 	spark->pos = pos;
 	spark->vel = vel;
 	spark->spawnTime = timeAtStartOfFrame;
+	spark->lifetime = lifetime;
 	return spark;
 }
 Shard *SpawnShard(Vector2 pos, Vector2 vel, Vector2 size, Color color)
@@ -1043,7 +1044,7 @@ void DoCollisionSparks(Vector2 incident, Vector2 normal, Vector2 pos, int minSpa
 	{
 		float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
 		Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), normAngle + r);
-		SpawnSpark(pos, vel);
+		SpawnSpark(pos, vel, RandomFloat(&rng, 0.3f, 0.6f));
 	}
 	
 	float reflAngle = Vec2Angle(reflection);
@@ -1052,7 +1053,7 @@ void DoCollisionSparks(Vector2 incident, Vector2 normal, Vector2 pos, int minSpa
 	{
 		float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
 		Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), reflAngle + r);
-		SpawnSpark(pos, vel);
+		SpawnSpark(pos, vel, RandomFloat(&rng, 0.3f, 0.6f));
 	}
 }
 void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForce, float unalignedForce)
@@ -1434,6 +1435,17 @@ void UpdateTurrets(void)
 						PlaySound(longShotSound);
 						SetSoundPitch(longShotSound, RandomFloat(&rng, 0.95f, 1.2f));
 
+						int sparkCount = RandomInt(&rng, 10, 20);
+						for (int i = 0; i < sparkCount; ++i)
+						{
+							float speed = RandomFloat(&rng, 5, 8);
+							float angle = RandomNormal(&rng, 0, PI / 4).x;
+							angle = t->lookAngle + Clamp(angle, -PI / 2, +PI / 2);
+							Vector2 pos = bulletPos;
+							Vector2 vel = Vec2FromPolar(speed, angle);
+							SpawnSpark(pos, vel, 0.2f);
+						}
+
 						//@TODO: Maybe remove?
 						ScreenShake(0.02f, 0.05f, 0);
 					}
@@ -1601,6 +1613,25 @@ void UpdateExplosions(void)
 					}
 				}
 
+				//@SPEED: We dont really need to do this.. we could also stagger it
+				if (time < 0.1f)
+				{
+					float px = e->pos.x;
+					float py = e->pos.y;
+					for (int j = 0; j < numShards; ++j)
+					{
+						Shard *shard = &shards[j];
+						float cx = shard->pos.x + 0.5f * shard->size.x;
+						float cy = shard->pos.y + 0.5f * shard->size.y;
+						float dx = cx - px;
+						float dy = cy - py;
+						float d2 = dx * dx + dy * dy;
+						float id2 = 1 / (1 + d2);
+						shard->vel.x += (30 * dx) * id2;
+						shard->vel.y += (30 * dy) * id2;
+					}
+				}
+
 				if (CheckCollisionCircles(player.pos, PLAYER_RADIUS, e->pos, r))
 				{
 					Vector2 toPlayer = Vector2Subtract(player.pos, e->pos);
@@ -1639,7 +1670,7 @@ void UpdateSparks(void)
 	{
 		Spark *spark = &sparks[i];
 		float lifetime = (float)(timeAtStartOfFrame - spark->spawnTime);
-		if (lifetime >= SPARK_LIFETIME)
+		if (lifetime >= spark->lifetime)
 		{
 			DespawnSpark(i);
 			--i;
@@ -1648,18 +1679,23 @@ void UpdateSparks(void)
 }
 void UpdateShards(void)
 {
+	float px = player.pos.x;
+	float py = player.pos.y;
+	float vx = player.vel.x;
+	float vy = player.vel.y;
 	for (int i = 0; i < numShards; ++i)
 	{
 		Shard *shard = &shards[i];
 		float cx = shard->pos.x + 0.5f * shard->size.x;
 		float cy = shard->pos.y + 0.5f * shard->size.y;
-		float dx = cx - player.pos.x;
-		float dy = cy - player.pos.y;
+		float dx = cx - px;
+		float dy = cy - py;
 		float d2 = dx * dx + dy * dy;
 		if (d2 <= PLAYER_RADIUS * PLAYER_RADIUS)
 		{
-			shard->vel.x += (4.0f * dx + 0.1f * player.vel.x) / (1.0f + d2);
-			shard->vel.y += (4.0f * dy + 0.1f * player.vel.y) / (1.0f + d2);
+			float id2 = 1 / (1 + d2);
+			shard->vel.x += (4.0f * dx + 0.1f * vx) * id2;
+			shard->vel.y += (4.0f * dy + 0.1f * vy) * id2;
 		}
 		shard->pos.x += shard->vel.x * DELTA_TIME;
 		shard->pos.y += shard->vel.y * DELTA_TIME;
@@ -2043,7 +2079,7 @@ void DrawSparks(void)
 		float dt = (float)(timeAtStartOfFrame - spark->spawnTime);
 		Vector2 pos = Vector2Add(spark->pos, Vector2Scale(spark->vel, dt));
 		
-		float t = Clamp(dt / SPARK_LIFETIME, 0, 1);
+		float t = Clamp(dt / spark->lifetime, 0, 1);
 		Color color = LerpColor(color0, color1, t);
 		DrawRectangleRec(RectVec(pos, Vec2Broadcast(0.1f)), color);
 	}

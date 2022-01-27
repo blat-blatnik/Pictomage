@@ -1262,7 +1262,7 @@ void UpdateBullets(void)
 {
 	// Step each bullet 4 times for increased collision precision.
 	// Otherwise bullets phase through 1 tile thin walls.
-	const int numIterations = 4; // @SPEED: Maybe 2 or 3 iterations is enough. Although we never have too many bullets.
+	const int numIterations = 8; // @SPEED: Maybe 2 or 3 iterations is enough. Although we never have too many bullets.
 	for (int iter = 0; iter < numIterations; ++iter)
 	{
 		for (int i = 0; i < numBullets; ++i)
@@ -1343,7 +1343,10 @@ void UpdateBullets(void)
 				for (int j = 0; j < numGlassBoxes; ++j)
 				{
 					GlassBox *box = &glassBoxes[j];
-					if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
+
+					//@BUG: CheckCollisionCircleRec is pretty bugged.
+					//if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
+					if (CheckCollisionPointRec(b->pos, box->rect))
 					{
 						ShatterGlassBox(j, b->pos, b->vel, 1, 0.1f);
 						--j;

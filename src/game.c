@@ -221,6 +221,7 @@ typedef struct Shard
 	Vector2 pos;
 	Vector2 vel;
 	Vector2 size;
+	float friction;
 	Color color;
 } Shard;
 
@@ -682,7 +683,7 @@ Spark *SpawnSpark(Vector2 pos, Vector2 vel, float lifetime)
 	spark->lifetime = lifetime;
 	return spark;
 }
-Shard *SpawnShard(Vector2 pos, Vector2 vel, Vector2 size, Color color)
+Shard *SpawnShard(Vector2 pos, Vector2 vel, Vector2 size, Color color, float friction)
 {
 	Shard *shard = &shards[shardCursor++];
 	++numShards;
@@ -695,6 +696,7 @@ Shard *SpawnShard(Vector2 pos, Vector2 vel, Vector2 size, Color color)
 	shard->vel = vel;
 	shard->size = size;
 	shard->color = color;
+	shard->friction = friction;
 	return shard;
 }
 
@@ -780,6 +782,64 @@ void KillPlayer(Vector2 direction, float intensity)
 		player.isAlive = false;
 		ScreenShake(0.5f, 0.05f, 0);
 	}
+}
+void DoCollisionSparks(Vector2 incident, Vector2 normal, Vector2 pos, int minSparksNorm, int maxSparksNorm, int minSparksRefl, int maxSparksRefl)
+{
+	incident = Vector2Normalize(incident);
+	normal = Vector2Normalize(normal);
+	Vector2 reflection = Vector2Reflect(incident, normal);
+	float dot = Clamp(-Vector2DotProduct(incident, normal), 0.2f, 1);
+
+	float normAngle = Vec2Angle(normal);
+	int numSparks1 = RandomInt(&rng, minSparksNorm, maxSparksNorm);
+	for (int i = 0; i < numSparks1; ++i)
+	{
+		float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
+		Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), normAngle + r);
+		SpawnSpark(pos, vel, RandomFloat(&rng, 0.3f, 0.6f));
+	}
+
+	float reflAngle = Vec2Angle(reflection);
+	int numSparks2 = RandomInt(&rng, minSparksRefl, maxSparksRefl);
+	for (int i = 0; i < numSparks2; ++i)
+	{
+		float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
+		Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), reflAngle + r);
+		SpawnSpark(pos, vel, RandomFloat(&rng, 0.3f, 0.6f));
+	}
+}
+void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForce, float unalignedForce)
+{
+	incident = Vector2Normalize(incident);
+
+	GlassBox *box = &glassBoxes[index];
+	Rectangle rect = box->rect;
+	float area = rect.width * rect.height;
+	float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
+	SetSoundPitch(glassShatterSound, pitch);
+	PlaySound(glassShatterSound);
+
+	const Color color1 = ColorAlpha(DARKBLUE, 0.3f);
+	const Color color2 = ColorAlpha(SKYBLUE, 0.3f);
+
+	Vector2 center = RectangleCenter(rect);
+	int count = (int)Lerp(20, 200, Clamp(area / 10, 0, 1));
+	for (int i = 0; i < count; ++i)
+	{
+		Vector2 pos = {
+			RandomFloat(&rng, rect.x, rect.x + rect.width),
+			RandomFloat(&rng, rect.y, rect.y + rect.height)
+		};
+
+		Vector2 offset = Vector2Normalize(Vector2Subtract(pos, center));
+		float dot = Clamp(Vector2DotProduct(offset, incident), 0, 1);
+		float force = 20 * Lerp(unalignedForce, alignedForce, dot);
+		Vector2 vel = Vector2Scale(offset, force * RandomFloat(&rng, 0.1f, +1.1f));
+		Color color = LerpColor(color1, color2, RandomFloat01(&rng));
+		SpawnShard(pos, vel, Vec2(RandomFloat(&rng, 0.15f, 0.25f), RandomFloat(&rng, 0.15f, 0.25f)), color, 0.95f);
+	}
+
+	DespawnGlassBox(index);
 }
 
 void CenterCameraOnLevel(void)
@@ -1031,65 +1091,6 @@ void CopyGameToRoom(Room *room)
 // |/   Update   \|
 // *---========---*
 
-void DoCollisionSparks(Vector2 incident, Vector2 normal, Vector2 pos, int minSparksNorm, int maxSparksNorm, int minSparksRefl, int maxSparksRefl)
-{
-	incident = Vector2Normalize(incident);
-	normal = Vector2Normalize(normal);
-	Vector2 reflection = Vector2Reflect(incident, normal);
-	float dot = Clamp(-Vector2DotProduct(incident, normal), 0.2f, 1);
-
-	float normAngle = Vec2Angle(normal);
-	int numSparks1 = RandomInt(&rng, minSparksNorm, maxSparksNorm);
-	for (int i = 0; i < numSparks1; ++i)
-	{
-		float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
-		Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), normAngle + r);
-		SpawnSpark(pos, vel, RandomFloat(&rng, 0.3f, 0.6f));
-	}
-	
-	float reflAngle = Vec2Angle(reflection);
-	int numSparks2 = RandomInt(&rng, minSparksRefl, maxSparksRefl);
-	for (int i = 0; i < numSparks2; ++i)
-	{
-		float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
-		Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), reflAngle + r);
-		SpawnSpark(pos, vel, RandomFloat(&rng, 0.3f, 0.6f));
-	}
-}
-void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForce, float unalignedForce)
-{
-	incident = Vector2Normalize(incident);
-
-	GlassBox *box = &glassBoxes[index];
-	Rectangle rect = box->rect;
-	float area = rect.width * rect.height;
-	float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
-	SetSoundPitch(glassShatterSound, pitch);
-	PlaySound(glassShatterSound);
-
-	const Color color1 = ColorAlpha(DARKBLUE, 0.3f);
-	const Color color2 = ColorAlpha(SKYBLUE, 0.3f);
-
-	Vector2 center = RectangleCenter(rect);
-	int count = (int)Lerp(20, 200, Clamp(area / 10, 0, 1));
-	for (int i = 0; i < count; ++i)
-	{
-		Vector2 pos = {
-			RandomFloat(&rng, rect.x, rect.x + rect.width),
-			RandomFloat(&rng, rect.y, rect.y + rect.height)
-		};
-		
-		Vector2 offset = Vector2Normalize(Vector2Subtract(pos, center));
-		float dot = Clamp(Vector2DotProduct(offset, incident), 0, 1);
-		float force = 20 * Lerp(unalignedForce, alignedForce, dot);
-		Vector2 vel = Vector2Scale(offset, force * RandomFloat(&rng, 0.1f, +1.1f));
-		Color color = LerpColor(color1, color2, RandomFloat01(&rng));
-		SpawnShard(pos, vel, Vec2(RandomFloat(&rng, 0.15f, 0.25f), RandomFloat(&rng, 0.15f, 0.25f)), color);
-	}
-
-	DespawnGlassBox(index);
-}
-
 void UpdatePlayer(void)
 {
 	Vector2 mousePos = ScreenToTile(GetMousePosition());
@@ -1260,9 +1261,9 @@ void UpdatePlayer(void)
 }
 void UpdateBullets(void)
 {
-	// Step each bullet 4 times for increased collision precision.
+	// Update each bullet multiple times for increased collision precision.
 	// Otherwise bullets phase through 1 tile thin walls.
-	const int numIterations = 8; // @SPEED: Maybe 2 or 3 iterations is enough. Although we never have too many bullets.
+	const int numIterations = 4; // @SPEED: Maybe 2 or 3 iterations is enough. Although we never have too many bullets.
 	for (int iter = 0; iter < numIterations; ++iter)
 	{
 		for (int i = 0; i < numBullets; ++i)
@@ -1283,7 +1284,22 @@ void UpdateBullets(void)
 				Vector2 pos = { collision.point.x, collision.point.y };
 				DoCollisionSparks(b->vel, normal, pos, 10, 20, 0, 1);
 
-				//@TODO: Hit sound
+				int shardCount = RandomInt(&rng, 2, 5);
+				float normalAngle = Vec2Angle(normal);
+				float bulletSpeed = Vector2Length(b->vel);
+				for (int j = 0; j < shardCount; ++j)
+				{
+					float angle = Clamp(RandomNormal(&rng, 0, PI / 6).x, -PI / 2, +PI / 2);
+					angle += normalAngle;
+					float speed = RandomFloat(&rng, 0.1f * bulletSpeed, 0.4f * bulletSpeed);
+					Vector2 vel = Vec2FromPolar(speed, angle);
+					Vector2 size = {
+						RandomFloat(&rng, 0.05f, 0.10f),
+						RandomFloat(&rng, 0.05f, 0.10f),
+					};
+					SpawnShard(pos, vel, size, BLACK, 0.9f); //@TODO: Wall color.
+				}
+
 				SetSoundPitch(bulletHitWallSound, RandomFloat(&rng, 0.8f, 1.3f));
 				PlaySound(bulletHitWallSound);
 				DespawnBullet(i);
@@ -1297,12 +1313,39 @@ void UpdateBullets(void)
 					Turret *t = &turrets[j];
 					if (CheckCollisionCircles(b->pos, BULLET_RADIUS, t->pos, TURRET_RADIUS))
 					{
-						DespawnBullet(i);
-
 						Vector2 pos = ResolveCollisionCircles(b->pos, 0.01f, t->pos, TURRET_RADIUS);
 						Vector2 normal = Vector2Normalize(Vector2Subtract(pos, t->pos));
 						Vector2 incident = Vector2Normalize(b->vel);
 						DoCollisionSparks(incident, normal, pos, 10, 20, 10, 20);
+
+						float hitSpeed = Vector2Length(b->vel);
+						float hitAngle = Vec2Angle(incident);
+						int debrisCount = RandomInt(&rng, 10, 20);
+						Vector2 debrisPos = Vector2Scale(Vector2Add(pos, t->pos), 0.5f);
+						for (int i = 0; i < debrisCount; ++i)
+						{
+							float randAngle = Clamp(RandomNormal(&rng, 0, PI / 8).x, -PI / 2, +PI / 2);
+							float angle = hitAngle + randAngle;
+							float speed = RandomFloat(&rng, 0.5f * hitSpeed, 1.0f * hitSpeed);
+							Vector2 vel = Vec2FromPolar(speed, angle);
+							Vector2 size = {
+								RandomFloat(&rng, 0.05f, 0.10f),
+								RandomFloat(&rng, 0.05f, 0.10f),
+							};
+							const Color colors[] = {
+								BLACK,
+								BLACK,
+								{ 80, 80, 80, 0xFF },
+								{ 226, 189, 0, 0xFF },
+								{ 190, 33, 55, 0xFF },
+							};
+							int index1 = RandomInt(&rng, 0, COUNTOF(colors));
+							int index2 = RandomInt(&rng, 0, COUNTOF(colors));
+							Color color1 = colors[index1];
+							Color color2 = colors[index2];
+							Color color = LerpColor(color1, color2, RandomFloat01(&rng));
+							SpawnShard(debrisPos, vel, size, color, 0.8f);
+						}
 
 						if (t->isDestroyed)
 						{
@@ -1317,6 +1360,8 @@ void UpdateBullets(void)
 							SetSoundVolume(turretDestroySound, 0.25f);
 							PlaySound(turretDestroySound);
 						}
+
+						DespawnBullet(i);
 						--i;
 						collided = true;
 						break;
@@ -1330,8 +1375,8 @@ void UpdateBullets(void)
 					Bomb *bomb = &bombs[j];
 					if (CheckCollisionCircles(b->pos, BULLET_RADIUS, bomb->pos, BOMB_RADIUS))
 					{
-						DespawnBullet(i);
 						ExplodeBomb(j);
+						DespawnBullet(i);
 						--i;
 						collided = true;
 						break;
@@ -1355,9 +1400,9 @@ void UpdateBullets(void)
 
 				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, player.pos, PLAYER_RADIUS))
 				{
+					Vector2 toPlayer = Vector2Subtract(player.pos, b->pos);
 					DespawnBullet(i);
 					--i;
-					Vector2 toPlayer = Vector2Subtract(player.pos, b->pos);
 					KillPlayer(toPlayer, 0.1f);
 					continue;
 				}
@@ -1702,8 +1747,8 @@ void UpdateShards(void)
 		}
 		shard->pos.x += shard->vel.x * DELTA_TIME;
 		shard->pos.y += shard->vel.y * DELTA_TIME;
-		shard->vel.x *= 0.95f;
-		shard->vel.y *= 0.95f;
+		shard->vel.x *= shard->friction;
+		shard->vel.y *= shard->friction;
 	}
 }
 
@@ -2184,13 +2229,13 @@ void Playing_Draw(void)
 		}
 
 		DrawTiles();
+		DrawShards();
 		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
 		DrawPlayer();
 		DrawBullets();
 		DrawSparks();
-		DrawShards();
 		DrawExplosions();
 		DrawPlayerCaptureCone();
 		DrawPlayerRelease();

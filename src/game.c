@@ -22,7 +22,7 @@
 #define MAX_TRIGGER_MESSAGES 10
 #define MAX_TEXTURE_VARIANTS 32
 #define MAX_SPARKS 100
-#define MAX_SHARDS 300
+#define MAX_SHARDS 500
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
@@ -42,7 +42,7 @@
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
 #define PLAYER_CAPTURE_CONE_RADIUS 3.5f
 #define RESTARTING_DURATION 0.8f
-#define GRACE_PERIOD 1.0f
+#define GRACE_PERIOD 2.0f
 #define POPUP_ANIMATION_TIME 0.6f
 #define SPARK_LIFETIME 0.5f
 
@@ -221,6 +221,7 @@ typedef struct Shard
 	Vector2 pos;
 	Vector2 vel;
 	Vector2 size;
+	Color color;
 } Shard;
 
 // *---========---*
@@ -340,6 +341,7 @@ Sound explosionSound;
 Sound turretDestroySound;
 Sound shutterSound;
 Sound glassShatterSound;
+Sound bulletHitWallSound;
 
 void LoadAllSounds(void)
 {
@@ -352,6 +354,7 @@ void LoadAllSounds(void)
 	SetSoundVolume(turretDestroySound, 0.3f);
 	shutterSound = LoadSound("res/shutter1.wav");
 	glassShatterSound = LoadSound("res/shatter.wav");
+	bulletHitWallSound = LoadSound("res/bullet-wall.wav");
 }
 void StopAllLevelSounds(void)
 {
@@ -678,7 +681,7 @@ Spark *SpawnSpark(Vector2 pos, Vector2 vel)
 	spark->spawnTime = timeAtStartOfFrame;
 	return spark;
 }
-Shard *SpawnShard(Vector2 pos, Vector2 vel, Vector2 size)
+Shard *SpawnShard(Vector2 pos, Vector2 vel, Vector2 size, Color color)
 {
 	Shard *shard = &shards[shardCursor++];
 	++numShards;
@@ -690,6 +693,7 @@ Shard *SpawnShard(Vector2 pos, Vector2 vel, Vector2 size)
 	shard->pos = pos;
 	shard->vel = vel;
 	shard->size = size;
+	shard->color = color;
 	return shard;
 }
 
@@ -1057,13 +1061,16 @@ void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForc
 
 	GlassBox *box = &glassBoxes[index];
 	Rectangle rect = box->rect;
-	float area = rect.x * rect.y;
+	float area = rect.width * rect.height;
 	float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
 	SetSoundPitch(glassShatterSound, pitch);
 	PlaySound(glassShatterSound);
 
+	const Color color1 = ColorAlpha(DARKBLUE, 0.3f);
+	const Color color2 = ColorAlpha(SKYBLUE, 0.3f);
+
 	Vector2 center = RectangleCenter(rect);
-	int count = (int)Lerp(10, 100, Clamp(area / 10, 0, 1));
+	int count = (int)Lerp(20, 200, Clamp(area / 10, 0, 1));
 	for (int i = 0; i < count; ++i)
 	{
 		Vector2 pos = {
@@ -1075,7 +1082,8 @@ void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForc
 		float dot = Clamp(Vector2DotProduct(offset, incident), 0, 1);
 		float force = 20 * Lerp(unalignedForce, alignedForce, dot);
 		Vector2 vel = Vector2Scale(offset, force * RandomFloat(&rng, 0.1f, +1.1f));
-		SpawnShard(pos, vel, Vec2(RandomFloat(&rng, 0.15f, 0.25f), RandomFloat(&rng, 0.15f, 0.25f)));
+		Color color = LerpColor(color1, color2, RandomFloat01(&rng));
+		SpawnShard(pos, vel, Vec2(RandomFloat(&rng, 0.15f, 0.25f), RandomFloat(&rng, 0.15f, 0.25f)), color);
 	}
 
 	DespawnGlassBox(index);
@@ -1275,6 +1283,8 @@ void UpdateBullets(void)
 				DoCollisionSparks(b->vel, normal, pos, 10, 20, 0, 1);
 
 				//@TODO: Hit sound
+				SetSoundPitch(bulletHitWallSound, RandomFloat(&rng, 0.8f, 1.3f));
+				PlaySound(bulletHitWallSound);
 				DespawnBullet(i);
 				--i;
 			}
@@ -1648,8 +1658,8 @@ void UpdateShards(void)
 		float d2 = dx * dx + dy * dy;
 		if (d2 <= PLAYER_RADIUS * PLAYER_RADIUS)
 		{
-			shard->vel.x += (4.0f * dx) / (1.0f + d2);
-			shard->vel.y += (4.0f * dy) / (1.0f + d2);
+			shard->vel.x += (4.0f * dx + 0.1f * player.vel.x) / (1.0f + d2);
+			shard->vel.y += (4.0f * dy + 0.1f * player.vel.y) / (1.0f + d2);
 		}
 		shard->pos.x += shard->vel.x * DELTA_TIME;
 		shard->pos.y += shard->vel.y * DELTA_TIME;
@@ -2040,7 +2050,6 @@ void DrawSparks(void)
 }
 void DrawShards(void)
 {
-	Color color = ColorAlpha(BLUE, 0.3f);
 	for (int i = 0; i < numShards; ++i)
 	{
 		// Shards are drawn on top of tiles, but this means they can appear on top of walls and such, which we dont want.
@@ -2058,7 +2067,7 @@ void DrawShards(void)
 		{
 			Tile tile = tiles[ty][tx];
 			if (TileIsPassable(tile))
-				DrawRectangleRec((Rectangle) { x, y, w, h }, color);
+				DrawRectangleRec((Rectangle) { x, y, w, h }, shard.color);
 		}
 	}
 }

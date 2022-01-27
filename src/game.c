@@ -22,7 +22,7 @@
 #define MAX_TRIGGER_MESSAGES 10
 #define MAX_TEXTURE_VARIANTS 32
 #define MAX_SPARKS 100
-#define MAX_SHARDS 200
+#define MAX_SHARDS 300
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
@@ -218,7 +218,6 @@ typedef struct Spark
 
 typedef struct Shard
 {
-	double spawnTime;
 	Vector2 pos;
 	Vector2 vel;
 } Shard;
@@ -678,6 +677,19 @@ Spark *SpawnSpark(Vector2 pos, Vector2 vel)
 	spark->spawnTime = timeAtStartOfFrame;
 	return spark;
 }
+Shard *SpawnShard(Vector2 pos, Vector2 vel)
+{
+	Shard *shard = &shards[shardCursor++];
+	++numShards;
+	if (numShards > MAX_SHARDS)
+		numShards = MAX_SHARDS;
+	if (shardCursor >= MAX_SHARDS)
+		shardCursor = 0;
+
+	shard->pos = pos;
+	shard->vel = vel;
+	return shard;
+}
 
 void DespawnBullet(int index)
 {
@@ -1037,6 +1049,35 @@ void DoCollisionSparks(Vector2 incident, Vector2 normal, Vector2 pos, int minSpa
 		SpawnSpark(pos, vel);
 	}
 }
+void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForce, float unalignedForce)
+{
+	incident = Vector2Normalize(incident);
+
+	GlassBox *box = &glassBoxes[index];
+	Rectangle rect = box->rect;
+	float area = rect.x * rect.y;
+	float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
+	SetSoundPitch(glassShatterSound, pitch);
+	PlaySound(glassShatterSound);
+
+	Vector2 center = RectangleCenter(rect);
+	int count = (int)Lerp(10, 100, Clamp(area / 10, 0, 1));
+	for (int i = 0; i < count; ++i)
+	{
+		Vector2 pos = {
+			RandomFloat(&rng, rect.x, rect.x + rect.width),
+			RandomFloat(&rng, rect.y, rect.y + rect.height)
+		};
+		
+		Vector2 offset = Vector2Normalize(Vector2Subtract(pos, center));
+		float dot = Clamp(Vector2DotProduct(offset, incident), 0, 1);
+		float force = 20 * Lerp(unalignedForce, alignedForce, dot);
+		Vector2 vel = Vector2Scale(offset, force * RandomFloat(&rng, 0.1f, +1.1f));
+		SpawnShard(pos, vel);
+	}
+
+	DespawnGlassBox(index);
+}
 
 void UpdatePlayer(void)
 {
@@ -1210,7 +1251,7 @@ void UpdateBullets(void)
 {
 	// Step each bullet 4 times for increased collision precision.
 	// Otherwise bullets phase through 1 tile thin walls.
-	const int numIterations = 4;
+	const int numIterations = 4; // @SPEED: Maybe 2 or 3 iterations is enough. Although we never have too many bullets.
 	for (int iter = 0; iter < numIterations; ++iter)
 	{
 		for (int i = 0; i < numBullets; ++i)
@@ -1222,7 +1263,7 @@ void UpdateBullets(void)
 				DespawnBullet(i);
 				--i;
 			}
-			else if (!TileIsPassable(TileAtVec(b->pos))) // @TODO: This is treating bullets as mere points even though they have a radius..
+			else if (!TileIsPassable(TileAtVec(b->pos))) // @TODO: This is treating bullets as points even though they have a radius..
 			{
 				int tx = (int)b->pos.x;
 				int ty = (int)b->pos.y;
@@ -1291,12 +1332,7 @@ void UpdateBullets(void)
 					GlassBox *box = &glassBoxes[j];
 					if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
 					{
-						float area = box->rect.x * box->rect.y;
-						float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
-						SetSoundPitch(glassShatterSound, pitch);
-						PlaySound(glassShatterSound);
-
-						DespawnGlassBox(j);
+						ShatterGlassBox(j, b->pos, b->vel, 1, 0.1f);
 						--j;
 					}
 				}
@@ -1545,11 +1581,10 @@ void UpdateExplosions(void)
 				}
 				for (int j = 0; j < numGlassBoxes; ++j)
 				{
-					GlassBox *b = &glassBoxes[j];
-					if (CheckCollisionCircleRec(e->pos, r, b->rect))
+					GlassBox *box = &glassBoxes[j];
+					if (CheckCollisionCircleRec(e->pos, r, box->rect))
 					{
-						//@TODO: Glass shatter sound.
-						DespawnGlassBox(j);
+						ShatterGlassBox(j, e->pos, Vector2Subtract(RectangleCenter(box->rect), e->pos), 1, 0.5f);
 						--j;
 					}
 				}
@@ -1597,6 +1632,15 @@ void UpdateSparks(void)
 			DespawnSpark(i);
 			--i;
 		}
+	}
+}
+void UpdateShards(void)
+{
+	for (int i = 0; i < numShards; ++i)
+	{
+		Shard *shard = &shards[i];
+		shard->pos = Vector2Add(shard->pos, Vector2Scale(shard->vel, DELTA_TIME));
+		shard->vel = Vector2Scale(shard->vel, 0.95f);
 	}
 }
 
@@ -1869,7 +1913,7 @@ void DrawGlassBoxes(void)
 	{
 		GlassBox box = glassBoxes[i];
 		//DrawRectanglePro(box.rect, RectangleCenter(box.rect), RAD2DEG * box.rotation, ColorAlpha(BLUE, 0.2f));
-		DrawRectangleRec(box.rect, ColorAlpha(BLUE, 0.2f));
+		DrawRectangleRec(box.rect, ColorAlpha(BLUE, 0.3f));
 	}
 }
 void DrawTriggerMessages(bool debug)
@@ -1980,6 +2024,16 @@ void DrawSparks(void)
 		DrawRectangleRec(RectVec(pos, Vec2Broadcast(0.1f)), color);
 	}
 }
+void DrawShards(void)
+{
+	Color color = ColorAlpha(BLUE, 0.3f);
+	Vector2 size = Vec2Broadcast(0.2f);
+	for (int i = 0; i < numShards; ++i)
+	{
+		Shard shard = shards[i];
+		DrawRectangleRec((Rectangle) { shard.pos.x, shard.pos.y, size.x, size.y }, color);
+	}
+}
 
 // *---=========---*
 // |/   Playing   \|
@@ -2020,6 +2074,7 @@ GameState Playing_Update(void)
 		UpdateTurrets();
 		UpdateBombs();
 		UpdateSparks();
+		UpdateShards();
 		UpdateExplosions();
 		UpdateTriggerredMessages();
 	}
@@ -2059,6 +2114,7 @@ void Playing_Draw(void)
 		DrawPlayer();
 		DrawBullets();
 		DrawSparks();
+		DrawShards();
 		DrawExplosions();
 		DrawPlayerCaptureCone();
 		DrawPlayerRelease();

@@ -321,7 +321,7 @@ double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
-Color evenTileTint0;
+Color evenTileTint0; // These are currently unused.
 Color evenTileTint1;
 Color oddTileTint0;
 Color oddTileTint1;
@@ -829,7 +829,7 @@ void ExplodeBomb(int index)
 		SpawnShard(bomb->pos, dir, size, color, 0.85f);
 	}
 
-	SpawnDecal(bomb->pos, Vec2Broadcast(2.0f), 0);
+	SpawnDecal(bomb->pos, Vec2Broadcast(4 * BOMB_RADIUS), 0);
 
 	PlaySound(explosionSound);
 	SetSoundPitch(explosionSound, RandomFloat(&rng, 0.8f, 1.2f));
@@ -1721,6 +1721,7 @@ void UpdateExplosions(void)
 					Turret *t = &turrets[j];
 					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, e->pos, r))
 					{
+						SpawnDecal(t->pos, Vec2Broadcast(4 * TURRET_RADIUS), 0);
 						DespawnTurret(j);
 						--j;
 					}
@@ -2248,7 +2249,43 @@ void DrawDecals(void)
 	for (int i = 0; i < numDecals; ++i)
 	{
 		Decal *decal = &decals[i];
-		DrawCircleGradient(decal->pos.x, decal->pos.y, 3 * decal->size.x, BLACK, RGBA8(0, 0, 0, 0));
+		Vector2 center = decal->pos;
+		float ew = decal->size.x / 2;
+		float eh = decal->size.y / 2;
+		
+		float angles[16];
+		angles[0] = 0;
+		for (int j = 1; j < COUNTOF(angles) - 1; ++j)
+			angles[j] = ((float)j / COUNTOF(angles)) * 2 * PI;
+		angles[COUNTOF(angles) - 1] = 2 * PI;
+
+		u64 hash = HashBytes(&decal->pos, sizeof decal->pos);
+		Random rand = SeedRandom(hash);
+
+		Vector2 points[COUNTOF(angles)];
+		for (int j = 0; j < COUNTOF(points); ++j)
+		{
+			float angle = angles[j];
+			float s = sinf(angle);
+			float c = cosf(angle);
+			float r = RandomFloat(&rand, 0.5f, 1.5f);
+			points[j].x = center.x + (c * r) * ew;
+			points[j].y = center.y + (s * r) * eh;
+		}
+
+		rlBegin(RL_TRIANGLES);
+		{
+			for (int j = 0; j < COUNTOF(points) - 1; ++j)
+			{
+				rlColor4f(0, 0, 0, 1); 
+				rlVertex2fv(center);
+				rlColor4f(0, 0, 0, 0);
+				rlVertex2f(points[j + 0].x, points[j + 0].y);
+				rlColor4f(0, 0, 0, 0);
+				rlVertex2f(points[j + 1].x, points[j + 1].y);
+			}
+		}
+		rlEnd();
 	}
 }
 

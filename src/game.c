@@ -1012,6 +1012,32 @@ void CopyGameToRoom(Room *room)
 // |/   Update   \|
 // *---========---*
 
+void DoCollisionSparks(Vector2 incident, Vector2 normal, Vector2 pos, int minSparksNorm, int maxSparksNorm, int minSparksRefl, int maxSparksRefl)
+{
+	incident = Vector2Normalize(incident);
+	normal = Vector2Normalize(normal);
+	Vector2 reflection = Vector2Reflect(incident, normal);
+	float dot = Clamp(-Vector2DotProduct(incident, normal), 0.2f, 1);
+
+	float normAngle = Vec2Angle(normal);
+	int numSparks1 = RandomInt(&rng, minSparksNorm, maxSparksNorm);
+	for (int i = 0; i < numSparks1; ++i)
+	{
+		float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
+		Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), normAngle + r);
+		SpawnSpark(pos, vel);
+	}
+	
+	float reflAngle = Vec2Angle(reflection);
+	int numSparks2 = RandomInt(&rng, minSparksRefl, maxSparksRefl);
+	for (int i = 0; i < numSparks2; ++i)
+	{
+		float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
+		Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), reflAngle + r);
+		SpawnSpark(pos, vel);
+	}
+}
+
 void UpdatePlayer(void)
 {
 	Vector2 mousePos = ScreenToTile(GetMousePosition());
@@ -1191,8 +1217,26 @@ void UpdateBullets(void)
 			DespawnBullet(i);
 			--i;
 		}
-		else if (TileAtVec(b->pos) == TILE_WALL) // @TODO: This is treating bullets as mere points even though they have a radius..
+		else if (!TileIsPassable(TileAtVec(b->pos))) // @TODO: This is treating bullets as mere points even though they have a radius..
 		{
+			int tx = (int)b->pos.x;
+			int ty = (int)b->pos.y;
+			
+			Ray ray;
+			ray.position = (Vector3){ b->origin.x, b->origin.y, 0.5f };
+			ray.direction = (Vector3){ b->vel.x, b->vel.y, 0 };
+
+			BoundingBox box;
+			box.min = (Vector3){ tx, ty, 0 };
+			box.max = (Vector3){ tx + 1, ty + 1, 1 };
+
+			RayCollision collision = GetRayCollisionBox(ray, box);
+			Vector2 normal = { collision.normal.x, collision.normal.y };
+			Vector2 pos = { collision.point.x, collision.point.y };
+
+			DoCollisionSparks(b->vel, normal, pos, 10, 20, 0, 1);
+
+			//@TODO: Hit sound
 			DespawnBullet(i);
 			--i;
 		}
@@ -1207,27 +1251,9 @@ void UpdateBullets(void)
 					DespawnBullet(i);
 
 					Vector2 pos = ResolveCollisionCircles(b->pos, 0.01f, t->pos, TURRET_RADIUS);
-					Vector2 incident = Vector2Normalize(b->vel);
 					Vector2 normal = Vector2Normalize(Vector2Subtract(pos, t->pos));
-					Vector2 reflection = Vector2Reflect(incident, normal);
-					float dot = Clamp(-Vector2DotProduct(incident, normal), 0.2f, 1);
-
-					float normAngle = Vec2Angle(normal);
-					float reflAngle = Vec2Angle(reflection);
-					int numSparks1 = RandomInt(&rng, 10, 20);
-					int numSparks2 = RandomInt(&rng, 10, 20);
-					for (int i = 0; i < numSparks1; ++i)
-					{
-						float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
-						Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), normAngle + r);
-						SpawnSpark(pos, vel);
-					}
-					for (int i = 0; i < numSparks2; ++i)
-					{
-						float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
-						Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), reflAngle + r);
-						SpawnSpark(pos, vel);
-					}
+					Vector2 incident = Vector2Normalize(b->vel);
+					DoCollisionSparks(incident, normal, pos, 10, 20, 10, 20);
 
 					if (t->isDestroyed)
 					{
@@ -1270,7 +1296,6 @@ void UpdateBullets(void)
 				GlassBox *box = &glassBoxes[j];
 				if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
 				{
-					//@TODO: Glass shatter sound.
 					float area = box->rect.x * box->rect.y;
 					float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
 					SetSoundPitch(glassShatterSound, pitch);

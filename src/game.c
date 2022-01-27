@@ -1641,8 +1641,20 @@ void UpdateShards(void)
 	for (int i = 0; i < numShards; ++i)
 	{
 		Shard *shard = &shards[i];
-		shard->pos = Vector2Add(shard->pos, Vector2Scale(shard->vel, DELTA_TIME));
-		shard->vel = Vector2Scale(shard->vel, 0.95f);
+		float cx = shard->pos.x + 0.5f * shard->size.x;
+		float cy = shard->pos.y + 0.5f * shard->size.y;
+		float dx = cx - player.pos.x;
+		float dy = cy - player.pos.y;
+		float d2 = dx * dx + dy * dy;
+		if (d2 <= PLAYER_RADIUS * PLAYER_RADIUS)
+		{
+			shard->vel.x += (4.0f * dx) / (1.0f + d2);
+			shard->vel.y += (4.0f * dy) / (1.0f + d2);
+		}
+		shard->pos.x += shard->vel.x * DELTA_TIME;
+		shard->pos.y += shard->vel.y * DELTA_TIME;
+		shard->vel.x *= 0.95f;
+		shard->vel.y *= 0.95f;
 	}
 }
 

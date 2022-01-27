@@ -77,6 +77,7 @@ Vector2 Vec2FromPolar(float length, float angleRadians);
 Color FloatRGBA(float r, float g, float b, float a);
 Color RGBA8(int r, int g, int b, int a);
 Color Grayscale(float whiteness);
+Color LerpColor(Color from, Color to, float amount);
 Rectangle Rect(float x, float y, float width, float height);
 Rectangle RectVec(Vector2 pos, Vector2 size); 
 Rectangle RectMinMax(Vector2 min, Vector2 max);
@@ -89,6 +90,7 @@ Vector2 Vector2Max(Vector2 a, Vector2 b);
 Vector2 Vector2Floor(Vector2 v);
 Vector2 Vector2Ceil(Vector2 v);
 bool Vector2Equal(Vector2 a, Vector2 b);
+float Vec2Angle(Vector2 v);
 
 float ToRaylibDegrees(float radians);
 
@@ -102,6 +104,7 @@ float RandomFloat01(Random *rand);
 bool RandomProbability(Random *rand, float prob);
 void RandomShuffle(Random *rand, void *items, uptr elementCount, uptr elementSize);
 Vector2 RandomVector(Random *rand, float magnitude);
+Vector2 RandomNormal(Random *rand, float mean, float sdev);
 
 typedef struct StringBuilder
 {

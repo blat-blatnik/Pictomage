@@ -199,6 +199,22 @@ Color Grayscale(float whiteness)
 {
 	return FloatRGBA(whiteness, whiteness, whiteness, 1);
 }
+Color LerpColor(Color from, Color to, float amount)
+{
+	float r0 = from.r / 255.0f;
+	float g0 = from.g / 255.0f;
+	float b0 = from.b / 255.0f;
+	float a0 = from.a / 255.0f;
+	float r1 = to.r / 255.0f;
+	float g1 = to.g / 255.0f;
+	float b1 = to.b / 255.0f;
+	float a1 = to.a / 255.0f;
+	return FloatRGBA(
+		Lerp(r0, r1, amount),
+		Lerp(g0, g1, amount),
+		Lerp(b0, b1, amount),
+		Lerp(a0, a1, amount));
+}
 Rectangle Rect(float x, float y, float width, float height)
 {
 	return (Rectangle) { x, y, width, height };
@@ -280,6 +296,10 @@ Vector2 Vector2Ceil(Vector2 v)
 bool Vector2Equal(Vector2 a, Vector2 b)
 {
 	return a.x == b.x && a.y == b.y;
+}
+float Vec2Angle(Vector2 v)
+{
+	return atan2f(v.y, v.x);
 }
 
 float ToRaylibDegrees(float radians)
@@ -373,6 +393,22 @@ Vector2 RandomVector(Random *rand, float magnitude)
 		s * magnitude
 	};
 	return result;
+}
+Vector2 RandomNormal(Random *rand, float mean, float sdev)
+{
+	// https://en.wikipedia.org/wiki/Marsaglia_polar_method#Implementation
+
+	float u, v, s;
+	do
+	{
+		u = RandomFloat(rand, -1, +1);
+		v = RandomFloat(rand, -1, +1);
+		s = u * u + v * v;
+	} while (s >= 1 || s == 0);
+	s = sqrtf(-2 * logf(s) / s);
+	return Vec2(
+		mean + u * sdev * s,
+		mean + v * sdev * s);
 }
 
 StringBuilder CreateStringBuilder(char *buffer, uptr capacity)

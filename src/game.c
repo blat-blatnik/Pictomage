@@ -21,6 +21,7 @@
 #define MAX_POPUP_MESSAGE_LENGTH 128
 #define MAX_TRIGGER_MESSAGES 10
 #define MAX_TEXTURE_VARIANTS 32
+#define MAX_SPARKS 100
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
@@ -42,6 +43,7 @@
 #define RESTARTING_DURATION 0.8f
 #define GRACE_PERIOD 1.0f
 #define POPUP_ANIMATION_TIME 0.6f
+#define SPARK_LIFETIME 0.5f
 
 // *---=======---*
 // |/   Types   \|
@@ -206,6 +208,13 @@ typedef struct TextureVariants
 	Texture variants[MAX_TEXTURE_VARIANTS];
 } TextureVariants;
 
+typedef struct Spark
+{
+	double spawnTime;
+	Vector2 pos;
+	Vector2 vel;
+} Spark;
+
 // *---========---*
 // |/   Camera   \|
 // *---========---*
@@ -276,6 +285,7 @@ void ScreenShake(float intensity, float duration, float damping)
 
 bool godMode = true; //@TODO: Disable this for release.
 bool devMode = true; //@TODO: Disable this for release.
+double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
@@ -306,6 +316,8 @@ int numGlassBoxes;
 GlassBox glassBoxes[MAX_GLASS_BOXES];
 int numTriggerMessages;
 TriggerMessage triggerMessages[MAX_TRIGGER_MESSAGES];
+int numSparks;
+Spark sparks[MAX_SPARKS];
 
 // *---========---*
 // |/   Assets   \|
@@ -384,7 +396,14 @@ void LoadAllTextures(void)
 
 int NumRemainingEnemies(void)
 {
-	return numTurrets + numCapturedTurrets + numBombs + numCapturedBombs;
+	int result = numBombs + numCapturedBombs;
+	for (int i = 0; i < numTurrets; ++i)
+		if (!turrets[i].isDestroyed)
+			++result;
+	for (int i = 0; i < numCapturedTurrets; ++i)
+		if (!capturedTurrets[i].isDestroyed)
+			++result;
+	return result;
 }
 const char *GetTileName(Tile tile)
 {
@@ -634,42 +653,59 @@ TriggerMessage *SpawnTriggerMessage(Rectangle rect, bool once, const char *messa
 	snprintf(tm->message, sizeof tm->message, "%s", message);
 	return tm;
 }
+Spark *SpawnSpark(Vector2 pos, Vector2 vel)
+{
+	if (numSparks >= MAX_SPARKS)
+		return NULL;
 
-void RemoveBulletFromGlobalList(int index)
+	Spark *spark = &sparks[numSparks++];
+	spark->pos = pos;
+	spark->vel = vel;
+	spark->spawnTime = timeAtStartOfFrame;
+	return spark;
+}
+
+void DespawnBullet(int index)
 {
 	ASSERT(index >= 0 && index < numBullets);
 	SwapMemory(bullets + index, bullets + numBullets - 1, sizeof bullets[0]);
 	--numBullets;
 }
-void RemoveTurretFromGlobalList(int index)
+void DespawnTurret(int index)
 {
 	ASSERT(index >= 0 && index < numTurrets);
 	SwapMemory(turrets + index, turrets + numTurrets - 1, sizeof turrets[0]);
 	--numTurrets;
 }
-void RemoveBombFromGlobalList(int index)
+void DespawnBomb(int index)
 {
 	ASSERT(index >= 0 && index < numBombs);
 	SwapMemory(bombs + index, bombs + numBombs - 1, sizeof bombs[0]);
 	--numBombs;
 }
-void RemoveExplosionsFromGlobalList(int index)
+void DespawnExplosion(int index)
 {
 	ASSERT(index >= 0 && index < numExplosions);
 	SwapMemory(explosions + index, explosions + numExplosions - 1, sizeof explosions[0]);
 	--numExplosions;
 }
-void RemoveGlassBoxFromGlobalList(int index)
+void DespawnGlassBox(int index)
 {
 	ASSERT(index >= 0 && index < numGlassBoxes);
 	SwapMemory(glassBoxes + index, glassBoxes + numGlassBoxes - 1, sizeof glassBoxes[0]);
 	--numGlassBoxes;
 }
-void RemoveTriggerMessageFromGlobalList(int index)
+void DespawnTriggerMessage(int index)
 {
 	ASSERT(index >= 0 && index < numTriggerMessages);
 	SwapMemory(triggerMessages + index, triggerMessages + numTriggerMessages - 1, sizeof triggerMessages[0]);
 	--numTriggerMessages;
+}
+void DespawnSpark(int index)
+{
+	ASSERT(index >= 0 && index < numSparks);
+	SwapMemory(sparks + index, sparks + numSparks - 1, sizeof sparks[0]);
+	--numSparks;
 }
 
 void ShiftAllObjectsBy(float dx, float dy)
@@ -700,14 +736,17 @@ void ExplodeBomb(int index)
 	PlaySound(explosionSound);
 	SetSoundPitch(explosionSound, RandomFloat(&rng, 0.8f, 1.2f));
 	ScreenShake(1, 0.2f, 0);
-	RemoveBombFromGlobalList(index);
+	DespawnBomb(index);
 }
 void KillPlayer(Vector2 direction, float intensity)
 {
 	//@TODO: Spawn some gore?
-	direction = Vector2Normalize(direction);
-	player.isAlive = false;
-	ScreenShake(0.5f, 0.05f, 0);
+	if (!godMode)
+	{
+		direction = Vector2Normalize(direction);
+		player.isAlive = false;
+		ScreenShake(0.5f, 0.05f, 0);
+	}
 }
 
 void CenterCameraOnLevel(void)
@@ -874,6 +913,7 @@ void CopyRoomToGame(Room *room)
 	numCapturedTurrets = 0;
 	numCapturedBombs = 0;
 	numExplosions = 0;
+	numSparks = 0;
 	player.hasCapture = false;
 	player.justSnapped = false;
 	player.isReleasingCapture = false;
@@ -999,7 +1039,7 @@ void UpdatePlayer(void)
 				{
 					int index = numCapturedBullets++;
 					capturedBullets[index] = *b;
-					RemoveBulletFromGlobalList(i);
+					DespawnBullet(i);
 					--i;
 				}
 			}
@@ -1015,7 +1055,7 @@ void UpdatePlayer(void)
 				{
 					int index = numCapturedBombs++;
 					capturedBombs[index] = *b;
-					RemoveBombFromGlobalList(i);
+					DespawnBomb(i);
 					--i;
 				}
 			}
@@ -1031,7 +1071,7 @@ void UpdatePlayer(void)
 				{
 					int index = numCapturedTurrets++;
 					capturedTurrets[index] = *t;
-					RemoveTurretFromGlobalList(i);
+					DespawnTurret(i);
 					--i;
 				}
 			}
@@ -1131,12 +1171,12 @@ void UpdateBullets(void)
 		b->pos = Vector2Add(b->pos, Vector2Scale(b->vel, DELTA_TIME));
 		if (!CheckCollisionCircleRec(b->pos, BULLET_RADIUS, ExpandRectangle(screenRectTiles, 20)))
 		{
-			RemoveBulletFromGlobalList(i);
+			DespawnBullet(i);
 			--i;
 		}
 		else if (TileAtVec(b->pos) == TILE_WALL) // @TODO: This is treating bullets as mere points even though they have a radius..
 		{
-			RemoveBulletFromGlobalList(i);
+			DespawnBullet(i);
 			--i;
 		}
 		else
@@ -1147,7 +1187,31 @@ void UpdateBullets(void)
 				Turret *t = &turrets[j];
 				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, t->pos, TURRET_RADIUS))
 				{
-					RemoveBulletFromGlobalList(i);
+					DespawnBullet(i);
+
+					Vector2 pos = ResolveCollisionCircles(b->pos, 0.01f, t->pos, TURRET_RADIUS);
+					Vector2 incident = Vector2Normalize(b->vel);
+					Vector2 normal = Vector2Normalize(Vector2Subtract(pos, t->pos));
+					Vector2 reflection = Vector2Reflect(incident, normal);
+					float dot = Clamp(-Vector2DotProduct(incident, normal), 0.2f, 1);
+
+					float normAngle = Vec2Angle(normal);
+					float reflAngle = Vec2Angle(reflection);
+					int numSparks1 = RandomInt(&rng, 10, 20);
+					int numSparks2 = RandomInt(&rng, 10, 20);
+					for (int i = 0; i < numSparks1; ++i)
+					{
+						float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
+						Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), normAngle + r);
+						SpawnSpark(pos, vel);
+					}
+					for (int i = 0; i < numSparks2; ++i)
+					{
+						float r = Clamp(RandomNormal(&rng, 0, dot).x, -PI / 2, +PI / 2);
+						Vector2 vel = Vec2FromPolar(RandomFloat(&rng, 4, 8), reflAngle + r);
+						SpawnSpark(pos, vel);
+					}
+
 					if (t->isDestroyed)
 					{
 						ScreenShake(0.05f, 0.05f, 0);
@@ -1174,7 +1238,7 @@ void UpdateBullets(void)
 				Bomb *bomb = &bombs[j];
 				if (CheckCollisionCircles(b->pos, BULLET_RADIUS, bomb->pos, BOMB_RADIUS))
 				{
-					RemoveBulletFromGlobalList(i);
+					DespawnBullet(i);
 					ExplodeBomb(j);
 					--i;
 					collided = true;
@@ -1190,14 +1254,14 @@ void UpdateBullets(void)
 				if (CheckCollisionCircleRec(b->pos, BULLET_RADIUS, box->rect))
 				{
 					//@TODO: Glass shatter sound.
-					RemoveGlassBoxFromGlobalList(j);
+					DespawnGlassBox(j);
 					--j;
 				}
 			}
 
 			if (CheckCollisionCircles(b->pos, BULLET_RADIUS, player.pos, PLAYER_RADIUS))
 			{
-				RemoveBulletFromGlobalList(i);
+				DespawnBullet(i);
 				--i;
 				Vector2 toPlayer = Vector2Subtract(player.pos, b->pos);
 				KillPlayer(toPlayer, 0.1f);
@@ -1234,7 +1298,7 @@ void UpdateTurrets(void)
 				}
 				if (exploded)
 				{
-					RemoveTurretFromGlobalList(i);
+					DespawnTurret(i);
 					--i;
 					continue;
 				}
@@ -1407,7 +1471,7 @@ void UpdateExplosions(void)
 		e->frame++;
 		if (e->frame > e->durationFrames)
 		{
-			RemoveExplosionsFromGlobalList(i);
+			DespawnExplosion(i);
 			--i;
 		}
 		else
@@ -1423,7 +1487,7 @@ void UpdateExplosions(void)
 					Turret *t = &turrets[j];
 					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, e->pos, r))
 					{
-						RemoveTurretFromGlobalList(j);
+						DespawnTurret(j);
 						--j;
 					}
 				}
@@ -1442,7 +1506,7 @@ void UpdateExplosions(void)
 					if (CheckCollisionCircleRec(e->pos, r, b->rect))
 					{
 						//@TODO: Glass shatter sound.
-						RemoveGlassBoxFromGlobalList(j);
+						DespawnGlassBox(j);
 						--j;
 					}
 				}
@@ -1467,7 +1531,7 @@ void UpdateTriggerredMessages(void)
 		{
 			if (!tm->once || !tm->wasTriggerred)
 			{
-				tm->enterTime = GetTime();
+				tm->enterTime = timeAtStartOfFrame;
 				tm->isTriggered = true;
 				tm->wasTriggerred = true;
 			}
@@ -1475,7 +1539,20 @@ void UpdateTriggerredMessages(void)
 		else if (tm->isTriggered && !overlap)
 		{
 			tm->isTriggered = false;
-			tm->leaveTime = GetTime();
+			tm->leaveTime = timeAtStartOfFrame;
+		}
+	}
+}
+void UpdateSparks(void)
+{
+	for (int i = 0; i < numSparks; ++i)
+	{
+		Spark *spark = &sparks[i];
+		float lifetime = (float)(timeAtStartOfFrame - spark->spawnTime);
+		if (lifetime >= SPARK_LIFETIME)
+		{
+			DespawnSpark(i);
+			--i;
 		}
 	}
 }
@@ -1754,7 +1831,7 @@ void DrawGlassBoxes(void)
 }
 void DrawTriggerMessages(bool debug)
 {
-	double timeNow = GetTime();
+	double timeNow = timeAtStartOfFrame;
 	for (int i = 0; i < numTriggerMessages; ++i)
 	{
 		TriggerMessage tm = triggerMessages[i];
@@ -1845,6 +1922,21 @@ void DrawTriggerMessages(bool debug)
 		}
 	}
 }
+void DrawSparks(void)
+{
+	Color color0 = YELLOW;
+	Color color1 = ColorAlpha(RED, 0);
+	for (int i = 0; i < numSparks; ++i)
+	{
+		Spark *spark = &sparks[i];
+		float dt = (float)(timeAtStartOfFrame - spark->spawnTime);
+		Vector2 pos = Vector2Add(spark->pos, Vector2Scale(spark->vel, dt));
+		
+		float t = Clamp(dt / SPARK_LIFETIME, 0, 1);
+		Color color = LerpColor(color0, color1, t);
+		DrawRectangleRec(RectVec(pos, Vec2Broadcast(0.1f)), color);
+	}
+}
 
 // *---=========---*
 // |/   Playing   \|
@@ -1856,7 +1948,7 @@ void Playing_Init(GameState oldState)
 {
 	if (oldState != GAME_STATE_PAUSED)
 	{
-		gracePeriodStartTime = GetTime();
+		gracePeriodStartTime = timeAtStartOfFrame;
 		hasGracePeriod = true;
 	}
 	CenterCameraOnLevel();
@@ -1870,7 +1962,7 @@ GameState Playing_Update(void)
 	if (IsKeyPressed(KEY_R))
 		return GAME_STATE_RESTARTING;
 
-	double gracePeriodTime = GetTime() - gracePeriodStartTime;
+	double gracePeriodTime = timeAtStartOfFrame - gracePeriodStartTime;
 	if (gracePeriodTime > GRACE_PERIOD)
 		hasGracePeriod = false;
 
@@ -1884,6 +1976,7 @@ GameState Playing_Update(void)
 		UpdateBullets();
 		UpdateTurrets();
 		UpdateBombs();
+		UpdateSparks();
 		UpdateExplosions();
 		UpdateTriggerredMessages();
 	}
@@ -1922,6 +2015,7 @@ void Playing_Draw(void)
 		DrawBombs();
 		DrawPlayer();
 		DrawBullets();
+		DrawSparks();
 		DrawExplosions();
 		DrawPlayerCaptureCone();
 		DrawPlayerRelease();
@@ -1979,7 +2073,7 @@ void Paused_Draw(void)
 double gameOverStartTime;
 void GameOver_Init(GameState oldState)
 {
-	gameOverStartTime = GetTime();
+	gameOverStartTime = timeAtStartOfFrame;
 }
 GameState GameOver_Update(void)
 {
@@ -2015,14 +2109,14 @@ bool restartingDone;
 bool restartingPlayedShutterSound;
 void Restarting_Init(GameState oldState)
 {
-	restartingStartTime = GetTime();
+	restartingStartTime = timeAtStartOfFrame;
 	restartingDone = false;
 	restartingPlayedShutterSound = false;
 	StopAllLevelSounds();
 }
 GameState Restarting_Update(void)
 {
-	double time = GetTime() - restartingStartTime;
+	double time = timeAtStartOfFrame - restartingStartTime;
 	if (time > 0.5f * RESTARTING_DURATION && !restartingDone)
 	{
 		CopyRoomToGame(&currentRoom);
@@ -2042,7 +2136,7 @@ GameState Restarting_Update(void)
 void Restarting_Draw(void)
 {
 	Playing_Draw();
-	float time = (float)((GetTime() - restartingStartTime) / (0.5f * RESTARTING_DURATION));
+	float time = (float)((timeAtStartOfFrame - restartingStartTime) / (0.5f * RESTARTING_DURATION));
 	float t = 1 - fabsf(time - 1);
 	DrawShutter(Clamp(t, 0, 1));
 }
@@ -2345,19 +2439,19 @@ GameState LevelEditor_Update(void)
 			case EDITOR_SELECTION_KIND_TURRET:
 			{
 				int index = (int)(selection.turret - turrets);
-				RemoveTurretFromGlobalList(index);
+				DespawnTurret(index);
 				selection.kind = EDITOR_SELECTION_KIND_NONE;
 			} break;
 			case EDITOR_SELECTION_KIND_BOMB:
 			{
 				int index = (int)(selection.bomb - bombs);
-				RemoveBombFromGlobalList(index);
+				DespawnBomb(index);
 				selection.kind = EDITOR_SELECTION_KIND_NONE;
 			} break;
 			case EDITOR_SELECTION_KIND_GLASS_BOX:
 			{
 				int index = (int)(selection.glassBox - glassBoxes);
-				RemoveGlassBoxFromGlobalList(index);
+				DespawnGlassBox(index);
 				selection.kind = EDITOR_SELECTION_KIND_NONE;
 			} break;
 		}
@@ -2474,6 +2568,10 @@ void LevelEditor_Draw(void)
 							TraceLog(LOG_ERROR, "Command '%s' accepts either '1' or '0', but '%s' was given.", command, args[0]);
 					}
 					else if (argCount > 1) TraceLog(LOG_ERROR, "Command '%s' requires 1 or 0 arguments, but %d were given.", command, argCount);
+				}
+				else
+				{
+					TraceLog(LOG_ERROR, "Unknown command '%s'.", command);
 				}
 			}
 
@@ -2729,6 +2827,8 @@ void GameInit(void)
 void GameLoopOneIteration(void)
 {
 	TempReset();
+
+	timeAtStartOfFrame = GetTime();
 
 	// Do update and draw in 2 completely separate steps because state could change in the update function.
 	GameState oldState = gameState;

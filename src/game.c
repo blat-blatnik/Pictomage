@@ -1860,7 +1860,7 @@ void DrawPlayer(void)
 {
 	float ew = PixelsToTiles(playerTexture.width) / 2;
 	float eh = PixelsToTiles(playerTexture.height) / 2;
-	DrawTexRotated(playerTexture, player.pos, Vec2(ew, eh), WHITE, player.lookAngle);
+	DrawTexRotated(playerTexture, player.pos, Vec2(ew, eh), WHITE, player.lookAngle + PI/2);
 }
 void DrawPlayerCaptureCone(void)
 {

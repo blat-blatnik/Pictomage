@@ -220,6 +220,7 @@ typedef struct Shard
 {
 	Vector2 pos;
 	Vector2 vel;
+	Vector2 size;
 } Shard;
 
 // *---========---*
@@ -677,7 +678,7 @@ Spark *SpawnSpark(Vector2 pos, Vector2 vel)
 	spark->spawnTime = timeAtStartOfFrame;
 	return spark;
 }
-Shard *SpawnShard(Vector2 pos, Vector2 vel)
+Shard *SpawnShard(Vector2 pos, Vector2 vel, Vector2 size)
 {
 	Shard *shard = &shards[shardCursor++];
 	++numShards;
@@ -688,6 +689,7 @@ Shard *SpawnShard(Vector2 pos, Vector2 vel)
 
 	shard->pos = pos;
 	shard->vel = vel;
+	shard->size = size;
 	return shard;
 }
 
@@ -1073,7 +1075,7 @@ void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForc
 		float dot = Clamp(Vector2DotProduct(offset, incident), 0, 1);
 		float force = 20 * Lerp(unalignedForce, alignedForce, dot);
 		Vector2 vel = Vector2Scale(offset, force * RandomFloat(&rng, 0.1f, +1.1f));
-		SpawnShard(pos, vel);
+		SpawnShard(pos, vel, Vec2(RandomFloat(&rng, 0.15f, 0.25f), RandomFloat(&rng, 0.15f, 0.25f)));
 	}
 
 	DespawnGlassBox(index);
@@ -2027,11 +2029,25 @@ void DrawSparks(void)
 void DrawShards(void)
 {
 	Color color = ColorAlpha(BLUE, 0.3f);
-	Vector2 size = Vec2Broadcast(0.2f);
 	for (int i = 0; i < numShards; ++i)
 	{
+		// Shards are drawn on top of tiles, but this means they can appear on top of walls and such, which we dont want.
+		// @SPEED: We don't really need to do this. It looks a tiny bit better but not much.
 		Shard shard = shards[i];
-		DrawRectangleRec((Rectangle) { shard.pos.x, shard.pos.y, size.x, size.y }, color);
+		float x = shard.pos.x;
+		float y = shard.pos.y;
+		float w = shard.size.x;
+		float h = shard.size.y;
+		float cx = shard.pos.x + 0.5f * w;
+		float cy = shard.pos.y + 0.5f * h;
+		int tx = (int)cx;
+		int ty = (int)cy;
+		if (tx >= 0 && tx < numTilesX && ty >= 0 && ty < numTilesY)
+		{
+			Tile tile = tiles[ty][tx];
+			if (TileIsPassable(tile))
+				DrawRectangleRec((Rectangle) { x, y, w, h }, color);
+		}
 	}
 }
 

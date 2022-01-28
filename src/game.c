@@ -2999,7 +2999,7 @@ void GameOver_Draw(void)
 	DrawCircleV(screenCenter, 190, DARKGRAY);
 
 	DrawTextCentered("Magus Maximillius", screenCenter.x, screenCenter.y - 40, 40, GRAY);
-	
+
 	const char *suffix = "";
 	bool isTeen = deathCount > 10 && deathCount <= 20;
 	if (isTeen)
@@ -3027,6 +3027,7 @@ void GameOver_Draw(void)
 	DrawTextCentered(text, screenCenter.x, screenCenter.y + 10, 40, GRAY);
 
 	DrawTextCentered("YOU DIED", screenCenter.x, screenCenter.y + 100, 40, RED);
+	DrawTextCentered("YOU DIED", screenCenter.x, screenCenter.y + 102, 40, RED);
 
 	Rectangle rR = Rect(360, 660, 40, 40);
 	DrawRectangleLinesEx(rR, 4, GRAY);

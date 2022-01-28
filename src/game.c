@@ -328,8 +328,8 @@ void DoScreenShake(void)
 // *---=========---*
 
 bool godMode = true; //@TODO: Disable this for release.
-bool devMode = false; //@TODO: Disable this for release.
-const char *devModeStartRoom = "room0";
+bool devMode = true; //@TODO: Disable this for release.
+const char *devModeStartRoom = "test1";
 double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
@@ -2846,22 +2846,48 @@ void LevelTransition_Draw(void)
 			}
 
 			float t;
-			Vector2 c;
+			Vector2 center;
 			if (time < phase3Start)
 			{
 				t = Clamp((time - phase2Start) / phase2Duration, 0, 1);
-				c = levelTransitionOutCenter;
+				center = levelTransitionOutCenter;
 			}
 			else
 			{
 				t = 1 - Clamp((time - phase3Start) / phase3Duration, 0, 1);
-				c = player.pos;
+				center = player.pos;
 			}
+
+			float r = 1.5f * Smoothstep(0, 1, t);
+			Vector2 v00 = Vec2(r + 0.00f, +0.20f);
+			Vector2 v10 = Vec2(r + 0.00f, -0.20f);
+			Vector2 v11 = Vec2(r + 0.20f, -0.20f);
+			Vector2 v01 = Vec2(r + 0.20f, +0.20f);
+			
+			//@TODO: This looks kinda crap.
+			float angleOffset = (time - phase2Start) / (phase2Duration + phase3Duration);
+			angleOffset *= 2 * PI;
+			rlDrawRenderBatchActive();
+			rlBegin(RL_QUADS);
+			Color baseColor = RGBA8(84, 190, 191, 100);
+			for (int i = 0; i < 10; ++i)
+			{
+				float angle = angleOffset + ((float)i / 10) * 2 * PI;
+				float s = sinf(angle);
+				float c = cosf(angle);
+				rlColor(baseColor);
+				rlVertex2f(center.x + v00.x * c - v00.y * s, center.y + v00.x * s + v00.y * c);
+				rlVertex2f(center.x + v10.x * c - v10.y * s, center.y + v10.x * s + v10.y * c);
+				rlVertex2f(center.x + v11.x * c - v11.y * s, center.y + v11.x * s + v11.y * c);
+				rlVertex2f(center.x + v01.x * c - v01.y * s, center.y + v01.x * s + v01.y * c);
+			}
+			rlEnd();
+			rlDrawRenderBatchActive();
 
 			Color beamColor1 = RGBA8(84, 190, 191, 255);
 			Color beamColor0 = ColorAlpha(beamColor1, 0);
-			t = powf(sinf(PI * t), 16);
-			DrawCircleGradientV(c, Vec2Broadcast(2.5f * t), beamColor1, beamColor0);
+			float flashT = powf(sinf(PI * t), 16);
+			DrawCircleGradientV(center, Vec2Broadcast(3.0f * flashT), beamColor1, beamColor0);
 		}
 	}
 	rlDrawRenderBatchActive();

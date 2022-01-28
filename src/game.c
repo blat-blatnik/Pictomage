@@ -26,7 +26,8 @@
 #define MAX_DECALS 30
 
 #define PLAYER_SPEED 10.0f
-#define PLAYER_RADIUS 0.5f // Must be < 1 tile otherwise collision detection wont work!
+#define PLAYER_RADIUS 0.5f
+#define PLAYER_FLASH_FRAMES 4
 #define BULLET_SPEED 30.0f
 #define BULLET_RADIUS 0.2f
 #define TURRET_RADIUS 1.0f
@@ -103,6 +104,8 @@ typedef struct Player
 	bool isReleasingCapture; // True while the button is held down, before the capture is released.
 	Vector2 releasePos;
 	bool isAlive;
+
+	int flashFrame;
 } Player;
 
 typedef struct Bullet
@@ -1988,15 +1991,24 @@ void DrawPlayer(float alpha)
 	float ew = PixelsToTiles(playerTexture.width) / 2;
 	float eh = PixelsToTiles(playerTexture.height) / 2;
 	DrawTexRotated(playerTexture, player.pos, Vec2(ew, eh), ColorAlpha(WHITE, alpha), player.lookAngle + PI / 2);
+	//DrawCircleV(player.pos, PLAYER_RADIUS, BLUE);
 }
 void DrawPlayerCaptureCone(void)
 {
 	// No idea why RAD2DEG*radians isn't enough here.. whatever.
+	const float offset = PixelsToTiles(25);
+	float offsetX = cosf(player.lookAngle) * offset;
+	float offsetY = sinf(player.lookAngle) * offset;
+	Vector2 captureOrigin = {
+		player.pos.x + offsetX,
+		player.pos.y + offsetY
+	};
+
 	float lookAngleDegrees = (RAD2DEG * (-player.lookAngle)) + 90;
 	if (player.justSnapped)
 	{
-		DrawCircleSector(player.pos,
-			PLAYER_CAPTURE_CONE_RADIUS + PixelsToTiles(10),
+		DrawCircleSector(captureOrigin,
+			PLAYER_CAPTURE_CONE_RADIUS + PixelsToTiles(10) - offset,
 			lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE - 1,
 			lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE + 1,
 			12,
@@ -2004,12 +2016,22 @@ void DrawPlayerCaptureCone(void)
 	}
 	else if (!player.hasCapture)
 	{
-		DrawCircleSector(player.pos,
-			PLAYER_CAPTURE_CONE_RADIUS,
-			lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
-			lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
-			12,
-			ColorAlpha(GRAY, 0.1f));
+		float angle0 = lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE;
+		float angle1 = lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE;
+		DrawRing(captureOrigin, 0.1f, PLAYER_CAPTURE_CONE_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.1f));
+		DrawRingLines(captureOrigin, 0.1f, PLAYER_CAPTURE_CONE_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.5f));
+		//DrawCircleSectorLines(captureOrigin, PLAYER_CAPTURE_CONE_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.5f));
+
+		if (devMode)
+		{
+			// Visualize the actual cone
+			DrawCircleSector(player.pos,
+				PLAYER_CAPTURE_CONE_RADIUS + PixelsToTiles(10),
+				lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
+				lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
+				12,
+				ColorAlpha(GRAY, 0.1f));
+		}
 	}
 
 	//Vector2 p0 = ScreenToTile(GetMousePosition());

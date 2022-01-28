@@ -2545,6 +2545,47 @@ void MainMenu_Draw(void)
 			}
 		}
 	}
+
+	// Controls
+	{
+		Rectangle rW = Rect(100 + 00.00f, 750 + 00.00f, 25, 25);
+		Rectangle rA = Rect(100 - 28.00f, 750 + 28.00f, 25, 25);
+		Rectangle rS = Rect(100 + 00.00f, 750 + 28.00f, 25, 25);
+		Rectangle rD = Rect(100 + 28.00f, 750 + 28.00f, 25, 25);
+		DrawRectangleLinesEx(rW, 2, WHITE);
+		DrawRectangleLinesEx(rA, 2, WHITE);
+		DrawRectangleLinesEx(rS, 2, WHITE);
+		DrawRectangleLinesEx(rD, 2, WHITE);
+		Vector2 cW = RectangleCenter(rW);
+		Vector2 cA = RectangleCenter(rA);
+		Vector2 cS = RectangleCenter(rS);
+		Vector2 cD = RectangleCenter(rD);
+		DrawTextCentered("W", cW.x, cW.y, 12, WHITE);
+		DrawTextCentered("A", cA.x, cA.y, 12, WHITE);
+		DrawTextCentered("S", cS.x, cS.y, 12, WHITE);
+		DrawTextCentered("D", cD.x, cD.y, 12, WHITE);
+
+		Rectangle rMM = Rect(100 - 28.00f, 830 + 00.00f, 30, 40);
+		DrawRectangleRoundedLines(rMM, 0.3f, 8, 2, WHITE);
+		DrawLineEx(Vec2(rMM.x, rMM.y + 20), Vec2(rMM.x + rMM.width, rMM.y + 20), 2, WHITE);
+		DrawLineEx(Vec2(rMM.x + rMM.width / 2, rMM.y), Vec2(rMM.x + rMM.width / 2, rMM.y + 20), 2, WHITE);
+		DrawRectangleRounded(Rect(rMM.x + rMM.width / 2 - 2, rMM.y + 5, 4, 10), 0.3f, 8, WHITE);
+
+		Rectangle rMC = Rect(100 + 24.00f, 830 + 00.00f, 30, 40);
+		DrawRectangle(rMC.x, rMC.y, rMC.width / 2, rMC.height / 2, GRAY);
+		DrawRectangleRoundedLines(rMC, 0.3f, 8, 2, WHITE);
+		DrawLineEx(Vec2(rMC.x, rMC.y + 20), Vec2(rMC.x + rMC.width, rMC.y + 20), 2, WHITE);
+		DrawLineEx(Vec2(rMC.x + rMC.width / 2, rMC.y), Vec2(rMC.x + rMC.width / 2, rMC.y + 20), 2, WHITE);
+		DrawRectangleRounded(Rect(rMC.x + rMC.width / 2 - 2, rMC.y + 5, 4, 10), 0.3f, 8, WHITE);
+
+		DrawText("Move", 170, 770, 20, WHITE);
+		DrawText("Aim / Capture", 170, 840, 20, WHITE);
+
+		const int iconMove = 67; // RICON_TARGET_MOVE_FILL
+		const int iconSnap = 184; // RICON_PHOTO_CAMERA_FLASH
+		//GuiDrawIcon(iconMove, 200, 750, 2, WHITE);
+		//GuiDrawIcon(iconSnap, 200, 800, 2, WHITE);
+	}
 }
 
 // *---=========---*

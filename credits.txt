@@ -4,3 +4,4 @@ Camera snap (res/shutter1.wav) -- HughGuiney (@LordPancreas) -- https://freesoun
 Turret hit (res/turret-destroy.wav) -- TROLlox_78 -- https://freesound.org/people/TROLlox_78/sounds/274119/
 Turret shot (res/long-shot.wav) -- morganpurkis -- https://freesound.org/people/morganpurkis/sounds/388194/
 Bullet hit wall (res/bullet-wall.wav) -- FilmmakersManual -- https://freesound.org/people/FilmmakersManual/sounds/522402/
+Ear ringing (res/ringing1.wav) -- ArrowheadProductions -- https://freesound.org/people/ArrowheadProductions/sounds/547974/

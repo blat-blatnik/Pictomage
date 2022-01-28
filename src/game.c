@@ -374,6 +374,7 @@ Sound shutterSound;
 Sound glassShatterSound;
 Sound bulletHitWallSound;
 Sound ringingSound;
+Sound shutterEchoSound;
 
 void LoadAllSounds(void)
 {
@@ -389,6 +390,7 @@ void LoadAllSounds(void)
 	bulletHitWallSound = LoadSound("res/bullet-wall.wav");
 	ringingSound = LoadSound("res/ringing1.wav");
 	SetSoundVolume(ringingSound, 0.5f);
+	shutterEchoSound = LoadSound("res/shutter-echo.wav");
 }
 void StopAllLevelSounds(void)
 {
@@ -2332,6 +2334,7 @@ float mainMenuFollowerAngle;
 float mainMenuFollowerExtension;
 float mainMenuFadeTime;
 bool mainMenuPlayedSnap;
+bool mainMenuPlayedShutterEcho;
 bool mainMenuPlayedRinging;
 void MainMenu_Init(GameState oldState)
 {
@@ -2341,6 +2344,7 @@ void MainMenu_Init(GameState oldState)
 	mainMenuFollowerAngle = PI;
 	mainMenuFadeTime = -1;
 	mainMenuPlayedRinging = false;
+	mainMenuPlayedShutterEcho = false;
 }
 GameState MainMenu_Update(void)
 {
@@ -2493,14 +2497,18 @@ void MainMenu_Draw(void)
 
 		if (mainMenuFadeTime < flash0Duration)
 		{
-			// @TODO: Flash sound.
-			float t = powf(sinf(PI * mainMenuFadeTime / flash0Duration), 16);
+			float t0 = mainMenuFadeTime / flash0Duration;
+			float t = powf(sinf(PI * t0), 16);
 			Color color = FloatRGBA(1, 1, 1, t);
 			DrawRectangleRounded(Rect(350, 50, 200, 100), 0.5f, 20, color);
+			if (t0 > 0.6f && !mainMenuPlayedShutterEcho)
+			{
+				PlaySound(shutterEchoSound);
+				mainMenuPlayedShutterEcho = true;
+			}
 		}
 		else
 		{
-			// @TODO: Echo sound.
 			float t = Smoothstep(flash0Duration, MAIN_MENU_FADE_DURATION, mainMenuFadeTime);
 			Color color = FloatRGBA(1, 1, 1, t);
 			DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, color);

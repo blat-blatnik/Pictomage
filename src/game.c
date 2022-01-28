@@ -1809,7 +1809,7 @@ void UpdateTriggerredMessages(void)
 	{
 		TriggerMessage *tm = &triggerMessages[i];
 		bool innerOverlap = CheckCollisionPointRec(player.pos, tm->rect);
-		bool outerOverlap = CheckCollisionCircleRec(player.pos, PLAYER_RADIUS, tm->rect);
+		//bool outerOverlap = CheckCollisionCircleRec(player.pos, PLAYER_RADIUS, tm->rect);
 		if (!tm->isTriggered && innerOverlap)
 		{
 			if (!tm->once || !tm->wasTriggerred)
@@ -1819,7 +1819,7 @@ void UpdateTriggerredMessages(void)
 				tm->wasTriggerred = true;
 			}
 		}
-		else if (tm->isTriggered && !outerOverlap)
+		else if (tm->isTriggered && !innerOverlap)
 		{
 			tm->isTriggered = false;
 			tm->leaveTime = timeAtStartOfFrame;
@@ -1887,6 +1887,83 @@ void SetupScreenCoordinateDrawing(void)
 	rlOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1);
 }
 
+void DrawPopupMessage(float enterTime, float leaveTime, float centerX, float centerY, const char *message)
+{
+	const float flyInOutTime = 0.2f;
+	float t0Enter = Clamp((enterTime) / flyInOutTime, 0, 1);
+	float t0Leave = Clamp((leaveTime - 1 + flyInOutTime) / flyInOutTime, 0, 1);
+	float t1Enter = Clamp((enterTime - flyInOutTime) / (1 - flyInOutTime), 0, 1);
+	float t1Leave = Clamp((leaveTime) / (1 - flyInOutTime), 0, 1);
+
+	char text[MAX_POPUP_MESSAGE_LENGTH];
+	uptr len = strlen(message);
+	if (len + 1 > MAX_POPUP_MESSAGE_LENGTH)
+		len = MAX_POPUP_MESSAGE_LENGTH - 1;
+	memcpy(text, message, len);
+	text[len] = 0;
+	int textLength = (int)len;
+
+	const float fontSize = 32;
+	Font font = GetFontDefault();
+	Vector2 textSize = MeasureTextEx(font, text, fontSize, 1);
+
+	const float tapePadX = 30;
+	const float tapePadY = 10;
+
+	Rectangle tape = {
+		centerX - 0.5f * textSize.x - tapePadX,
+		centerY - 0.5f * fontSize - tapePadY,
+		textSize.x + 2 * tapePadX,
+		textSize.y + 2 * tapePadY
+	};
+
+	float tapeX0 = tape.x;
+	float tapeX1 = tape.x + tape.width;
+	float tapeY0 = -tape.height - 10;
+	float tapeY1 = tape.y;
+	tape.y = Lerp(tapeY0, tapeY1, Clamp(t0Enter - t0Leave, 0, 1));
+	tape.x = Lerp(tapeX0, tapeX1, t1Leave);
+	tape.width = Lerp(0, tape.width, Clamp(t1Enter - t1Leave, 0, 1));
+
+	Rectangle reel = {
+		tape.x + tape.width,
+		tape.y - 2,
+		30,
+		tape.height + 4
+	};
+	Rectangle reelTop = {
+		reel.x - 3,
+		reel.y + reel.height,
+		reel.width + 6,
+		3
+	};
+	Rectangle reelBottom = {
+		reel.x - 3,
+		reel.y - 3,
+		reel.width + 6,
+		3
+	};
+
+	float textOffsetX = tape.x - tapeX0;
+	float textMaxWidth = tape.width - tapePadX;
+	for (int j = 0; j < textLength; ++j)
+	{
+		char backup = text[j];
+		text[j] = 0;
+		Vector2 s = MeasureTextEx(font, text, fontSize, 1);
+		if (s.x >= textMaxWidth)
+			break;
+		text[j] = backup;
+	}
+
+	DrawRectangleRec(tape, Grayscale(0.15f));
+	DrawTextEx(font, text, Vec2(centerX - 0.5f * textSize.x + textOffsetX, centerY - 0.5f * textSize.y), fontSize, 1, RAYWHITE);
+
+	DrawRectangleRec(reel, Grayscale(0.4f));
+	DrawRectangleRec(ExpandRectangleEx(reel, +3, +3, -3.5f, -3.5f), Grayscale(0.1f));
+	DrawRectangleRec(reelTop, Grayscale(0.3f));
+	DrawRectangleRec(reelBottom, Grayscale(0.3f));
+}
 void DrawPlayer(void)
 {
 	float ew = PixelsToTiles(playerTexture.width) / 2;
@@ -2155,85 +2232,11 @@ void DrawTriggerMessages(bool debug)
 		else
 		{
 			float enterTime = Clamp((timeNow - tm.enterTime) / POPUP_ANIMATION_TIME, 0, 1);
-			float leaveTime = Clamp((timeNow - tm.leaveTime) / POPUP_ANIMATION_TIME, 0, 1);
+			float leaveTime = Clamp((timeNow - tm.leaveTime) / POPUP_ANIMATION_TIME, -0.001f, 1); // @HACK: Otherwise message invisible for 1 frame.
 			if (tm.leaveTime < tm.enterTime)
 				leaveTime = 0;
-			if (tm.isTriggered || (leaveTime > 0 && leaveTime < 1))
-			{
-				const float flyInOutTime = 0.2f;
-				float t0Enter = Clamp((enterTime) / flyInOutTime, 0, 1);
-				float t0Leave = Clamp((leaveTime - 1 + flyInOutTime) / flyInOutTime, 0, 1);
-				float t1Enter = Clamp((enterTime - flyInOutTime) / (1 - flyInOutTime), 0, 1);
-				float t1Leave = Clamp((leaveTime) / (1 - flyInOutTime), 0, 1);
-
-				char text[MAX_POPUP_MESSAGE_LENGTH];
-				memcpy(text, tm.message, sizeof tm.message);
-				text[MAX_POPUP_MESSAGE_LENGTH - 1] = 0;
-				int textLength = (int)strlen(text);
-
-				const float fontSize = 32;
-				Font font = GetFontDefault();
-				Vector2 textSize = MeasureTextEx(font, text, fontSize, 1);
-
-				const float centerX = screenCenter.x;
-				const float centerY = 200;
-				const float tapePadX = 30;
-				const float tapePadY = 10;
-
-				Rectangle tape = {
-					centerX - 0.5f * textSize.x - tapePadX,
-					centerY - 0.5f * fontSize - tapePadY,
-					textSize.x + 2 * tapePadX,
-					textSize.y + 2 * tapePadY
-				};
-				
-				float tapeX0 = tape.x;
-				float tapeX1 = tape.x + tape.width;
-				float tapeY0 = -tape.height - 10;
-				float tapeY1 = tape.y;
-				tape.y = Lerp(tapeY0, tapeY1, Clamp(t0Enter - t0Leave, 0, 1));
-				tape.x = Lerp(tapeX0, tapeX1, t1Leave);
-				tape.width = Lerp(0, tape.width, Clamp(t1Enter - t1Leave, 0, 1));
-
-				Rectangle reel = {
-					tape.x + tape.width,
-					tape.y - 2,
-					30,
-					tape.height + 4
-				};
-				Rectangle reelTop = {
-					reel.x - 3,
-					reel.y + reel.height,
-					reel.width + 6,
-					3
-				};
-				Rectangle reelBottom = {
-					reel.x - 3,
-					reel.y - 3,
-					reel.width + 6,
-					3
-				};
-
-				float textOffsetX = tape.x - tapeX0;
-				float textMaxWidth = tape.width - tapePadX;
-				for (int j = 0; j < textLength; ++j)
-				{
-					char backup = text[j];
-					text[j] = 0;
-					Vector2 s = MeasureTextEx(font, text, fontSize, 1);
-					if (s.x >= textMaxWidth)
-						break;
-					text[j] = backup;
-				}
-
-				DrawRectangleRec(tape, Grayscale(0.15f));
-				DrawTextEx(font, text, Vec2(centerX - 0.5f * textSize.x + textOffsetX, centerY - 0.5f * textSize.y), fontSize, 1, RAYWHITE);
-
-				DrawRectangleRec(reel, Grayscale(0.4f));
-				DrawRectangleRec(ExpandRectangleEx(reel, +3, +3, -3.5f, -3.5f), Grayscale(0.1f));
-				DrawRectangleRec(reelTop, Grayscale(0.3f));
-				DrawRectangleRec(reelBottom, Grayscale(0.3f));
-			}
+			if (tm.isTriggered || (leaveTime >= 0 && leaveTime < 1))
+				DrawPopupMessage(enterTime, leaveTime, screenCenter.x, 200, tm.message);
 		}
 	}
 }

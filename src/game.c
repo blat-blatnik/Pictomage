@@ -2300,17 +2300,32 @@ void DrawDecals(void)
 // *---===========---*
 
 #define TITLE_DROP_DURATION 2.0f
+#define MAIN_MENU_FADE_DURATION 3.0f
 
 float mainMenuTime;
-float mainMenuFollowerAngle = PI;
-float mainMenuFollowerExtension = 0;
+float mainMenuFollowerAngle;
+float mainMenuFollowerExtension;
+float mainMenuFadeTime;
+bool mainMenuPlayedSnap;
 void MainMenu_Init(GameState oldState)
 {
 	mainMenuTime = 0;
+	mainMenuPlayedSnap = false;
+	mainMenuFollowerExtension = 0;
+	mainMenuFollowerAngle = PI;
+	mainMenuFadeTime = -1;
 }
 GameState MainMenu_Update(void)
 {
 	mainMenuTime += DELTA_TIME;
+	if (mainMenuFadeTime >= 0)
+		mainMenuFadeTime += DELTA_TIME;
+	if (mainMenuFadeTime > MAIN_MENU_FADE_DURATION)
+	{
+		LoadRoom(&currentRoom, "room0");
+		CopyRoomToGame(&currentRoom);
+		return GAME_STATE_PLAYING;
+	}
 
 	bool anyKeyPressed =
 		IsKeyPressed(KEY_SPACE) ||
@@ -2322,13 +2337,12 @@ GameState MainMenu_Update(void)
 	if (anyKeyPressed)
 	{
 		if (mainMenuTime < TITLE_DROP_DURATION)
-			mainMenuTime = TITLE_DROP_DURATION;
-		else
 		{
-			LoadRoom(&currentRoom, "room0");
-			CopyRoomToGame(&currentRoom);
-			return GAME_STATE_PLAYING;
+			mainMenuTime = TITLE_DROP_DURATION;
+			mainMenuPlayedSnap = true;
 		}
+		else
+			mainMenuFadeTime = 0;
 	}
 
 	return GAME_STATE_MAIN_MENU;
@@ -2339,6 +2353,12 @@ void MainMenu_Draw(void)
 	const float ringTime = 1;
 	const float shutterTime = 1;
 	float time = mainMenuTime;
+
+	if (time > 1.4f && !mainMenuPlayedSnap)
+	{
+		mainMenuPlayedSnap = true;
+		PlaySound(shutterSound);
+	}
 
 	if (time >= ringTime + shutterTime / 2)
 	{
@@ -2436,6 +2456,25 @@ void MainMenu_Draw(void)
 	DrawRing(screenCenter, 230, 260, startAngle, endAngle, 300, Grayscale(0.2f));
 	DrawRing(screenCenter, 228, 232, startAngle, endAngle, 300, Grayscale(0.15f));
 	DrawRing(screenCenter, 258, 262, startAngle, endAngle, 300, Grayscale(0.15f));
+
+	if (mainMenuFadeTime >= 0)
+	{
+		float flash0Duration = MAIN_MENU_FADE_DURATION / 3;
+		float flash1Duration = MAIN_MENU_FADE_DURATION - flash0Duration;
+
+		if (mainMenuFadeTime < flash0Duration)
+		{
+			float t = powf(sinf(PI * mainMenuFadeTime / flash0Duration), 16);
+			Color color = FloatRGBA(1, 1, 1, t);
+			DrawRectangleRounded(Rect(350, 50, 200, 100), 0.5f, 20, color);
+		}
+		else
+		{
+			float t = Smoothstep(flash0Duration, MAIN_MENU_FADE_DURATION, mainMenuFadeTime);
+			Color color = FloatRGBA(1, 1, 1, t);
+			DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, color);
+		}
+	}
 }
 
 // *---=========---*
@@ -3412,12 +3451,16 @@ void GameInit(void)
 	LoadAllSounds();
 
 	if (devMode)
-		gameState = GAME_STATE_PLAYING;
-	if (gameState == GAME_STATE_PLAYING)
 	{
+		gameState = GAME_STATE_PLAYING;
 		LoadRoom(&currentRoom, "room0");
 		CopyRoomToGame(&currentRoom);
 		Playing_Init(GAME_STATE_PLAYING);
+	}
+	else
+	{
+		gameState = GAME_STATE_MAIN_MENU;
+		MainMenu_Init(GAME_STATE_MAIN_MENU);
 	}
 }
 void GameLoopOneIteration(void)

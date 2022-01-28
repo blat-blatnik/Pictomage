@@ -165,8 +165,17 @@
     <Image Include="res\bomb1.png" />
     <Image Include="res\credits.png" />
     <Image Include="res\entrance0.png" />
+    <Image Include="res\entrance1.png" />
+    <Image Include="res\entrance2.png" />
+    <Image Include="res\entrance3.png" />
     <Image Include="res\exit-closed0.png" />
+    <Image Include="res\exit-closed1.png" />
+    <Image Include="res\exit-closed2.png" />
+    <Image Include="res\exit-closed3.png" />
     <Image Include="res\exit-open0.png" />
+    <Image Include="res\exit-open1.png" />
+    <Image Include="res\exit-open2.png" />
+    <Image Include="res\exit-open3.png" />
     <Image Include="res\floor0.png" />
     <Image Include="res\floor1.png" />
     <Image Include="res\missing.png" />

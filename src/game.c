@@ -55,10 +55,10 @@ typedef enum GameState
 	GAME_STATE_MAIN_MENU,
 	GAME_STATE_FADE_IN,
 	GAME_STATE_PLAYING,
+	GAME_STATE_LEVEL_TRANSITION,
 	GAME_STATE_LEVEL_EDITOR,
 	GAME_STATE_PAUSED,
 	GAME_STATE_GAME_OVER,
-	GAME_STATE_SCORE,
 	GAME_STATE_CREDITS,
 	GAME_STATE_RESTARTING,
 } GameState;
@@ -248,6 +248,7 @@ typedef struct Decal
 // |/   Camera   \|
 // *---========---*
 
+Random rng;
 float cameraZoom = 1;
 Vector2 cameraPos; // In tiles.
 float screenShakeDuration;
@@ -311,14 +312,24 @@ void ScreenShake(float intensity, float duration, float damping)
 	screenShakeIntensity = intensity;
 	screenShakeDamping = damping;
 }
+void DoScreenShake(void)
+{
+	if (screenShakeDuration > 0)
+	{
+		Vector2 cameraOffset = RandomVector(&rng, screenShakeIntensity);
+		screenShakeDuration -= DELTA_TIME;
+		screenShakeIntensity *= screenShakeDamping;
+		rlTranslatef(cameraOffset.x, cameraOffset.y, 0);
+	}
+}
 
 // *---=========---*
 // |/   Globals   \|
 // *---=========---*
 
 bool godMode = true; //@TODO: Disable this for release.
-bool devMode = false; //@TODO: Disable this for release.
-const char *devModeStartRoom = "room0";
+bool devMode = true; //@TODO: Disable this for release.
+const char *devModeStartRoom = "test1";
 double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
@@ -334,7 +345,6 @@ int numTilesY = MAX_TILES_Y;
 Tile tiles[MAX_TILES_Y][MAX_TILES_X];
 u8 tileVariants[MAX_TILES_X][MAX_TILES_Y];
 GameState gameState = GAME_STATE_MAIN_MENU;
-Random rng;
 Player player;
 int numBullets;
 int numCapturedBullets;
@@ -406,6 +416,7 @@ Texture missingTexture;
 Texture playerTexture;
 Texture creditsTexture;
 TextureVariants tileTextureVariants[TILE_ENUM_COUNT];
+TextureVariants tileExitOpenVariants;
 TextureVariants turretBaseVariants;
 TextureVariants turretTopVariants;
 TextureVariants destroyedTurretBaseVariants;
@@ -434,6 +445,7 @@ void LoadAllTextures(void)
 	LoadTextureVariants(&tileTextureVariants[TILE_WALL], "wall");
 	LoadTextureVariants(&tileTextureVariants[TILE_ENTRANCE], "entrance");
 	LoadTextureVariants(&tileTextureVariants[TILE_EXIT], "exit-closed");
+	LoadTextureVariants(&tileExitOpenVariants, "exit-open");
 
 	LoadTextureVariants(&turretBaseVariants, "turret-base");
 	LoadTextureVariants(&turretTopVariants, "turret-top");
@@ -1322,6 +1334,7 @@ void UpdatePlayer(void)
 			{
 				turret->isDestroyed = t.isDestroyed;
 				turret->flingVelocity = releaseVel;
+				turret->variant = t.variant;
 			}
 		}
 		for (int i = 0; i < numCapturedBombs; ++i)
@@ -1334,6 +1347,7 @@ void UpdatePlayer(void)
 				bomb->wasFlung = true;
 				bomb->flungOrigin = pos;
 				bomb->flungVel = releaseVel;
+				bomb->variant = b.variant;
 			}
 		}
 		numCapturedBullets = 0;
@@ -2070,9 +2084,13 @@ void DrawTiles(bool passable)
 			if (TileIsPassable(tile) == passable)
 			{
 				u8 variant = tileVariants[y][x];
-				Texture2D texture = tileTextureVariants[tile].variants[variant];
+				Texture2D texture;
+				if (tile == TILE_EXIT && NumRemainingEnemies() == 0)
+					texture = tileExitOpenVariants.variants[variant];
+				else
+					texture = tileTextureVariants[tile].variants[variant];
+
 				Color tint = ((x + y) % 2 == 0) ? Grayscale(1) : Grayscale(0.95f);
-				//Color tint = ((x + y) % 2 == 0) ? Grayscale(1) : Grayscale(1);
 
 				rlColor(tint);
 				rlSetTexture(texture.id);
@@ -2451,13 +2469,7 @@ GameState MainMenu_Update(void)
 }
 void MainMenu_Draw(void)
 {
-	if (screenShakeDuration > 0)
-	{
-		Vector2 cameraOffset = RandomVector(&rng, screenShakeIntensity);
-		screenShakeDuration -= DELTA_TIME;
-		screenShakeIntensity *= screenShakeDamping;
-		rlTranslatef(cameraOffset.x, cameraOffset.y, 0);
-	}
+	DoScreenShake();
 
 	const float maxExtension = 60;
 	const float ringTime = 1;
@@ -2661,31 +2673,16 @@ GameState Playing_Update(void)
 	
 	Tile playerTile = TileAtVec(player.pos);
 	if (playerTile == TILE_EXIT && NumRemainingEnemies() == 0)
-	{
-		bool loadedNextLevel = LoadRoom(&currentRoom, nextRoomName);
-		if (loadedNextLevel)
-		{
-			CopyRoomToGame(&currentRoom);
-			CenterCameraOnLevel();
-		}
-	}
-
+		return GAME_STATE_LEVEL_TRANSITION;
 	if (!player.isAlive)
 		return GAME_STATE_GAME_OVER;
-
 	return GAME_STATE_PLAYING;
 }
 void Playing_Draw(void)
 {
 	SetupTileCoordinateDrawing();
 	{
-		if (screenShakeDuration > 0)
-		{
-			Vector2 cameraOffset = RandomVector(&rng, screenShakeIntensity);
-			screenShakeDuration -= DELTA_TIME;
-			screenShakeIntensity *= screenShakeDamping;
-			rlTranslatef(cameraOffset.x, cameraOffset.y, 0);
-		}
+		DoScreenShake();
 
 		DrawTiles(true);
 		DrawDecals();
@@ -2714,6 +2711,70 @@ void Playing_Draw(void)
 		//DrawFPS(100, 100);
 		//Vector2 mp = ScreenToTile(GetMousePosition());
 		//DrawDebugText("[%.1f %.1f] [%.1f %.1f]", mp.x, mp.y, cameraPos.x, cameraPos.y);
+	}
+}
+
+// *---==================---*
+// |/   Level Transition   \|
+// *---==================---*
+
+#define LEVEL_TRANSITION_DURATION 2.0f
+
+bool levelTransitionLoadedNextLevel;
+float levelTransitionTime;
+void LevelTransition_Init(GameState oldState)
+{
+	levelTransitionTime = 0;
+	levelTransitionLoadedNextLevel = false;
+}
+GameState LevelTransition_Update(void)
+{
+	const float transitionOutDuration = LEVEL_TRANSITION_DURATION / 2;
+	const float transitionInDuration = LEVEL_TRANSITION_DURATION - transitionOutDuration;
+	levelTransitionTime += DELTA_TIME;
+
+	if (levelTransitionTime > transitionOutDuration && !levelTransitionLoadedNextLevel)
+	{
+		levelTransitionLoadedNextLevel = true;
+		bool loadedNextLevel = LoadRoom(&currentRoom, nextRoomName);
+		if (loadedNextLevel)
+		{
+			CopyRoomToGame(&currentRoom);
+			CenterCameraOnLevel();
+		}
+		else return GAME_STATE_CREDITS;
+	}
+
+	if (levelTransitionTime > LEVEL_TRANSITION_DURATION)
+		return GAME_STATE_PLAYING;
+	else
+		return GAME_STATE_LEVEL_TRANSITION;
+}
+void LevelTransition_Draw(void)
+{
+	const float transitionOutDuration = LEVEL_TRANSITION_DURATION / 2;
+	const float transitionInDuration = LEVEL_TRANSITION_DURATION - transitionOutDuration;
+
+	SetupTileCoordinateDrawing();
+	{
+		DoScreenShake();
+
+		DrawTiles(true);
+		DrawDecals();
+		DrawShards();
+		DrawTiles(false);
+		DrawGlassBoxes();
+		DrawTurrets();
+		DrawBombs();
+		DrawPlayer();
+		DrawSparks();
+	}
+	rlDrawRenderBatchActive();
+
+	SetupScreenCoordinateDrawing();
+	{
+		//DrawTriggerMessages(false);
+		DrawRectangle(0, 0, (int)(levelTransitionTime * 400), 100, WHITE);
 	}
 }
 
@@ -3165,6 +3226,12 @@ GameState LevelEditor_Update(void)
 				DespawnGlassBox(index);
 				selection.kind = EDITOR_SELECTION_KIND_NONE;
 			} break;
+			case EDITOR_SELECTION_KIND_TRIGGER_MESSAGE:
+			{
+				int index = (int)(selection.triggerMessage - triggerMessages);
+				DespawnTriggerMessage(index);
+				selection.kind = EDITOR_SELECTION_KIND_NONE;
+			} break;
 		}
 	}
 
@@ -3508,7 +3575,11 @@ void LevelEditor_Draw(void)
 				int numVariants = tileTextureVariants[tile].numVariants;
 				Texture texture = tileTextureVariants[tile].variants[variant];
 				DrawRectangle(x, y, texture.width + 4, texture.height + 4, BLACK);
-				DrawTexture(texture, x + 2, y + 2, WHITE);
+				DrawTexturePro(texture,
+					Rect(0, texture.height, texture.width, -texture.height),
+					Rect(x + 2, y + 2, texture.width, texture.height),
+					Vec2(0, 0), 0, WHITE);
+				//DrawTexture(texture, x + 2, y + 2, WHITE);
 				y += texture.height + 6;
 
 				Rectangle spinnerRect = Rect(x, y, 80, 20);
@@ -3643,30 +3714,30 @@ void GameLoopOneIteration(void)
 	GameState oldState = gameState;
 	switch (gameState)
 	{
-		case GAME_STATE_MAIN_MENU:    gameState = MainMenu_Update();    break;
-		case GAME_STATE_FADE_IN:      gameState = FadeIn_Update();      break;
-		case GAME_STATE_PLAYING:      gameState = Playing_Update();     break;
-		case GAME_STATE_PAUSED:       gameState = Paused_Update();      break;
-		case GAME_STATE_GAME_OVER:    gameState = GameOver_Update();    break;
-		case GAME_STATE_LEVEL_EDITOR: gameState = LevelEditor_Update(); break;
-		case GAME_STATE_SCORE:        assert(false);                    break;
-		case GAME_STATE_CREDITS:      assert(false);                    break;
-		case GAME_STATE_RESTARTING:   gameState = Restarting_Update();  break;
+		case GAME_STATE_MAIN_MENU:        gameState = MainMenu_Update();        break;
+		case GAME_STATE_FADE_IN:          gameState = FadeIn_Update();          break;
+		case GAME_STATE_PLAYING:          gameState = Playing_Update();         break;
+		case GAME_STATE_PAUSED:           gameState = Paused_Update();          break;
+		case GAME_STATE_GAME_OVER:        gameState = GameOver_Update();        break;
+		case GAME_STATE_LEVEL_TRANSITION: gameState = LevelTransition_Update(); break;
+		case GAME_STATE_LEVEL_EDITOR:     gameState = LevelEditor_Update();     break;
+		case GAME_STATE_CREDITS:          assert(false);                        break;
+		case GAME_STATE_RESTARTING:       gameState = Restarting_Update();      break;
 	}
 
 	if (gameState != oldState)
 	{
 		switch (gameState)
 		{
-			case GAME_STATE_MAIN_MENU:	  MainMenu_Init(oldState);    break;
-			case GAME_STATE_FADE_IN:      FadeIn_Init(oldState);      break;
-			case GAME_STATE_PLAYING:      Playing_Init(oldState);     break;
-			case GAME_STATE_PAUSED:       Paused_Init(oldState);      break;
-			case GAME_STATE_GAME_OVER:    GameOver_Init(oldState);    break;
-			case GAME_STATE_LEVEL_EDITOR: LevelEditor_Init(oldState); break;
-			case GAME_STATE_SCORE:        assert(false);              break;
-			case GAME_STATE_CREDITS:      assert(false);              break;
-			case GAME_STATE_RESTARTING:   Restarting_Init(oldState);  break;
+			case GAME_STATE_MAIN_MENU:	      MainMenu_Init(oldState);        break;
+			case GAME_STATE_FADE_IN:          FadeIn_Init(oldState);          break;
+			case GAME_STATE_PLAYING:          Playing_Init(oldState);         break;
+			case GAME_STATE_PAUSED:           Paused_Init(oldState);          break;
+			case GAME_STATE_GAME_OVER:        GameOver_Init(oldState);        break;
+			case GAME_STATE_LEVEL_TRANSITION: LevelTransition_Init(oldState); break;
+			case GAME_STATE_LEVEL_EDITOR:     LevelEditor_Init(oldState);     break;
+			case GAME_STATE_CREDITS:          assert(false);                  break;
+			case GAME_STATE_RESTARTING:       Restarting_Init(oldState);      break;
 		}
 	}
 	
@@ -3675,15 +3746,15 @@ void GameLoopOneIteration(void)
 	{
 		switch (gameState)
 		{
-			case GAME_STATE_MAIN_MENU:    MainMenu_Draw();    break;
-			case GAME_STATE_FADE_IN:      FadeIn_Draw();      break;
-			case GAME_STATE_PLAYING:      Playing_Draw();     break;
-			case GAME_STATE_PAUSED:       Paused_Draw();      break;
-			case GAME_STATE_GAME_OVER:    GameOver_Draw();    break;
-			case GAME_STATE_LEVEL_EDITOR: LevelEditor_Draw(); break;
-			case GAME_STATE_SCORE:        assert(false);      break;
-			case GAME_STATE_CREDITS:      assert(false);      break;
-			case GAME_STATE_RESTARTING:   Restarting_Draw();  break;
+			case GAME_STATE_MAIN_MENU:        MainMenu_Draw();        break;
+			case GAME_STATE_FADE_IN:          FadeIn_Draw();          break;
+			case GAME_STATE_PLAYING:          Playing_Draw();         break;
+			case GAME_STATE_PAUSED:           Paused_Draw();          break;
+			case GAME_STATE_GAME_OVER:        GameOver_Draw();        break;
+			case GAME_STATE_LEVEL_TRANSITION: LevelTransition_Draw(); break;
+			case GAME_STATE_LEVEL_EDITOR:     LevelEditor_Draw();     break;
+			case GAME_STATE_CREDITS:          assert(false);          break;
+			case GAME_STATE_RESTARTING:       Restarting_Draw();      break;
 		}
 	}
 	EndDrawing();

@@ -714,3 +714,34 @@ void DrawTexRecRotated(Texture t, Rectangle rect, Color tint, float angleRadians
 	}
 	rlEnd();
 }
+void DrawCircleGradientV(Vector2 center, Vector2 radius, Color innerColor, Color outerColor)
+{
+	float angles[32];
+	angles[0] = 0;
+	for (int j = 1; j < COUNTOF(angles) - 1; ++j)
+		angles[j] = ((float)j / COUNTOF(angles)) * 2 * PI;
+	angles[COUNTOF(angles) - 1] = 2 * PI;
+
+	Vector2 points[COUNTOF(angles)];
+	for (int j = 0; j < COUNTOF(points); ++j)
+	{
+		float angle = angles[j];
+		float s = sinf(angle);
+		float c = cosf(angle);
+		points[j].x = center.x + c * radius.x;
+		points[j].y = center.y + s * radius.y;
+	}
+
+	rlBegin(RL_TRIANGLES);
+	{
+		for (int j = 0; j < COUNTOF(points) - 1; ++j)
+		{
+			rlColor(innerColor);
+			rlVertex2fv(center);
+			rlColor(outerColor);
+			rlVertex2f(points[j + 0].x, points[j + 0].y);
+			rlVertex2f(points[j + 1].x, points[j + 1].y);
+		}
+	}
+	rlEnd();
+}

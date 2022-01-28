@@ -386,6 +386,7 @@ Sound glassShatterSound;
 Sound bulletHitWallSound;
 Sound ringingSound;
 Sound shutterEchoSound;
+Sound teleportSound;
 
 void LoadAllSounds(void)
 {
@@ -402,6 +403,7 @@ void LoadAllSounds(void)
 	ringingSound = LoadSound("res/ringing1.wav");
 	SetSoundVolume(ringingSound, 0.5f);
 	shutterEchoSound = LoadSound("res/shutter-echo.wav");
+	teleportSound = LoadSound("res/teleport.wav");
 }
 void StopAllLevelSounds(void)
 {
@@ -520,7 +522,7 @@ Tile TileAt(int x, int y)
 }
 Tile TileAtVec(Vector2 xy)
 {
-	return TileAt((int)xy.x, (int)xy.y);
+	return TileAt((int)floorf(xy.x), (int)floorf(xy.y));
 }
 
 Rectangle GetRoomRect(void)
@@ -1980,11 +1982,11 @@ void DrawPopupMessage(float enterTime, float leaveTime, float centerX, float cen
 	DrawRectangleRec(reelTop, Grayscale(0.3f));
 	DrawRectangleRec(reelBottom, Grayscale(0.3f));
 }
-void DrawPlayer(void)
+void DrawPlayer(float alpha)
 {
 	float ew = PixelsToTiles(playerTexture.width) / 2;
 	float eh = PixelsToTiles(playerTexture.height) / 2;
-	DrawTexRotated(playerTexture, player.pos, Vec2(ew, eh), WHITE, player.lookAngle + PI/2);
+	DrawTexRotated(playerTexture, player.pos, Vec2(ew, eh), ColorAlpha(WHITE, alpha), player.lookAngle + PI / 2);
 }
 void DrawPlayerCaptureCone(void)
 {
@@ -2691,7 +2693,7 @@ void Playing_Draw(void)
 		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
-		DrawPlayer();
+		DrawPlayer(1);
 		DrawBullets();
 		DrawSparks();
 		DrawExplosions();
@@ -2718,22 +2720,52 @@ void Playing_Draw(void)
 // |/   Level Transition   \|
 // *---==================---*
 
-#define LEVEL_TRANSITION_DURATION 2.0f
-
 bool levelTransitionLoadedNextLevel;
+bool levelTransitionPlayedTeleportSound;
 float levelTransitionTime;
+Vector2 levelTransitionOutCenter;
 void LevelTransition_Init(GameState oldState)
 {
 	levelTransitionTime = 0;
 	levelTransitionLoadedNextLevel = false;
+	levelTransitionPlayedTeleportSound = false;
+
+	levelTransitionOutCenter = Vector2Zero();
+	int ptx = (int)floorf(player.pos.x);
+	int pty = (int)floorf(player.pos.y);
+	float exitCount = 0;
+	for (int ty = pty - 1; ty <= pty + 1; ++ty)
+	{
+		for (int tx = ptx - 1; tx <= ptx + 1; ++tx)
+		{
+			if (TileAt(tx, ty) == TILE_EXIT)
+			{
+				++exitCount;
+				levelTransitionOutCenter.x += tx + 0.5f;
+				levelTransitionOutCenter.y += ty + 0.5f;
+			}
+		}
+	}
+
+	ASSERT(exitCount > 0);
+	levelTransitionOutCenter.x /= exitCount;
+	levelTransitionOutCenter.y /= exitCount;
 }
 GameState LevelTransition_Update(void)
 {
-	const float transitionOutDuration = LEVEL_TRANSITION_DURATION / 2;
-	const float transitionInDuration = LEVEL_TRANSITION_DURATION - transitionOutDuration;
+	const float phase1Duration = 0.5f; // Player walk in.
+	const float phase2Duration = 1.0f; // Beam out.
+	const float phase3Duration = 1.0f; // Beam in.
+	const float phase1Start = 0;
+	const float phase1End = phase1Duration;
+	const float phase2Start = phase1End;
+	const float phase2End = phase2Start + phase2Duration;
+	const float phase3Start = phase2End;
+	const float phase3End = phase3Start + phase3Duration;
+
 	levelTransitionTime += DELTA_TIME;
 
-	if (levelTransitionTime > transitionOutDuration && !levelTransitionLoadedNextLevel)
+	if (levelTransitionTime >= phase3Start && !levelTransitionLoadedNextLevel)
 	{
 		levelTransitionLoadedNextLevel = true;
 		bool loadedNextLevel = LoadRoom(&currentRoom, nextRoomName);
@@ -2745,15 +2777,27 @@ GameState LevelTransition_Update(void)
 		else return GAME_STATE_CREDITS;
 	}
 
-	if (levelTransitionTime > LEVEL_TRANSITION_DURATION)
+	if (levelTransitionTime > phase3End)
 		return GAME_STATE_PLAYING;
 	else
+	{
+		UpdateSparks();
+		UpdateShards();
 		return GAME_STATE_LEVEL_TRANSITION;
+	}
 }
 void LevelTransition_Draw(void)
 {
-	const float transitionOutDuration = LEVEL_TRANSITION_DURATION / 2;
-	const float transitionInDuration = LEVEL_TRANSITION_DURATION - transitionOutDuration;
+	const float phase1Duration = 0.5f; // Player walk in.
+	const float phase2Duration = 1.0f; // Beam out.
+	const float phase3Duration = 1.0f; // Beam in.
+	const float phase1Start = 0;
+	const float phase1End = phase1Duration;
+	const float phase2Start = phase1End;
+	const float phase2End = phase2Start + phase2Duration;
+	const float phase3Start = phase2End;
+	const float phase3End = phase3Start + phase3Duration;
+	const float time = levelTransitionTime;
 
 	SetupTileCoordinateDrawing();
 	{
@@ -2766,15 +2810,66 @@ void LevelTransition_Draw(void)
 		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
-		DrawPlayer();
 		DrawSparks();
+
+		// Slowly move the player towards the center of the teleporter.
+		Vector2 backupPos = player.pos;
+		{
+			if (time < phase3Start)
+			{
+				float t = Clamp(time / phase1Duration, 0, 1);
+				player.pos.x = Lerp(player.pos.x, levelTransitionOutCenter.x, t);
+				player.pos.y = Lerp(player.pos.y, levelTransitionOutCenter.y, t);
+			}
+
+			float alpha = 1;
+			if (time >= phase2Start && time < phase3Start)
+			{
+				alpha = 1 - Clamp((time - phase2Start) / phase2Duration, 0, 1);
+			}
+			else if (time >= phase3Start)
+			{
+				alpha = Clamp((time - phase3Start) / phase3Duration, 0, 1);
+			}
+
+			DrawPlayer(alpha);
+		}
+		player.pos = backupPos;
+
+		// Beams
+		if (time >= phase2Start)
+		{
+			if (!levelTransitionPlayedTeleportSound)
+			{
+				PlaySound(teleportSound);
+				levelTransitionPlayedTeleportSound = true;
+			}
+
+			float t;
+			Vector2 c;
+			if (time < phase3Start)
+			{
+				t = Clamp((time - phase2Start) / phase2Duration, 0, 1);
+				c = levelTransitionOutCenter;
+			}
+			else
+			{
+				t = 1 - Clamp((time - phase3Start) / phase3Duration, 0, 1);
+				c = player.pos;
+			}
+
+			Color beamColor1 = RGBA8(84, 190, 191, 255);
+			Color beamColor0 = ColorAlpha(beamColor1, 0);
+			t = powf(sinf(PI * t), 16);
+			DrawCircleGradientV(c, Vec2Broadcast(2.5f * t), beamColor1, beamColor0);
+		}
 	}
 	rlDrawRenderBatchActive();
 
-	SetupScreenCoordinateDrawing();
+	//SetupScreenCoordinateDrawing();
 	{
 		//DrawTriggerMessages(false);
-		DrawRectangle(0, 0, (int)(levelTransitionTime * 400), 100, WHITE);
+		//DrawRectangle(0, 0, (int)(levelTransitionTime * 400), 100, WHITE);
 	}
 }
 
@@ -3287,7 +3382,7 @@ void LevelEditor_Draw(void)
 		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
-		DrawPlayer();
+		DrawPlayer(1);
 		DrawTriggerMessages(true);
 	}
 	SetupScreenCoordinateDrawing();

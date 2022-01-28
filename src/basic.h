@@ -144,3 +144,4 @@ void DrawTex(Texture t, Vector2 center, Vector2 extent, Color tint);
 void DrawTexRotated(Texture t, Vector2 center, Vector2 extent, Color tint, float angleRadians);
 void DrawTexRec(Texture t, Rectangle rect, Color tint);
 void DrawTexRecRotated(Texture t, Rectangle rect, Color tint, float angleRadians);
+void DrawCircleGradientV(Vector2 center, Vector2 radius, Color innerColor, Color outerColor);

@@ -317,15 +317,15 @@ void ScreenShake(float intensity, float duration, float damping)
 // *---=========---*
 
 bool godMode = true; //@TODO: Disable this for release.
-bool devMode = false; //@TODO: Disable this for release.
+bool devMode = true; //@TODO: Disable this for release.
 double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
-Color evenTileTint0; //@TODO: These are currently unused.
-Color evenTileTint1;
-Color oddTileTint0;
-Color oddTileTint1;
+// Color evenTileTint0; //@TODO: These are currently unused.
+// Color evenTileTint1;
+// Color oddTileTint0;
+// Color oddTileTint1;
 char roomName[MAX_ROOM_NAME];
 char nextRoomName[MAX_ROOM_NAME];
 int numTilesX = MAX_TILES_X;
@@ -1053,7 +1053,7 @@ void SaveRoom(const Room *room)
 	u8 numBombs = (u8)room->numBombs;
 	fwrite(&numBombs, sizeof numBombs, 1, file);
 	fwrite(room->bombPos, sizeof room->bombPos[0], numBombs, file);
-	fwrite(room->bombVariants, sizeof room->bombVariants, numBombs, file);
+	fwrite(room->bombVariants, sizeof room->bombVariants[0], numBombs, file);
 
 	u8 numGlassBoxes = (u8)room->numGlassBoxes;
 	fwrite(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
@@ -1808,8 +1808,9 @@ void UpdateTriggerredMessages(void)
 	for (int i = 0; i < numTriggerMessages; ++i)
 	{
 		TriggerMessage *tm = &triggerMessages[i];
-		bool overlap = CheckCollisionPointRec(player.pos, tm->rect);
-		if (!tm->isTriggered && overlap)
+		bool innerOverlap = CheckCollisionPointRec(player.pos, tm->rect);
+		bool outerOverlap = CheckCollisionCircleRec(player.pos, PLAYER_RADIUS, tm->rect);
+		if (!tm->isTriggered && innerOverlap)
 		{
 			if (!tm->once || !tm->wasTriggerred)
 			{
@@ -1818,7 +1819,7 @@ void UpdateTriggerredMessages(void)
 				tm->wasTriggerred = true;
 			}
 		}
-		else if (tm->isTriggered && !overlap)
+		else if (tm->isTriggered && !outerOverlap)
 		{
 			tm->isTriggered = false;
 			tm->leaveTime = timeAtStartOfFrame;

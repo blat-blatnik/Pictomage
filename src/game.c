@@ -53,6 +53,7 @@
 typedef enum GameState
 {
 	GAME_STATE_MAIN_MENU,
+	GAME_STATE_FADE_IN,
 	GAME_STATE_PLAYING,
 	GAME_STATE_LEVEL_EDITOR,
 	GAME_STATE_PAUSED,
@@ -2300,7 +2301,7 @@ void DrawDecals(void)
 // *---===========---*
 
 #define TITLE_DROP_DURATION 2.0f
-#define MAIN_MENU_FADE_DURATION 3.0f
+#define MAIN_MENU_FADE_DURATION 2.0f
 
 float mainMenuTime;
 float mainMenuFollowerAngle;
@@ -2324,7 +2325,7 @@ GameState MainMenu_Update(void)
 	{
 		LoadRoom(&currentRoom, "room0");
 		CopyRoomToGame(&currentRoom);
-		return GAME_STATE_PLAYING;
+		return GAME_STATE_FADE_IN;
 	}
 
 	bool anyKeyPressed =
@@ -2341,8 +2342,10 @@ GameState MainMenu_Update(void)
 			mainMenuTime = TITLE_DROP_DURATION;
 			mainMenuPlayedSnap = true;
 		}
-		else
+		else if (mainMenuFadeTime < 0)
+		{
 			mainMenuFadeTime = 0;
+		}
 	}
 
 	return GAME_STATE_MAIN_MENU;
@@ -2459,17 +2462,19 @@ void MainMenu_Draw(void)
 
 	if (mainMenuFadeTime >= 0)
 	{
-		float flash0Duration = MAIN_MENU_FADE_DURATION / 3;
+		float flash0Duration = MAIN_MENU_FADE_DURATION / 2;
 		float flash1Duration = MAIN_MENU_FADE_DURATION - flash0Duration;
 
 		if (mainMenuFadeTime < flash0Duration)
 		{
+			// @TODO: Flash sound.
 			float t = powf(sinf(PI * mainMenuFadeTime / flash0Duration), 16);
 			Color color = FloatRGBA(1, 1, 1, t);
 			DrawRectangleRounded(Rect(350, 50, 200, 100), 0.5f, 20, color);
 		}
 		else
 		{
+			// @TODO: Echo sound.
 			float t = Smoothstep(flash0Duration, MAIN_MENU_FADE_DURATION, mainMenuFadeTime);
 			Color color = FloatRGBA(1, 1, 1, t);
 			DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, color);
@@ -2577,6 +2582,35 @@ void Playing_Draw(void)
 		//Vector2 mp = ScreenToTile(GetMousePosition());
 		//DrawDebugText("[%.1f %.1f] [%.1f %.1f]", mp.x, mp.y, cameraPos.x, cameraPos.y);
 	}
+}
+
+// *---=========---*
+// |/   Fade In   \|
+// *---=========---*
+
+#define FADE_IN_DURATION 1.0f
+
+float fadeInTime;
+void FadeIn_Init(GameState oldState)
+{
+	CenterCameraOnLevel();
+	fadeInTime = 0;
+}
+GameState FadeIn_Update(void)
+{
+	fadeInTime += DELTA_TIME;
+	if (fadeInTime > FADE_IN_DURATION)
+		return GAME_STATE_PLAYING;
+	else
+		return GAME_STATE_FADE_IN;
+}
+void FadeIn_Draw(void)
+{
+	Playing_Draw();
+
+	float t = 1 - Smoothstep(0, FADE_IN_DURATION, fadeInTime);
+	Color color = FloatRGBA(1, 1, 1, t);
+	DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, color);
 }
 
 // *---========---*
@@ -3474,6 +3508,7 @@ void GameLoopOneIteration(void)
 	switch (gameState)
 	{
 		case GAME_STATE_MAIN_MENU:    gameState = MainMenu_Update();    break;
+		case GAME_STATE_FADE_IN:      gameState = FadeIn_Update();      break;
 		case GAME_STATE_PLAYING:      gameState = Playing_Update();     break;
 		case GAME_STATE_PAUSED:       gameState = Paused_Update();      break;
 		case GAME_STATE_GAME_OVER:    gameState = GameOver_Update();    break;
@@ -3488,6 +3523,7 @@ void GameLoopOneIteration(void)
 		switch (gameState)
 		{
 			case GAME_STATE_MAIN_MENU:	  MainMenu_Init(oldState);    break;
+			case GAME_STATE_FADE_IN:      FadeIn_Init(oldState);      break;
 			case GAME_STATE_PLAYING:      Playing_Init(oldState);     break;
 			case GAME_STATE_PAUSED:       Paused_Init(oldState);      break;
 			case GAME_STATE_GAME_OVER:    GameOver_Init(oldState);    break;
@@ -3504,6 +3540,7 @@ void GameLoopOneIteration(void)
 		switch (gameState)
 		{
 			case GAME_STATE_MAIN_MENU:    MainMenu_Draw();    break;
+			case GAME_STATE_FADE_IN:      FadeIn_Draw();      break;
 			case GAME_STATE_PLAYING:      Playing_Draw();     break;
 			case GAME_STATE_PAUSED:       Paused_Draw();      break;
 			case GAME_STATE_GAME_OVER:    GameOver_Draw();    break;

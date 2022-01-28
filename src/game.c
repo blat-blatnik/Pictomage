@@ -327,10 +327,11 @@ void DoScreenShake(void)
 // |/   Globals   \|
 // *---=========---*
 
-bool godMode = true; //@TODO: Disable this for release.
+bool godMode = false; //@TODO: Disable this for release.
 bool devMode = true; //@TODO: Disable this for release.
-const char *devModeStartRoom = "credits";
+const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
+int deathCount;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
@@ -2424,6 +2425,7 @@ bool mainMenuPlayedShutterEcho;
 bool mainMenuPlayedRinging;
 void MainMenu_Init(GameState oldState)
 {
+	deathCount = 0;
 	mainMenuTime = 0;
 	mainMenuPlayedSnap = false;
 	mainMenuFollowerExtension = 0;
@@ -2652,7 +2654,7 @@ GameState Playing_Update(void)
 		return GAME_STATE_RESTARTING;
 
 	double gracePeriodTime = timeAtStartOfFrame - gracePeriodStartTime;
-	if (gracePeriodTime > GRACE_PERIOD)
+	if (gracePeriodTime > GRACE_PERIOD || player.hasCapture)
 		hasGracePeriod = false;
 
 	Vector2 initialPos = player.pos;
@@ -2939,10 +2941,8 @@ GameState Paused_Update(void)
 {
 	if (IsKeyPressed(KEY_GRAVE))
 		return GAME_STATE_LEVEL_EDITOR;
-	if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER))
+	if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE))
 		return GAME_STATE_PLAYING;
-	if (IsKeyPressed(KEY_ESCAPE))
-		exit(EXIT_SUCCESS);
 
 	return GAME_STATE_PAUSED;
 }
@@ -2961,10 +2961,11 @@ void Paused_Draw(void)
 // |/   Game Over   \|
 // *---===========---*
 
-double gameOverStartTime;
+float gameOverTime;
 void GameOver_Init(GameState oldState)
 {
-	gameOverStartTime = timeAtStartOfFrame;
+	++deathCount;
+	gameOverTime = 0;
 }
 GameState GameOver_Update(void)
 {
@@ -2988,26 +2989,72 @@ void GameOver_Draw(void)
 	Color centerColor = ColorAlpha(BLACK, 0.1f);
 	DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2, edgeColor, centerColor);
 	DrawRectangleGradientV(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2, centerColor, edgeColor);
-	DrawTextCentered("- YOU DIED -", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 40, BLACK);
+	
+	//DrawRectangleVCentered(screenCenter, Vec2(300, 100), BLACK);
+	//DrawTextCentered("YOU DIED", screenCenter.x, screenCenter.y - 20, 40, RED);
+
+	DrawRectangleVCentered(Vec2(screenCenter.x, screenCenter.y + 160), Vec2(400, 340), GRAY);
+	DrawCircleV(screenCenter, 200, GRAY);
+	DrawRectangleVCentered(Vec2(screenCenter.x, screenCenter.y + 160), Vec2(380, 320), DARKGRAY);
+	DrawCircleV(screenCenter, 190, DARKGRAY);
+
+	DrawTextCentered("Magus Maximillius", screenCenter.x, screenCenter.y - 40, 40, GRAY);
+	
+	const char *suffix = "";
+	bool isTeen = deathCount > 10 && deathCount <= 20;
+	if (isTeen)
+		suffix = "th";
+	else
+	{
+		switch (deathCount % 10)
+		{
+			case 0: suffix = "th"; break;
+			case 1: suffix = "st"; break;
+			case 2: suffix = "nd"; break;
+			case 3: suffix = "rd"; break;
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+			case 8:
+			case 9:
+				suffix = "th"; break;
+		}
+	}
+
+	char text[256];
+	snprintf(text, sizeof text, "The %d%s", deathCount, suffix);
+	DrawTextCentered(text, screenCenter.x, screenCenter.y + 10, 40, GRAY);
+
+	DrawTextCentered("YOU DIED", screenCenter.x, screenCenter.y + 100, 40, RED);
+
+	Rectangle rR = Rect(360, 660, 40, 40);
+	DrawRectangleLinesEx(rR, 4, GRAY);
+	Vector2 cR = RectangleCenter(rR);
+	DrawTextCentered("R", cR.x, cR.y, 28, GRAY);
+	DrawText("Restart", 420, 665, 28, GRAY);
 }
 
 // *---============---*
 // |/   Restarting   \|
 // *---============---*
 
-double restartingStartTime;
+float restartingTime;
 bool restartingDone;
 bool restartingPlayedShutterSound;
+GameState restartingPrevState;
 void Restarting_Init(GameState oldState)
 {
-	restartingStartTime = timeAtStartOfFrame;
+	restartingPrevState = oldState;
+	restartingTime = 0;
 	restartingDone = false;
 	restartingPlayedShutterSound = false;
 	StopAllLevelSounds();
 }
 GameState Restarting_Update(void)
 {
-	double time = timeAtStartOfFrame - restartingStartTime;
+	restartingTime += DELTA_TIME;
+	double time = restartingTime;
 	if (time > 0.5f * RESTARTING_DURATION && !restartingDone)
 	{
 		CopyRoomToGame(&currentRoom);
@@ -3026,10 +3073,15 @@ GameState Restarting_Update(void)
 }
 void Restarting_Draw(void)
 {
-	Playing_Draw();
-	float time = (float)((timeAtStartOfFrame - restartingStartTime) / (0.5f * RESTARTING_DURATION));
-	float t = 1 - fabsf(time - 1);
-	DrawShutter(Clamp(t, 0, 1), Grayscale(0.1f), Grayscale(0.3f), 10);
+	float time = (float)(restartingTime / (0.5f * RESTARTING_DURATION));
+	float t = Clamp(1 - fabsf(time - 1), 0, 1);
+
+	if (restartingPrevState == GAME_STATE_GAME_OVER && restartingTime < 0.5f * RESTARTING_DURATION)
+		GameOver_Draw();
+	else
+		Playing_Draw();
+
+	DrawShutter(t, Grayscale(0.1f), Grayscale(0.3f), 10);
 }
 
 // *---=========---*

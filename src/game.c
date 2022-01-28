@@ -317,7 +317,7 @@ void ScreenShake(float intensity, float duration, float damping)
 // *---=========---*
 
 bool godMode = true; //@TODO: Disable this for release.
-bool devMode = true; //@TODO: Disable this for release.
+bool devMode = false; //@TODO: Disable this for release.
 const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
@@ -831,7 +831,7 @@ void ExplodeBomb(int index)
 
 	PlaySound(explosionSound);
 	SetSoundPitch(explosionSound, RandomFloat(&rng, 0.8f, 1.2f));
-	ScreenShake(1, 0.2f, 0);
+	ScreenShake(1, 0.3f, 0);
 	DespawnBomb(index);
 }
 void KillPlayer(Vector2 direction, float intensity)
@@ -879,6 +879,7 @@ void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForc
 	float pitch = Clamp(Lerp(1, 0.5f, area / 10), 0.6f, 1.0f) + RandomFloat(&rng, -0.1f, 0.1f);
 	SetSoundPitch(glassShatterSound, pitch);
 	PlaySound(glassShatterSound);
+	ScreenShake(0.1f, 0.1f, 0);
 
 	const Color color1 = ColorAlpha(DARKBLUE, 0.3f);
 	const Color color2 = ColorAlpha(SKYBLUE, 0.3f);
@@ -2387,6 +2388,14 @@ GameState MainMenu_Update(void)
 }
 void MainMenu_Draw(void)
 {
+	if (screenShakeDuration > 0)
+	{
+		Vector2 cameraOffset = RandomVector(&rng, screenShakeIntensity);
+		screenShakeDuration -= DELTA_TIME;
+		screenShakeIntensity *= screenShakeDamping;
+		rlTranslatef(cameraOffset.x, cameraOffset.y, 0);
+	}
+
 	const float maxExtension = 60;
 	const float ringTime = 1;
 	const float shutterTime = 1;
@@ -2519,6 +2528,7 @@ void MainMenu_Draw(void)
 
 			if (t0 > 0.6f && !mainMenuPlayedShutterEcho)
 			{
+				ScreenShake(10, 0.7f, 0.96f);
 				PlaySound(shutterEchoSound);
 				mainMenuPlayedShutterEcho = true;
 			}
@@ -2605,7 +2615,7 @@ void Playing_Draw(void)
 		{
 			Vector2 cameraOffset = RandomVector(&rng, screenShakeIntensity);
 			screenShakeDuration -= DELTA_TIME;
-			screenShakeIntensity -= DELTA_TIME * screenShakeDamping;
+			screenShakeIntensity *= screenShakeDamping;
 			rlTranslatef(cameraOffset.x, cameraOffset.y, 0);
 		}
 

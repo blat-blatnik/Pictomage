@@ -27,7 +27,7 @@
 
 #define PLAYER_SPEED 10.0f
 #define PLAYER_RADIUS 0.5f
-#define PLAYER_FLASH_FRAMES 4
+#define PLAYER_FLASH_FRAMES 10 // Must be even!
 #define BULLET_SPEED 30.0f
 #define BULLET_RADIUS 0.2f
 #define TURRET_RADIUS 1.0f
@@ -42,7 +42,8 @@
 #define BOMB_EXPLOSION_RADIUS 4.0f
 #define BOMB_EXPLOSION_DURATION 0.5f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
-#define PLAYER_CAPTURE_CONE_RADIUS 3.5f
+#define PLAYER_CAPTURE_CONE_RADIUS 4.0f
+#define PLAYER_CAPTURE_CONE_VISUAL_RADIUS 3.5f
 #define RESTARTING_DURATION 0.8f
 #define GRACE_PERIOD 2.0f
 #define POPUP_ANIMATION_TIME 0.6f
@@ -99,13 +100,11 @@ typedef struct Player
 	Vector2 pos;
 	Vector2 vel;
 	float lookAngle; // In radians.
-	bool justSnapped; // True for the first game step when the player captures (for drawing the flash).
-	bool hasCapture;
-	bool isReleasingCapture; // True while the button is held down, before the capture is released.
+	int captureFrame;
+	int releaseFrame;
+	bool isReleasingCapture;
 	Vector2 releasePos;
 	bool isAlive;
-
-	int flashFrame;
 } Player;
 
 typedef struct Bullet
@@ -247,6 +246,13 @@ typedef struct Decal
 	float rotation;
 } Decal;
 
+typedef struct CaptureGhost
+{
+	Vector2 pos;
+	float radius;
+	Vector2 target; //@HACK: target.x == -999 && target.y == -999 means target is actually the player.
+} CaptureGhost;
+
 // *---========---*
 // |/   Camera   \|
 // *---========---*
@@ -330,7 +336,7 @@ void DoScreenShake(void)
 // |/   Globals   \|
 // *---=========---*
 
-bool godMode = false; //@TODO: Disable this for release.
+bool godMode = true; //@TODO: Disable this for release.
 bool devMode = true; //@TODO: Disable this for release.
 const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
@@ -376,6 +382,8 @@ Shard shards[MAX_SHARDS];
 int numDecals;
 int decalCursor;
 Decal decals[MAX_DECALS];
+int numCaptureGhosts;
+CaptureGhost captureGhosts[MAX_BULLETS + MAX_TURRETS + MAX_BOMBS];
 
 // *---========---*
 // |/   Assets   \|
@@ -477,6 +485,10 @@ int NumRemainingEnemies(void)
 		if (!capturedTurrets[i].isDestroyed)
 			++result;
 	return result;
+}
+int NumCapturedEnemies(void)
+{
+	return numCapturedBombs + numCapturedBullets + numCapturedTurrets;
 }
 const char *GetTileName(Tile tile)
 {
@@ -629,6 +641,10 @@ Vector2 ResolveCollisionsCircleRoom(Vector2 center, float radius, Vector2 veloci
 
 	return p1f;
 }
+bool IsReleaseGhost(CaptureGhost g)
+{
+	return g.target.x != -999;
+}
 
 Bullet *SpawnBullet(Vector2 pos, Vector2 vel)
 {
@@ -761,6 +777,17 @@ Decal *SpawnDecal(Vector2 pos, Vector2 size, float angleRadians)
 	decal->texture = NULL;
 	return decal;
 }
+CaptureGhost *SpawnCaptureGhost(Vector2 pos, float radius, Vector2 target)
+{
+	if (numCaptureGhosts >= COUNTOF(captureGhosts))
+		return NULL;
+
+	CaptureGhost *ghost = &captureGhosts[numCaptureGhosts++];
+	ghost->pos = pos;
+	ghost->radius = radius;
+	ghost->target = target;
+	return ghost;
+}
 
 void DespawnBullet(int index)
 {
@@ -803,6 +830,12 @@ void DespawnSpark(int index)
 	ASSERT(index >= 0 && index < numSparks);
 	SwapMemory(sparks + index, sparks + numSparks - 1, sizeof sparks[0]);
 	--numSparks;
+}
+void DespawnCaptureGhost(int index)
+{
+	ASSERT(index >= 0 && index < numCaptureGhosts);
+	SwapMemory(captureGhosts + index, captureGhosts + numCaptureGhosts - 1, sizeof captureGhosts[0]);
+	--numCaptureGhosts;
 }
 
 void ShiftAllObjectsBy(float dx, float dy)
@@ -920,6 +953,27 @@ void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForc
 	}
 
 	DespawnGlassBox(index);
+}
+void DrawTrail(Vector2 pos, Vector2 vel, Vector2 origin, float radius, float trailLength, Color color0, Color color1)
+{
+	Vector2 perp1 = Vector2Scale(Vector2Normalize(Vec2(-vel.y, +vel.x)), radius);
+	Vector2 perp2 = Vector2Scale(Vector2Normalize(Vec2(+vel.y, -vel.x)), radius);
+	Vector2 toOrigin = Vector2Subtract(origin, pos);
+	Vector2 perp3 = Vector2Scale(Vector2Normalize(toOrigin), trailLength);
+	if (Vector2LengthSqr(perp3) > Vector2LengthSqr(toOrigin))
+		perp3 = toOrigin;
+	Vector2 trail1 = Vector2Add(pos, perp1);
+	Vector2 trail2 = Vector2Add(pos, perp2);
+	Vector2 trail3 = Vector2Add(pos, perp3);
+	rlBegin(RL_TRIANGLES);
+	{
+		rlColor(color1);
+		rlVertex2fv(trail1);
+		rlVertex2fv(trail2);
+		rlColor(color0);
+		rlVertex2fv(trail3);
+	}
+	rlEnd();
 }
 
 void CenterCameraOnLevel(void)
@@ -1099,8 +1153,9 @@ void CopyRoomToGame(Room *room)
 	shardCursor = 0;
 	numDecals = 0;
 	decalCursor = 0;
-	player.hasCapture = false;
-	player.justSnapped = false;
+	numCaptureGhosts = 0;
+	player.captureFrame = 0;
+	player.releaseFrame = 0;
 	player.isReleasingCapture = false;
 	player.vel = Vector2Zero();
 	player.releasePos = Vector2Zero();
@@ -1215,13 +1270,48 @@ void UpdatePlayer(void)
 	}
 
 	player.lookAngle = AngleBetween(player.pos, mousePos);
-	player.justSnapped = false; // Reset from previous frame.
 
+	if (player.captureFrame > 0)
+	{
+		player.captureFrame++;
+		if (player.captureFrame > PLAYER_FLASH_FRAMES)
+		{
+			player.captureFrame = 0;
+			for (int i = 0; i < numCaptureGhosts; ++i)
+			{
+				CaptureGhost *ghost = &captureGhosts[i];
+				if (ghost->target.x == -999)
+				{
+					DespawnCaptureGhost(i);
+					--i;
+				}
+			}
+		}
+	}
+	if (player.releaseFrame > 0)
+	{
+		player.releaseFrame++;
+		if (player.releaseFrame > PLAYER_FLASH_FRAMES)
+		{
+			player.releaseFrame = 0;
+			for (int i = 0; i < numCaptureGhosts; ++i)
+			{
+				CaptureGhost *ghost = &captureGhosts[i];
+				if (ghost->target.x != -999)
+				{
+					DespawnCaptureGhost(i);
+					--i;
+				}
+			}
+		}
+	}
+	
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 	{
-		if (!player.hasCapture)
+		bool hasCapture = NumCapturedEnemies() > 0;
+		if (!hasCapture && player.captureFrame == 0)
 		{
-			player.justSnapped = true;
+			player.captureFrame = 1;
 			PlaySound(flashSound);
 
 			for (int i = 0; i < numBullets; ++i)
@@ -1235,6 +1325,7 @@ void UpdatePlayer(void)
 				{
 					int index = numCapturedBullets++;
 					capturedBullets[index] = *b;
+					SpawnCaptureGhost(b->pos, BULLET_RADIUS, Vec2(-999, -999));
 					DespawnBullet(i);
 					--i;
 				}
@@ -1251,6 +1342,7 @@ void UpdatePlayer(void)
 				{
 					int index = numCapturedBombs++;
 					capturedBombs[index] = *b;
+					SpawnCaptureGhost(b->pos, BOMB_RADIUS, Vec2(-999, -999));
 					DespawnBomb(i);
 					--i;
 				}
@@ -1267,6 +1359,7 @@ void UpdatePlayer(void)
 				{
 					int index = numCapturedTurrets++;
 					capturedTurrets[index] = *t;
+					SpawnCaptureGhost(t->pos, TURRET_RADIUS, Vec2(-999, -999));
 					DespawnTurret(i);
 					--i;
 				}
@@ -1290,21 +1383,38 @@ void UpdatePlayer(void)
 					capturedTurrets[i].pos = Vector2Subtract(capturedTurrets[i].pos, captureCenter);
 				for (int i = 0; i < numCapturedBombs; ++i)
 					capturedBombs[i].pos = Vector2Subtract(capturedBombs[i].pos, captureCenter);
-
-				player.hasCapture = true;
 			}
 		}
-		else
+		else if (hasCapture)
 		{
-			player.releasePos = mousePos;
+			player.releaseFrame = 1;
 			player.isReleasingCapture = true;
+			player.releasePos = mousePos;
+
+			for (int i = 0; i < numCapturedBullets; ++i)
+			{
+				Bullet b = capturedBullets[i];
+				Vector2 pos = Vector2Add(b.pos, player.releasePos);
+				SpawnCaptureGhost(player.pos, BULLET_RADIUS, pos);
+			}
+			for (int i = 0; i < numCapturedTurrets; ++i)
+			{
+				Turret t = capturedTurrets[i];
+				Vector2 pos = Vector2Add(t.pos, player.releasePos);
+				SpawnCaptureGhost(player.pos, TURRET_RADIUS, pos);
+			}
+			for (int i = 0; i < numCapturedBombs; ++i)
+			{
+				Bomb b = capturedBombs[i];
+				Vector2 pos = Vector2Add(b.pos, player.releasePos);
+				SpawnCaptureGhost(player.pos, BOMB_RADIUS, pos);
+			}
 		}
 	}
 
 	if (player.isReleasingCapture && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
 	{
 		player.isReleasingCapture = false;
-		player.hasCapture = false;
 
 		Vector2 releaseDir = Vector2Subtract(mousePos, player.releasePos);
 		if (releaseDir.x == 0 || releaseDir.y == 0)
@@ -1356,6 +1466,7 @@ void UpdatePlayer(void)
 				bomb->variant = b.variant;
 			}
 		}
+
 		numCapturedBullets = 0;
 		numCapturedTurrets = 0;
 		numCapturedBombs = 0;
@@ -2005,32 +2116,44 @@ void DrawPlayerCaptureCone(void)
 	};
 
 	float lookAngleDegrees = (RAD2DEG * (-player.lookAngle)) + 90;
-	if (player.justSnapped)
+	if (player.captureFrame > 0 || player.releaseFrame > 0)
 	{
-		DrawCircleSector(captureOrigin,
-			PLAYER_CAPTURE_CONE_RADIUS + PixelsToTiles(10) - offset,
-			lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE - 1,
-			lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE + 1,
-			12,
-			ColorAlpha(ORANGE, 0.9f));
+		if (player.captureFrame > 1 || player.releaseFrame > 1)
+		{
+			int maxCaptureFrame = player.captureFrame;
+			if (maxCaptureFrame < player.releaseFrame)
+				maxCaptureFrame = player.releaseFrame;
+
+			float halfFrames = 0.5f * PLAYER_FLASH_FRAMES;
+			float flashDist = Clamp(maxCaptureFrame / halfFrames, 0, 1);
+			float alpha = 1 - Clamp((maxCaptureFrame - halfFrames) / halfFrames, 0, 1);
+
+			float radius = flashDist * (PLAYER_CAPTURE_CONE_RADIUS + - offset);
+			DrawCircleSector(captureOrigin,
+				radius,
+				lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE - 2,
+				lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE + 2,
+				12,
+				ColorAlpha(YELLOW, alpha));
+		}
 	}
-	else if (!player.hasCapture)
+	else if (NumCapturedEnemies() == 0)
 	{
 		float angle0 = lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE;
 		float angle1 = lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE;
-		DrawRing(captureOrigin, 0.1f, PLAYER_CAPTURE_CONE_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.1f));
-		DrawRingLines(captureOrigin, 0.1f, PLAYER_CAPTURE_CONE_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.5f));
+		DrawRing(captureOrigin, 0.1f, PLAYER_CAPTURE_CONE_VISUAL_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.1f));
+		DrawRingLines(captureOrigin, 0.1f, PLAYER_CAPTURE_CONE_VISUAL_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.5f));
 		//DrawCircleSectorLines(captureOrigin, PLAYER_CAPTURE_CONE_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.5f));
 
 		if (devMode)
 		{
 			// Visualize the actual cone
-			DrawCircleSector(player.pos,
-				PLAYER_CAPTURE_CONE_RADIUS + PixelsToTiles(10),
-				lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
-				lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
-				12,
-				ColorAlpha(GRAY, 0.1f));
+			//DrawCircleSector(player.pos,
+			//	PLAYER_CAPTURE_CONE_RADIUS + PixelsToTiles(10),
+			//	lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
+			//	lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE,
+			//	12,
+			//	ColorAlpha(GRAY, 0.1f));
 		}
 	}
 
@@ -2041,34 +2164,67 @@ void DrawPlayerCaptureCone(void)
 }
 void DrawPlayerRelease(void)
 {
+	const Color blue = ColorAlpha(BLUE, 0.5f);
+	const Color trailColor0 = ColorAlpha(BLUE, 0);
+	const Color trailColor1 = ColorAlpha(BLUE, 0.3f);
+
+	for (int i = 0; i < numCaptureGhosts; ++i)
+	{
+		CaptureGhost ghost = captureGhosts[i];
+		Vector2 target;
+		float tPos;
+		float radius = ghost.radius;
+		if (ghost.target.x != -999)
+		{
+			target = ghost.target;
+			tPos = Clamp(player.releaseFrame / (float)PLAYER_FLASH_FRAMES, 0, 1);
+			radius *= tPos;
+		}
+		else
+		{
+			target = player.pos;
+			const float halfFrames = 0.5f * PLAYER_FLASH_FRAMES;
+			tPos = Clamp((player.captureFrame - halfFrames) / halfFrames, 0, 1);
+			radius *= 1 - tPos;
+		}
+
+		Vector2 toTarget = Vector2Subtract(target, ghost.pos);
+		Vector2 pos = Vector2Add(ghost.pos, Vector2Scale(toTarget, tPos));
+		DrawTrail(pos, toTarget, ghost.pos, radius, PixelsToTiles(400), trailColor0, trailColor1);
+		DrawCircleV(pos, radius, blue);
+	}
+
 	if (!player.isReleasingCapture)
 		return;
 
-	for (int i = 0; i < numCapturedBullets; ++i)
+	if (player.releaseFrame == 0)
 	{
-		Bullet b = capturedBullets[i];
-		Vector2 pos = Vector2Add(b.pos, player.releasePos);
-		DrawCircleV(pos, BULLET_RADIUS, ColorAlpha(BLUE, 0.5f));
-	}
+		for (int i = 0; i < numCapturedBullets; ++i)
+		{
+			Bullet b = capturedBullets[i];
+			Vector2 pos = Vector2Add(b.pos, player.releasePos);
+			DrawCircleV(pos, BULLET_RADIUS, ColorAlpha(BLUE, 0.5f));
+		}
 
-	for (int i = 0; i < numCapturedTurrets; ++i)
-	{
-		Color color = ColorAlpha(DARKBLUE, 0.5f);
-		Turret t = capturedTurrets[i];
-		Vector2 pos = Vector2Add(t.pos, player.releasePos);
-		DrawCircleV(pos, TURRET_RADIUS, color);
-		DrawCircleV(pos, TURRET_RADIUS - PixelsToTiles(5), color);
-		float lookAngleDegrees = RAD2DEG * t.lookAngle;
-		Rectangle gunBarrel = { pos.x, pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
-		DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, color);
-		DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), color);
-	}
+		for (int i = 0; i < numCapturedTurrets; ++i)
+		{
+			Color color = ColorAlpha(DARKBLUE, 0.5f);
+			Turret t = capturedTurrets[i];
+			Vector2 pos = Vector2Add(t.pos, player.releasePos);
+			DrawCircleV(pos, TURRET_RADIUS, color);
+			DrawCircleV(pos, TURRET_RADIUS - PixelsToTiles(5), color);
+			float lookAngleDegrees = RAD2DEG * t.lookAngle;
+			Rectangle gunBarrel = { pos.x, pos.y, TURRET_RADIUS + PixelsToTiles(10), PixelsToTiles(12) };
+			DrawRectanglePro(gunBarrel, PixelsToTiles2(-5, +6), lookAngleDegrees, color);
+			DrawCircleV(Vec2(gunBarrel.x, gunBarrel.y), PixelsToTiles(2), color);
+		}
 
-	for (int i = 0; i < numCapturedBombs; ++i)
-	{
-		Bomb b = capturedBombs[i];
-		Vector2 pos = Vector2Add(b.pos, player.releasePos);
-		DrawCircleV(pos, BOMB_RADIUS, ColorAlpha(DARKBLUE, 0.5f));
+		for (int i = 0; i < numCapturedBombs; ++i)
+		{
+			Bomb b = capturedBombs[i];
+			Vector2 pos = Vector2Add(b.pos, player.releasePos);
+			DrawCircleV(pos, BOMB_RADIUS, ColorAlpha(DARKBLUE, 0.5f));
+		}
 	}
 
 	Vector2 mousePos = ScreenToTile(GetMousePosition());
@@ -2135,24 +2291,7 @@ void DrawBullets(void)
 	for (int i = 0; i < numBullets; ++i)
 	{
 		Bullet b = bullets[i];
-		Vector2 perp1 = Vector2Scale(Vector2Normalize(Vec2(-b.vel.y, +b.vel.x)), BULLET_RADIUS);
-		Vector2 perp2 = Vector2Scale(Vector2Normalize(Vec2(+b.vel.y, -b.vel.x)), BULLET_RADIUS);
-		Vector2 toOrigin = Vector2Subtract(b.origin, b.pos);
-		Vector2 perp3 = Vector2Scale(Vector2Normalize(toOrigin), PixelsToTiles(400));
-		if (Vector2LengthSqr(perp3) > Vector2LengthSqr(toOrigin))
-			perp3 = toOrigin;
-		Vector2 trail1 = Vector2Add(b.pos, perp1);
-		Vector2 trail2 = Vector2Add(b.pos, perp2);
-		Vector2 trail3 = Vector2Add(b.pos, perp3);
-		rlBegin(RL_TRIANGLES);
-		{
-			rlColor(trailColor1);
-			rlVertex2fv(trail1);
-			rlVertex2fv(trail2);
-			rlColor(trailColor0);
-			rlVertex2fv(trail3);
-		}
-		rlEnd();
+		DrawTrail(b.pos, b.vel, b.origin, BULLET_RADIUS, PixelsToTiles(400), trailColor0, trailColor1);
 		DrawCircleV(b.pos, BULLET_RADIUS, DARKGRAY);
 	}
 }
@@ -2676,7 +2815,7 @@ GameState Playing_Update(void)
 		return GAME_STATE_RESTARTING;
 
 	double gracePeriodTime = timeAtStartOfFrame - gracePeriodStartTime;
-	if (gracePeriodTime > GRACE_PERIOD || player.hasCapture)
+	if (gracePeriodTime > GRACE_PERIOD || player.captureFrame != 0 || player.releaseFrame != 0)
 		hasGracePeriod = false;
 
 	Vector2 initialPos = player.pos;

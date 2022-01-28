@@ -328,8 +328,8 @@ void DoScreenShake(void)
 // *---=========---*
 
 bool godMode = true; //@TODO: Disable this for release.
-bool devMode = true; //@TODO: Disable this for release.
-const char *devModeStartRoom = "test1";
+bool devMode = false; //@TODO: Disable this for release.
+const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
@@ -841,7 +841,7 @@ void ExplodeBomb(int index)
 		Color color = LerpColor(BLACK, accent, RandomFloat(&rng, 0, 0.25f));
 		SpawnShard(bomb->pos, dir, size, color, 0.85f);
 	}
-	SpawnDecal(bomb->pos, Vec2Broadcast(4 * BOMB_RADIUS), 0);
+	SpawnDecal(bomb->pos, Vec2Broadcast(16 * BOMB_RADIUS), 0);
 
 	PlaySound(explosionSound);
 	SetSoundPitch(explosionSound, RandomFloat(&rng, 0.8f, 1.2f));

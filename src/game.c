@@ -329,7 +329,7 @@ void DoScreenShake(void)
 
 bool godMode = true; //@TODO: Disable this for release.
 bool devMode = true; //@TODO: Disable this for release.
-const char *devModeStartRoom = "test1";
+const char *devModeStartRoom = "credits";
 double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
@@ -2352,9 +2352,19 @@ void DrawDecals(void)
 // |/   Main Menu   \|
 // *---===========---*
 
+void DrawMouse(float x, float y, Color color, Color fillColor)
+{
+	Rectangle rect = Rect(x, y, 30, 40);
+	DrawRectangle(rect.x, rect.y, rect.width / 2, rect.height / 2, fillColor);
+	DrawRectangleRoundedLines(rect, 0.3f, 8, 2, color);
+	DrawLineEx(Vec2(rect.x, rect.y + 20), Vec2(rect.x + rect.width, rect.y + 20), 2, color);
+	DrawLineEx(Vec2(rect.x + rect.width / 2, rect.y), Vec2(rect.x + rect.width / 2, rect.y + 20), 2, color);
+	DrawRectangleRounded(Rect(rect.x + rect.width / 2 - 2, rect.y + 5, 4, 10), 0.3f, 8, color);
+}
 void DrawControls(float alpha, float fillAlpha)
 {
 	const Color white = ColorAlpha(WHITE, alpha);
+	const Color gray = ColorAlpha(GRAY, alpha * fillAlpha);
 
 	Rectangle rW = Rect(100 + 00.00f, 750 + 00.00f, 25, 25);
 	Rectangle rA = Rect(100 - 28.00f, 750 + 28.00f, 25, 25);
@@ -2373,21 +2383,8 @@ void DrawControls(float alpha, float fillAlpha)
 	DrawTextCentered("S", cS.x, cS.y, 12, white);
 	DrawTextCentered("D", cD.x, cD.y, 12, white);
 
-	Rectangle rMM = Rect(100 - 28.00f, 830 + 00.00f, 30, 40);
-	DrawRectangleRoundedLines(rMM, 0.3f, 8, 2, white);
-	DrawLineEx(Vec2(rMM.x, rMM.y + 20), Vec2(rMM.x + rMM.width, rMM.y + 20), 2, white);
-	DrawLineEx(Vec2(rMM.x + rMM.width / 2, rMM.y), Vec2(rMM.x + rMM.width / 2, rMM.y + 20), 2, white);
-	DrawRectangleRounded(Rect(rMM.x + rMM.width / 2 - 2, rMM.y + 5, 4, 10), 0.3f, 8, white);
-
-	Rectangle rMC = Rect(100 + 24.00f, 830 + 00.00f, 30, 40);
-	{
-		// We need to make this one transparent when the main menu flash happens.
-		DrawRectangle(rMC.x, rMC.y, rMC.width / 2, rMC.height / 2, ColorAlpha(GRAY, alpha * fillAlpha));
-	}
-	DrawRectangleRoundedLines(rMC, 0.3f, 8, 2, white);
-	DrawLineEx(Vec2(rMC.x, rMC.y + 20), Vec2(rMC.x + rMC.width, rMC.y + 20), 2, white);
-	DrawLineEx(Vec2(rMC.x + rMC.width / 2, rMC.y), Vec2(rMC.x + rMC.width / 2, rMC.y + 20), 2, white);
-	DrawRectangleRounded(Rect(rMC.x + rMC.width / 2 - 2, rMC.y + 5, 4, 10), 0.3f, 8, white);
+	DrawMouse(100 - 28.00f, 830 + 00.00f, white, BLANK);
+	DrawMouse(100 + 24.00f, 830 + 00.00f, white, gray);
 
 	DrawText("Move", 170, 770, 20, white);
 	DrawText("Aim / Shoot", 170, 840, 20, white);
@@ -2471,6 +2468,7 @@ GameState MainMenu_Update(void)
 }
 void MainMenu_Draw(void)
 {
+	SetupScreenCoordinateDrawing();
 	DoScreenShake();
 
 	const float maxExtension = 60;
@@ -3034,6 +3032,92 @@ void Restarting_Draw(void)
 	DrawShutter(Clamp(t, 0, 1), Grayscale(0.1f), Grayscale(0.3f), 10);
 }
 
+// *---=========---*
+// |/   Credits   \|
+// *---=========---*
+
+#define CREDITS_LENGTH 39.0f
+
+float creditsTime;
+int creditsClickedCount;
+void Credits_Init(GameState oldState)
+{
+	creditsTime = 0;
+	if (oldState == GAME_STATE_LEVEL_TRANSITION)
+		StopSound(teleportSound);
+}
+GameState Credits_Update(void)
+{
+	creditsTime += DELTA_TIME;
+	if (creditsTime > CREDITS_LENGTH + 1)
+		return GAME_STATE_MAIN_MENU;
+
+	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+	{
+		++creditsClickedCount;
+		if (creditsClickedCount == 2)
+		{
+			creditsTime = CREDITS_LENGTH - 2;
+		}
+	}
+	return GAME_STATE_CREDITS;
+}
+void Credits_Draw(void)
+{
+	SetupScreenCoordinateDrawing();
+
+	const Color colors[] = {
+		SKYBLUE,
+		BLUE,
+		RGBA8(133, 127, 255, 255),
+	};
+
+	Random rand = SeedRandom(42);
+	float maxAlpha = 0.8f * Clamp((creditsTime - 1), 0, 1) * Clamp((CREDITS_LENGTH - creditsTime) / 2, 0, 1);
+	for (int i = 0; i < 400; ++i)
+	{
+		const float speed = 100;
+
+		float x = RandomFloat(&rand, 0, SCREEN_WIDTH);
+		float y = RandomFloat(&rand, -SCREEN_HEIGHT, +SCREEN_HEIGHT);
+		float d = RandomFloat(&rand, 1, 3);
+		x += 20 * sinf(RandomFloat(&rand, 0, 2 * PI) + creditsTime) / d;
+		y = WrapMinMax(y - creditsTime * speed / d, -SCREEN_HEIGHT, +SCREEN_HEIGHT);
+
+		Color color1 = ColorAlpha(colors[RandomInt(&rand, 0, COUNTOF(colors))], maxAlpha / (d));
+		Color color0 = ColorAlpha(color1, 0);
+		float size = 6 / d;
+		DrawRectangleV(Vec2(x, y), Vec2Broadcast(size), color1);
+	}
+
+	DrawPopupMessage(creditsTime - 4.0f, creditsTime - 9.0f, screenCenter.x, 100, "The end");
+	DrawPopupMessage(creditsTime - 6.0f, creditsTime - 10.0f, screenCenter.x, 180, "Thanks for playing!");
+
+	DrawPopupMessage(creditsTime - 8.0f, creditsTime - 16.0f, screenCenter.x, 400, "= Made by =");
+	DrawPopupMessage(creditsTime - 9.0f, creditsTime - 16.0f, screenCenter.x, 480, "Blat Blatnik - programming");
+	DrawPopupMessage(creditsTime - 10.0f, creditsTime - 16.0f, screenCenter.x, 560, "Olga Wazny - art");
+
+	int y = 60;
+	float t0 = 17.0f;
+	float t1 = 31.0f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "= Sound effects ="); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "EFlexMusic"); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "Profispiesser"); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "HughGuiney"); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "TROLlox_78"); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "FilmmakersManual"); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "ArrowheadProductions"); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "steaq"); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "krzysiunet"); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "DWOBoyle"); y += 80; t0 += 0.5f; t1 += 0.5f;
+
+	if (creditsClickedCount == 1)
+	{
+		DrawMouse(100 - 28.00f, 830 + 00.00f, WHITE, GRAY);
+		DrawText("Skip", 130, 840, 20, WHITE);
+	}
+}
+
 // *---==============---*
 // |/   Level Editor   \|
 // *---==============---*
@@ -3132,7 +3216,10 @@ GameState LevelEditor_Update(void)
 			if (numTilesX > 1)
 			{
 				for (int y = 0; y < numTilesY; ++y)
+				{
 					memmove(&tiles[y][0], &tiles[y][1], (numTilesX - 1) * sizeof tiles[0][0]);
+					memmove(&tileVariants[y][0], &tileVariants[y][1], (numTilesX - 1) * sizeof tileVariants[0][0]);
+				}
 				--numTilesX;
 				ShiftAllObjectsBy(-1, 0);
 				ShiftCamera(+1, 0);
@@ -3144,7 +3231,10 @@ GameState LevelEditor_Update(void)
 			{
 				int x = numTilesX++;
 				for (int y = 0; y < numTilesY; ++y)
+				{
 					tiles[y][x] = TILE_FLOOR;
+					tileVariants[y][x] = 0;
+				}
 			}
 		}
 	}
@@ -3162,7 +3252,9 @@ GameState LevelEditor_Update(void)
 				for (int y = 0; y < numTilesY; ++y)
 				{
 					memmove(&tiles[y][1], &tiles[y][0], numTilesX * sizeof tiles[0][0]);
+					memmove(&tileVariants[y][1], &tileVariants[y][0], numTilesX * sizeof tileVariants[0][0]);
 					tiles[y][0] = TILE_FLOOR;
+					tileVariants[y][0] = 0;
 				}
 				++numTilesX;
 				ShiftAllObjectsBy(+1, 0);
@@ -3177,7 +3269,10 @@ GameState LevelEditor_Update(void)
 			if (numTilesY > 1)
 			{
 				for (int y = 0; y < numTilesY - 1; ++y)
+				{
 					memcpy(tiles[y], tiles[y + 1], numTilesX * sizeof tiles[0][0]);
+					memcpy(tileVariants[y], tileVariants[y + 1], numTilesX * sizeof tileVariants[0][0]);
+				}
 				--numTilesY;
 				ShiftAllObjectsBy(0, -1);
 				ShiftCamera(0, +1);
@@ -3189,7 +3284,10 @@ GameState LevelEditor_Update(void)
 			{
 				int y = numTilesY++;
 				for (int x = 0; x < numTilesX; ++x)
+				{
 					tiles[y][x] = TILE_FLOOR;
+					tileVariants[y][x] = 0;
+				}
 			}
 		}
 	}
@@ -3205,9 +3303,15 @@ GameState LevelEditor_Update(void)
 			if (numTilesY < MAX_TILES_Y)
 			{
 				for (int y = numTilesY - 1; y >= 0; --y)
+				{
 					memcpy(tiles[y + 1], tiles[y], numTilesX * sizeof tiles[0][0]);
+					memcpy(tileVariants[y + 1], tileVariants[y], numTilesX * sizeof tileVariants[0][0]);
+				}
 				for (int x = 0; x < numTilesX; ++x)
+				{
 					tiles[0][x] = TILE_FLOOR;
+					tileVariants[0][x] = 0;
+				}
 				++numTilesY;
 				ShiftAllObjectsBy(0, +1);
 				ShiftCamera(0, -1);
@@ -3801,7 +3905,7 @@ void GameInit(void)
 	//@TODO: Check is this can work. Sometimes it causes weird flickering when drawing circles.
 	//SetConfigFlags(FLAG_MSAA_4X_HINT);
 	
-	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Snapper");
+	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pictomage");
 	SetTargetFPS(FPS);
 	InitAudioDevice();
 	rlDisableBackfaceCulling(); // It's a 2D game we don't need this..
@@ -3842,7 +3946,7 @@ void GameLoopOneIteration(void)
 		case GAME_STATE_GAME_OVER:        gameState = GameOver_Update();        break;
 		case GAME_STATE_LEVEL_TRANSITION: gameState = LevelTransition_Update(); break;
 		case GAME_STATE_LEVEL_EDITOR:     gameState = LevelEditor_Update();     break;
-		case GAME_STATE_CREDITS:          assert(false);                        break;
+		case GAME_STATE_CREDITS:          gameState = Credits_Update();         break;
 		case GAME_STATE_RESTARTING:       gameState = Restarting_Update();      break;
 	}
 
@@ -3857,7 +3961,7 @@ void GameLoopOneIteration(void)
 			case GAME_STATE_GAME_OVER:        GameOver_Init(oldState);        break;
 			case GAME_STATE_LEVEL_TRANSITION: LevelTransition_Init(oldState); break;
 			case GAME_STATE_LEVEL_EDITOR:     LevelEditor_Init(oldState);     break;
-			case GAME_STATE_CREDITS:          assert(false);                  break;
+			case GAME_STATE_CREDITS:          Credits_Init(oldState);         break;
 			case GAME_STATE_RESTARTING:       Restarting_Init(oldState);      break;
 		}
 	}
@@ -3874,7 +3978,7 @@ void GameLoopOneIteration(void)
 			case GAME_STATE_GAME_OVER:        GameOver_Draw();        break;
 			case GAME_STATE_LEVEL_TRANSITION: LevelTransition_Draw(); break;
 			case GAME_STATE_LEVEL_EDITOR:     LevelEditor_Draw();     break;
-			case GAME_STATE_CREDITS:          assert(false);          break;
+			case GAME_STATE_CREDITS:          Credits_Draw();         break;
 			case GAME_STATE_RESTARTING:       Restarting_Draw();      break;
 		}
 	}

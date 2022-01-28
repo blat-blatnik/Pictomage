@@ -470,11 +470,11 @@ bool TileIsPassable(Tile tile)
 {
 	switch (tile)
 	{
-		case TILE_NONE:
 		case TILE_FLOOR:
 			return true;
 		case TILE_WALL:
 		case TILE_ENTRANCE:
+		case TILE_NONE:
 		default:
 			return false;
 
@@ -831,7 +831,6 @@ void ExplodeBomb(int index)
 		Color color = LerpColor(BLACK, accent, RandomFloat(&rng, 0, 0.25f));
 		SpawnShard(bomb->pos, dir, size, color, 0.85f);
 	}
-
 	SpawnDecal(bomb->pos, Vec2Broadcast(4 * BOMB_RADIUS), 0);
 
 	PlaySound(explosionSound);
@@ -1615,31 +1614,39 @@ void UpdateBombs(void)
 		Bomb *b = &bombs[i];
 		if (b->wasFlung)
 		{
-			Vector2 vel = b->flungVel;
-			Vector2 expectedPos = Vector2Add(b->pos, Vector2Scale(vel, DELTA_TIME));
-
-			bool exploded = false;
-			b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
-			if (!Vector2Equal(b->pos, expectedPos))
-				exploded = true;
-
-			for (int j = 0; j < numTurrets; ++j)
-				if (CheckCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS))
-					exploded = true;
-			for (int j = 0; j < numBombs; ++j)
-				if (j != i)
-					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, bombs[j].pos, BOMB_RADIUS))
-						exploded = true;
-			for (int j = 0; j < numGlassBoxes; ++j)
-				if (CheckCollisionCircleRec(b->pos, BOMB_RADIUS, glassBoxes[j].rect))
-					exploded = true;
-			if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
-				exploded = true;
-
-			if (exploded)
+			// Just like bullets, we need to break up this update otherwise the bomb
+			// could phase through 1 tile thick walls.
+			// @SPEED: Maybe 2 or 3 iteration is enough?
+			const int numIters = 4;
+			for (int iter = 0; iter < numIters; ++iter)
 			{
-				ExplodeBomb(i);
-				--i;
+				Vector2 vel = Vector2Scale(b->flungVel, 1.0f / numIters);
+				Vector2 expectedPos = Vector2Add(b->pos, Vector2Scale(vel, DELTA_TIME));
+
+				bool exploded = false;
+				b->pos = ResolveCollisionsCircleRoom(b->pos, BOMB_RADIUS, vel);
+				if (!Vector2Equal(b->pos, expectedPos))
+					exploded = true;
+
+				for (int j = 0; j < numTurrets; ++j)
+					if (CheckCollisionCircles(b->pos, BOMB_RADIUS, turrets[j].pos, TURRET_RADIUS))
+						exploded = true;
+				for (int j = 0; j < numBombs; ++j)
+					if (j != i)
+						if (CheckCollisionCircles(b->pos, BOMB_RADIUS, bombs[j].pos, BOMB_RADIUS))
+							exploded = true;
+				for (int j = 0; j < numGlassBoxes; ++j)
+					if (CheckCollisionCircleRec(b->pos, BOMB_RADIUS, glassBoxes[j].rect))
+						exploded = true;
+				if (CheckCollisionCircles(b->pos, BOMB_RADIUS, player.pos, PLAYER_RADIUS))
+					exploded = true;
+
+				if (exploded)
+				{
+					ExplodeBomb(i);
+					--i;
+					break;
+				}
 			}
 		}
 		else
@@ -1724,6 +1731,20 @@ void UpdateExplosions(void)
 					Turret *t = &turrets[j];
 					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, e->pos, r))
 					{
+						int debrisCount = RandomInt(&rng, 40, 80);
+						for (int k = 0; k < debrisCount; ++k)
+						{
+							float speed = RandomFloat(&rng, 15, 25);
+							Vector2 dir = RandomVector(&rng, speed);
+							Vector2 size = {
+								RandomFloat(&rng, 0.1f, 0.2f),
+								RandomFloat(&rng, 0.1f, 0.2f),
+							};
+
+							Color accent = RandomProbability(&rng, 0.5f) ? RED : GRAY;
+							Color color = LerpColor(BLACK, accent, RandomFloat(&rng, 0, 0.25f));
+							SpawnShard(t->pos, dir, size, color, 0.85f);
+						}
 						SpawnDecal(t->pos, Vec2Broadcast(4 * TURRET_RADIUS), 0);
 						DespawnTurret(j);
 						--j;
@@ -2606,6 +2627,7 @@ GameState FadeIn_Update(void)
 }
 void FadeIn_Draw(void)
 {
+	//@TODO: Probably customize this.
 	Playing_Draw();
 
 	float t = 1 - Smoothstep(0, FADE_IN_DURATION, fadeInTime);

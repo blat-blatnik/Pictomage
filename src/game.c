@@ -52,7 +52,7 @@
 
 typedef enum GameState
 {
-	GAME_STATE_START_MENU,
+	GAME_STATE_MAIN_MENU,
 	GAME_STATE_PLAYING,
 	GAME_STATE_LEVEL_EDITOR,
 	GAME_STATE_PAUSED,
@@ -237,7 +237,7 @@ typedef struct Shard
 
 typedef struct Decal
 {
-	Texture *texture;
+	Texture *texture; // @TODO: This is unused right now.
 	Vector2 pos;
 	Vector2 size;
 	float rotation;
@@ -316,12 +316,12 @@ void ScreenShake(float intensity, float duration, float damping)
 // *---=========---*
 
 bool godMode = true; //@TODO: Disable this for release.
-bool devMode = true; //@TODO: Disable this for release.
+bool devMode = false; //@TODO: Disable this for release.
 double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
-Color evenTileTint0; // These are currently unused.
+Color evenTileTint0; //@TODO: These are currently unused.
 Color evenTileTint1;
 Color oddTileTint0;
 Color oddTileTint1;
@@ -331,7 +331,7 @@ int numTilesX = MAX_TILES_X;
 int numTilesY = MAX_TILES_Y;
 Tile tiles[MAX_TILES_Y][MAX_TILES_X];
 u8 tileVariants[MAX_TILES_X][MAX_TILES_Y];
-GameState gameState = GAME_STATE_START_MENU;
+GameState gameState = GAME_STATE_MAIN_MENU;
 Random rng;
 Player player;
 int numBullets;
@@ -397,6 +397,7 @@ void StopAllLevelSounds(void)
 
 Texture missingTexture;
 Texture playerTexture;
+Texture creditsTexture;
 TextureVariants tileTextureVariants[TILE_ENUM_COUNT];
 TextureVariants turretBaseVariants;
 TextureVariants turretTopVariants;
@@ -434,6 +435,7 @@ void LoadAllTextures(void)
 	LoadTextureVariants(&destroyedTurretTopVariants, "turret-top-destroyed");
 
 	playerTexture = LoadTexture("res/player.png");
+	creditsTexture = LoadTexture("res/credits.png");
 }
 
 // *---=======---*
@@ -2069,7 +2071,7 @@ void DrawExplosions(void)
 		DrawCircleV(e->pos, r, ColorAlpha(RED, 0.5f));
 	}
 }
-void DrawShutter(float t) // t = 0 (fully open), t = 1 (fully closed)
+void DrawShutter(float t, Color innerColor, Color outerColor, float edgeThickness) // t = 0 (fully open), t = 1 (fully closed)
 {
 	float angle = 0;
 	for (int i = 0; i < 6; ++i)
@@ -2088,7 +2090,7 @@ void DrawShutter(float t) // t = 0 (fully open), t = 1 (fully closed)
 		for (int j = 0; j < 3; ++j)
 			v[j] = Vector2Add(v[j], Vector2Scale(direction, (1 - t) * size));
 
-		DrawTriangle(v[0], v[1], v[2], Grayscale(0.3f));
+		DrawTriangle(v[0], v[1], v[2], outerColor);
 
 		Vector2 center = Vector2Zero();
 		for (int j = 0; j < 3; ++j)
@@ -2098,10 +2100,10 @@ void DrawShutter(float t) // t = 0 (fully open), t = 1 (fully closed)
 		for (int j = 0; j < 3; ++j)
 		{
 			Vector2 toCenter = Vector2Normalize(Vector2Subtract(center, v[j]));
-			v[j] = Vector2Add(v[j], Vector2Scale(toCenter, 10));
+			v[j] = Vector2Add(v[j], Vector2Scale(toCenter, edgeThickness));
 		}
 
-		DrawTriangle(v[0], v[1], v[2], Grayscale(0.1f));
+		DrawTriangle(v[0], v[1], v[2], innerColor);
 		angle = angle2;
 	}
 }
@@ -2272,7 +2274,7 @@ void DrawDecals(void)
 			float angle = angles[j];
 			float s = sinf(angle);
 			float c = cosf(angle);
-			float r = RandomFloat(&rand, 0.6f, 1.4f);
+			float r = RandomFloat(&rand, 0.9f, 1.1f);
 			points[j].x = center.x + (c * r) * ew;
 			points[j].y = center.y + (s * r) * eh;
 		}
@@ -2291,6 +2293,149 @@ void DrawDecals(void)
 		}
 		rlEnd();
 	}
+}
+
+// *---===========---*
+// |/   Main Menu   \|
+// *---===========---*
+
+#define TITLE_DROP_DURATION 2.0f
+
+float mainMenuTime;
+float mainMenuFollowerAngle = PI;
+float mainMenuFollowerExtension = 0;
+void MainMenu_Init(GameState oldState)
+{
+	mainMenuTime = 0;
+}
+GameState MainMenu_Update(void)
+{
+	mainMenuTime += DELTA_TIME;
+
+	bool anyKeyPressed =
+		IsKeyPressed(KEY_SPACE) ||
+		IsKeyPressed(KEY_ENTER) ||
+		IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
+		IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) ||
+		false;
+
+	if (anyKeyPressed)
+	{
+		if (mainMenuTime < TITLE_DROP_DURATION)
+			mainMenuTime = TITLE_DROP_DURATION;
+		else
+		{
+			LoadRoom(&currentRoom, "room0");
+			CopyRoomToGame(&currentRoom);
+			return GAME_STATE_PLAYING;
+		}
+	}
+
+	return GAME_STATE_MAIN_MENU;
+}
+void MainMenu_Draw(void)
+{
+	const float maxExtension = 60;
+	const float ringTime = 1;
+	const float shutterTime = 1;
+	float time = mainMenuTime;
+
+	if (time >= ringTime + shutterTime / 2)
+	{
+		DrawTextCentered("Pictomage", screenCenter.x, screenCenter.y - 100, 50, WHITE);
+		float timeCos = (1 + cosf(10 * GetTime())) / 2;
+		DrawTextCentered("press any key", screenCenter.x, screenCenter.y + 100, 40, Grayscale(Lerp(0.5f, 1.0f, timeCos)));
+		
+		DrawTriangle(Vec2(325, 340), Vec2(325, 360), Vec2(265, 380), WHITE);
+		DrawTriangle(Vec2(575, 340), Vec2(575, 360), Vec2(635, 380), WHITE);
+	}
+
+	float startAngle = 360;
+	float endAngle = 0;
+	if (time < ringTime)
+	{
+		float t = Smoothstep(0, ringTime, time);
+		endAngle = 180 - t * 180;
+		startAngle = 360 - endAngle;
+	}
+
+	if (time >= ringTime && time < ringTime + shutterTime)
+	{
+		float shutterT = (time - ringTime) / shutterTime;
+		float t = 0.5f + (1 - fabsf(2 * (shutterT - 0.5f))) / 2;
+		DrawShutter(t, Grayscale(0.05f), Grayscale(0.1f), 5);
+	}
+
+	DrawRing(screenCenter, 230, 900, 0, 360, 300, BLACK);
+
+	float followerAngle = WrapMinMax(mainMenuFollowerAngle * RAD2DEG, 0, 360);
+	float followerExtent = Remap(mainMenuFollowerExtension, 0, maxExtension, 20, 16.5f);
+	float followerMin = followerAngle - followerExtent;
+	float followerMax = followerAngle + followerExtent;
+	if (time < ringTime)
+	{
+		followerMin = Clamp(followerMin, endAngle, startAngle);
+		followerMax = Clamp(followerMax, endAngle, startAngle);
+	}
+	DrawRing(screenCenter, 262, 280 + mainMenuFollowerExtension, followerMin, followerMax, 20, Grayscale(0.1f));
+
+	if (time > ringTime / 2)
+	{
+		Vector2 mousePos = GetMousePosition();
+		float mouseAngle = PI / 2 - AngleBetween(screenCenter, mousePos);
+		float dAngle = WrapMinMax(mouseAngle - mainMenuFollowerAngle, -PI, +PI);
+		mainMenuFollowerAngle += 0.8f * Clamp(dAngle, -PI / 4, +PI / 4) * DELTA_TIME;
+		mainMenuFollowerAngle = WrapMinMax(mainMenuFollowerAngle, -PI, +PI);
+
+		float s = sinf(PI / 2 - mainMenuFollowerAngle);
+		float c = cosf(PI / 2 - mainMenuFollowerAngle);
+		Vector2 center = {
+			screenCenter.x + c * 320,
+			screenCenter.y + s * 320
+		};
+
+		if (CheckCollisionPointCircle(mousePos, center, 80))
+			mainMenuFollowerExtension += 100 * DELTA_TIME;
+		else
+			mainMenuFollowerExtension -= 100 * DELTA_TIME;
+		mainMenuFollowerExtension = Clamp(mainMenuFollowerExtension, 0, maxExtension);
+	}
+
+	rlDrawRenderBatchActive();
+	rlBegin(RL_QUADS);
+	{
+		float text = mainMenuFollowerExtension / maxExtension;
+		float cx = screenCenter.x;
+		float cy = screenCenter.y;
+		float ew = creditsTexture.width / 2.0f;
+		float eh = text * creditsTexture.height / 2.0f;
+		Vector2 v0 = { 230 + mainMenuFollowerExtension - eh, -ew };
+		Vector2 v1 = { 230 + mainMenuFollowerExtension - eh, +ew };
+		Vector2 v2 = { 230 + mainMenuFollowerExtension + eh, +ew };
+		Vector2 v3 = { 230 + mainMenuFollowerExtension + eh, -ew };
+		Vector2 v[4] = { v0, v1, v2, v3 };
+		float s = sinf(PI / 2 - mainMenuFollowerAngle);
+		float c = cosf(PI / 2 - mainMenuFollowerAngle);
+		for (int i = 0; i < 4; ++i)
+		{
+			float rx = v[i].x * c - v[i].y * s;
+			float ry = v[i].x * s + v[i].y * c;
+			v[i].x = cx + rx;
+			v[i].y = cy + ry;
+		}
+		rlSetTexture(creditsTexture.id);
+		rlColor(WHITE);
+		rlTexCoord2f(0, text); rlVertex2fv(v[0]);
+		rlTexCoord2f(1, text); rlVertex2fv(v[1]);
+		rlTexCoord2f(1, 0); rlVertex2fv(v[2]);
+		rlTexCoord2f(0, 0); rlVertex2fv(v[3]);
+	}
+	rlEnd();
+	rlDrawRenderBatchActive();
+
+	DrawRing(screenCenter, 230, 260, startAngle, endAngle, 300, Grayscale(0.2f));
+	DrawRing(screenCenter, 228, 232, startAngle, endAngle, 300, Grayscale(0.15f));
+	DrawRing(screenCenter, 258, 262, startAngle, endAngle, 300, Grayscale(0.15f));
 }
 
 // *---=========---*
@@ -2497,7 +2642,7 @@ void Restarting_Draw(void)
 	Playing_Draw();
 	float time = (float)((timeAtStartOfFrame - restartingStartTime) / (0.5f * RESTARTING_DURATION));
 	float t = 1 - fabsf(time - 1);
-	DrawShutter(Clamp(t, 0, 1));
+	DrawShutter(Clamp(t, 0, 1), Grayscale(0.1f), Grayscale(0.3f), 10);
 }
 
 // *---==============---*
@@ -3285,7 +3430,7 @@ void GameLoopOneIteration(void)
 	GameState oldState = gameState;
 	switch (gameState)
 	{
-		case GAME_STATE_START_MENU:   assert(false);                    break;
+		case GAME_STATE_MAIN_MENU:    gameState = MainMenu_Update();    break;
 		case GAME_STATE_PLAYING:      gameState = Playing_Update();     break;
 		case GAME_STATE_PAUSED:       gameState = Paused_Update();      break;
 		case GAME_STATE_GAME_OVER:    gameState = GameOver_Update();    break;
@@ -3299,7 +3444,7 @@ void GameLoopOneIteration(void)
 	{
 		switch (gameState)
 		{
-			case GAME_STATE_START_MENU:   assert(false);              break;
+			case GAME_STATE_MAIN_MENU:	  MainMenu_Init(oldState);    break;
 			case GAME_STATE_PLAYING:      Playing_Init(oldState);     break;
 			case GAME_STATE_PAUSED:       Paused_Init(oldState);      break;
 			case GAME_STATE_GAME_OVER:    GameOver_Init(oldState);    break;
@@ -3315,7 +3460,7 @@ void GameLoopOneIteration(void)
 	{
 		switch (gameState)
 		{
-			case GAME_STATE_START_MENU:   assert(false);      break;
+			case GAME_STATE_MAIN_MENU:    MainMenu_Draw();    break;
 			case GAME_STATE_PLAYING:      Playing_Draw();     break;
 			case GAME_STATE_PAUSED:       Paused_Draw();      break;
 			case GAME_STATE_GAME_OVER:    GameOver_Draw();    break;

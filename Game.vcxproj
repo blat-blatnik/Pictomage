@@ -161,6 +161,7 @@
   <ItemGroup>
     <Image Include="res\bomb0.png" />
     <Image Include="res\bomb1.png" />
+    <Image Include="res\credits.png" />
     <Image Include="res\entrance0.png" />
     <Image Include="res\exit-closed0.png" />
     <Image Include="res\exit-open0.png" />

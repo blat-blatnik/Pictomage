@@ -2408,11 +2408,11 @@ void MainMenu_Draw(void)
 		float cx = screenCenter.x;
 		float cy = screenCenter.y;
 		float ew = creditsTexture.width / 2.0f;
-		float eh = text * creditsTexture.height / 2.0f;
-		Vector2 v0 = { 230 + mainMenuFollowerExtension - eh, -ew };
-		Vector2 v1 = { 230 + mainMenuFollowerExtension - eh, +ew };
-		Vector2 v2 = { 230 + mainMenuFollowerExtension + eh, +ew };
-		Vector2 v3 = { 230 + mainMenuFollowerExtension + eh, -ew };
+		float eh = creditsTexture.height / 2.0f;
+		Vector2 v0 = { 260 + 0, -ew };
+		Vector2 v1 = { 260 + 0, +ew };
+		Vector2 v2 = { 260 + text * 2 * eh, +ew };
+		Vector2 v3 = { 260 + text * 2 * eh, -ew };
 		Vector2 v[4] = { v0, v1, v2, v3 };
 		float s = sinf(PI / 2 - mainMenuFollowerAngle);
 		float c = cosf(PI / 2 - mainMenuFollowerAngle);

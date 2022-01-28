@@ -2267,8 +2267,8 @@ void DrawShards(void)
 		float h = shard.size.y;
 		float cx = shard.pos.x + 0.5f * w;
 		float cy = shard.pos.y + 0.5f * h;
-		int tx = (int)cx;
-		int ty = (int)cy;
+		int tx = (int)floorf(cx); // Need floor otherwise we round to 0, and -0.5 becomes 0.
+		int ty = (int)floorf(cy);
 		if (tx >= 0 && tx < numTilesX && ty >= 0 && ty < numTilesY)
 		{
 			Tile tile = tiles[ty][tx];
@@ -2399,6 +2399,13 @@ void MainMenu_Draw(void)
 
 	if (time >= ringTime + shutterTime / 2)
 	{
+		//@TODO: Maybe remove these?
+		DrawCircle(570, 380, 60, ColorAlpha(SKYBLUE, 0.3f));
+		DrawCircle(475, 440, 25, ColorAlpha(BLUE, 0.3f));
+	}
+
+	if (time >= ringTime + shutterTime / 2)
+	{
 		DrawTextCentered("Pictomage", screenCenter.x, screenCenter.y - 100, 50, WHITE);
 		float timeCos = (1 + cosf(10 * GetTime())) / 2;
 		DrawTextCentered("press any key", screenCenter.x, screenCenter.y + 100, 40, Grayscale(Lerp(0.5f, 1.0f, timeCos)));
@@ -2415,7 +2422,7 @@ void MainMenu_Draw(void)
 		endAngle = 180 - t * 180;
 		startAngle = 360 - endAngle;
 	}
-
+	
 	if (time >= ringTime && time < ringTime + shutterTime)
 	{
 		float shutterT = (time - ringTime) / shutterTime;
@@ -2503,8 +2510,12 @@ void MainMenu_Draw(void)
 		{
 			float t0 = mainMenuFadeTime / flash0Duration;
 			float t = powf(sinf(PI * t0), 16);
-			Color color = FloatRGBA(1, 1, 1, t);
-			DrawRectangleRounded(Rect(350, 50, 200, 100), 0.5f, 20, color);
+			
+			Color color0 = FloatRGBA(0.2f, 0.2f, 0.2f, t);
+			Color color1 = FloatRGBA(1, 1, 1, t);
+			DrawRectangleRounded(Rect(340, 40, 220, 120), 0.5f, 20, color0);
+			DrawRectangleRounded(Rect(350, 50, 200, 100), 0.5f, 20, color1);
+
 			if (t0 > 0.6f && !mainMenuPlayedShutterEcho)
 			{
 				PlaySound(shutterEchoSound);

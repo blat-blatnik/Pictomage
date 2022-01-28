@@ -574,6 +574,20 @@ RayCollision GetProjectileCollisionWithRect(Vector2 pos, Vector2 vel, Rectangle 
 
 	return GetRayCollisionBox(ray, box);
 }
+bool _fixed_CheckCollisionCircleRec(Vector2 center, float radius, Rectangle rect)
+{
+	Vector2 nearestPoint;
+	nearestPoint.x = Clamp(center.x, rect.x, rect.x + rect.width);
+	nearestPoint.y = Clamp(center.y, rect.y, rect.y + rect.height);
+
+	Vector2 toNearest = Vector2Subtract(nearestPoint, center);
+	float dist2 = Vector2LengthSqr(toNearest);
+	return dist2 < radius * radius;
+	//if (overlap > 0 && len > 0)
+	//	return Vector2Subtract(center, Vector2Scale(toNearest, overlap / len));
+	//else
+	//	return center;
+}
 
 void GuiText(Rectangle rect, FORMAT_STRING format, ...)
 {

@@ -318,6 +318,7 @@ void ScreenShake(float intensity, float duration, float damping)
 
 bool godMode = true; //@TODO: Disable this for release.
 bool devMode = true; //@TODO: Disable this for release.
+const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
@@ -475,19 +476,14 @@ bool TileIsPassable(Tile tile)
 {
 	switch (tile)
 	{
+		case TILE_EXIT:
+		case TILE_ENTRANCE:
 		case TILE_FLOOR:
 			return true;
 		case TILE_WALL:
-		case TILE_ENTRANCE:
 		case TILE_NONE:
 		default:
 			return false;
-
-		case TILE_EXIT:
-			if (NumRemainingEnemies() > 0)
-				return false;
-			else
-				return true;
 	}
 }
 bool TileIsOpaque(Tile tile)
@@ -495,18 +491,13 @@ bool TileIsOpaque(Tile tile)
 	switch (tile)
 	{
 		case TILE_WALL:
+		default:
 			return true;
 		case TILE_NONE:
 		case TILE_FLOOR:
 		case TILE_ENTRANCE:
-		default:
-			return false;
-
 		case TILE_EXIT:
-			if (NumRemainingEnemies() > 0)
-				return false;
-			else
-				return true;
+			return false;
 	}
 }
 Tile TileAt(int x, int y)
@@ -1505,9 +1496,19 @@ void UpdateTurrets(void)
 	for (int i = 0; i < numTurrets; ++i)
 	{
 		Turret *t = &turrets[i];		
-		Vector2 dpos = Vector2Scale(t->flingVelocity, DELTA_TIME);
-		if (fabsf(dpos.x) > 0.00001f || fabsf(dpos.y) > 0.00001f)
+		if (Vector2LengthSqr(t->flingVelocity) > 1e-9f)
 		{
+			Vector2 newPos = Vector2Add(t->pos, Vector2Scale(t->flingVelocity, DELTA_TIME));
+			for (int j = 0; j < numGlassBoxes; ++j)
+			{
+				GlassBox *box = &glassBoxes[j];
+				if (CheckCollisionCircleRec(newPos, TURRET_RADIUS, box->rect))
+				{
+					ShatterGlassBox(j, t->pos, t->flingVelocity, 1, 1.0f);
+					--j;
+				}
+			}
+
 			t->pos = ResolveCollisionsCircleRoom(t->pos, TURRET_RADIUS, t->flingVelocity);
 			for (int j = 0; j < numTurrets; ++j)
 				if (i != j)
@@ -2603,8 +2604,8 @@ void Playing_Draw(void)
 		if (screenShakeDuration > 0)
 		{
 			Vector2 cameraOffset = RandomVector(&rng, screenShakeIntensity);
-			screenShakeDuration -= GetFrameTime();
-			screenShakeIntensity -= GetFrameTime() * screenShakeDamping;
+			screenShakeDuration -= DELTA_TIME;
+			screenShakeIntensity -= DELTA_TIME * screenShakeDamping;
 			rlTranslatef(cameraOffset.x, cameraOffset.y, 0);
 		}
 
@@ -3527,7 +3528,9 @@ void LevelEditor_Draw(void)
 
 void GameInit(void)
 {
+	//@TODO: Check is this can work. Sometimes it causes weird flickering when drawing circles.
 	//SetConfigFlags(FLAG_MSAA_4X_HINT);
+	
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Snapper");
 	SetTargetFPS(FPS);
 	InitAudioDevice();
@@ -3542,7 +3545,7 @@ void GameInit(void)
 	if (devMode)
 	{
 		gameState = GAME_STATE_PLAYING;
-		LoadRoom(&currentRoom, "room0");
+		LoadRoom(&currentRoom, devModeStartRoom);
 		CopyRoomToGame(&currentRoom);
 		Playing_Init(GAME_STATE_PLAYING);
 	}

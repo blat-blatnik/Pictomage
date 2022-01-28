@@ -129,6 +129,8 @@ bool CheckCollisionLineCircle(Vector2 p0, Vector2 p1, Vector2 center, float radi
 Vector2 ResolveCollisionCircleRec(Vector2 center, float radius, Rectangle rect);
 Vector2 ResolveCollisionCircles(Vector2 center, float radius, Vector2 obstacleCenter, float obstacleRadius);
 RayCollision GetProjectileCollisionWithRect(Vector2 pos, Vector2 vel, Rectangle rect);
+bool _fixed_CheckCollisionCircleRec(Vector2 center, float radius, Rectangle rect);
+#define CheckCollisionCircleRec _fixed_CheckCollisionCircleRec
 
 void GuiText(Rectangle rect, FORMAT_STRING format, ...);
 

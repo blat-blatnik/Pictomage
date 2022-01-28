@@ -611,6 +611,12 @@ void DrawTextCentered(const char *text, float cx, float cy, float fontSize, Colo
 	Vector2 size = MeasureTextEx(font, text, fontSize, 1);
 	DrawTextEx(font, text, Vec2(cx - 0.5f * size.x, cy - 0.5f * size.y), fontSize, 1, color);
 }
+void DrawTextRightAligned(const char *text, float x, float y, float fontSize, Color color)
+{
+	Font font = GetFontDefault();
+	Vector2 size = MeasureTextEx(font, text, fontSize, 1);
+	DrawTextEx(font, text, Vec2(x - size.x, y), fontSize, 1, color);
+}
 void DrawTextFormat(float x, float y, float fontSize, Color color, FORMAT_STRING format, ...)
 {
 	va_list args;

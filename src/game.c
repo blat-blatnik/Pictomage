@@ -441,7 +441,7 @@ void LoadAllTextures(void)
 	LoadTextureVariants(&destroyedTurretBaseVariants, "turret-base-destroyed");
 	LoadTextureVariants(&destroyedTurretTopVariants, "turret-top-destroyed");
 
-	playerTexture = LoadTexture("res/player.png");
+	playerTexture = LoadTexture("res/player-evil.png");
 	creditsTexture = LoadTexture("res/credits.png");
 }
 
@@ -2332,6 +2332,69 @@ void DrawDecals(void)
 // |/   Main Menu   \|
 // *---===========---*
 
+void DrawControls(float alpha, float fillAlpha)
+{
+	const Color white = ColorAlpha(WHITE, alpha);
+
+	Rectangle rW = Rect(100 + 00.00f, 750 + 00.00f, 25, 25);
+	Rectangle rA = Rect(100 - 28.00f, 750 + 28.00f, 25, 25);
+	Rectangle rS = Rect(100 + 00.00f, 750 + 28.00f, 25, 25);
+	Rectangle rD = Rect(100 + 28.00f, 750 + 28.00f, 25, 25);
+	DrawRectangleLinesEx(rW, 2, white);
+	DrawRectangleLinesEx(rA, 2, white);
+	DrawRectangleLinesEx(rS, 2, white);
+	DrawRectangleLinesEx(rD, 2, white);
+	Vector2 cW = RectangleCenter(rW);
+	Vector2 cA = RectangleCenter(rA);
+	Vector2 cS = RectangleCenter(rS);
+	Vector2 cD = RectangleCenter(rD);
+	DrawTextCentered("W", cW.x, cW.y, 12, white);
+	DrawTextCentered("A", cA.x, cA.y, 12, white);
+	DrawTextCentered("S", cS.x, cS.y, 12, white);
+	DrawTextCentered("D", cD.x, cD.y, 12, white);
+
+	Rectangle rMM = Rect(100 - 28.00f, 830 + 00.00f, 30, 40);
+	DrawRectangleRoundedLines(rMM, 0.3f, 8, 2, white);
+	DrawLineEx(Vec2(rMM.x, rMM.y + 20), Vec2(rMM.x + rMM.width, rMM.y + 20), 2, white);
+	DrawLineEx(Vec2(rMM.x + rMM.width / 2, rMM.y), Vec2(rMM.x + rMM.width / 2, rMM.y + 20), 2, white);
+	DrawRectangleRounded(Rect(rMM.x + rMM.width / 2 - 2, rMM.y + 5, 4, 10), 0.3f, 8, white);
+
+	Rectangle rMC = Rect(100 + 24.00f, 830 + 00.00f, 30, 40);
+	{
+		// We need to make this one transparent when the main menu flash happens.
+		DrawRectangle(rMC.x, rMC.y, rMC.width / 2, rMC.height / 2, ColorAlpha(GRAY, alpha * fillAlpha));
+	}
+	DrawRectangleRoundedLines(rMC, 0.3f, 8, 2, white);
+	DrawLineEx(Vec2(rMC.x, rMC.y + 20), Vec2(rMC.x + rMC.width, rMC.y + 20), 2, white);
+	DrawLineEx(Vec2(rMC.x + rMC.width / 2, rMC.y), Vec2(rMC.x + rMC.width / 2, rMC.y + 20), 2, white);
+	DrawRectangleRounded(Rect(rMC.x + rMC.width / 2 - 2, rMC.y + 5, 4, 10), 0.3f, 8, white);
+
+	DrawText("Move", 170, 770, 20, white);
+	DrawText("Aim / Shoot", 170, 840, 20, white);
+
+	//@TODO: Maybe we don't need these?
+	const int iconMove = 67; // RICON_TARGET_MOVE_FILL
+	const int iconSnap = 184; // RICON_PHOTO_CAMERA_FLASH
+	const int iconRestart = 72; // RICON_UNDO_FILL
+	const int iconEditor = 166; // RICON_CUBE_FACE_BOTTOM
+	GuiDrawIcon(iconMove, 225, 760, 2, white);
+	GuiDrawIcon(iconSnap, 300, 830, 2, white);
+	GuiDrawIcon(iconRestart, 620, 760, 2, white);
+	GuiDrawIcon(iconEditor, 580, 830, 2, white);
+
+	Rectangle rR = Rect(750 + 00.00f, 765 + 00.00f, 25, 25);
+	Rectangle rT = Rect(750 + 00.00f, 765 + 70.00f, 25, 25);
+	DrawRectangleLinesEx(rR, 2, white);
+	DrawRectangleLinesEx(rT, 2, white);
+	Vector2 cR = RectangleCenter(rR);
+	Vector2 cT = RectangleCenter(rT);
+	DrawTextCentered("R", cR.x, cR.y, 12, white);
+	DrawTextCentered("`", cT.x, cT.y, 12, white);
+
+	DrawTextRightAligned("Restart", 730, 770, 20, white);
+	DrawTextRightAligned("Level editor", 730, 840, 20, white);
+}
+
 #define TITLE_DROP_DURATION 2.0f
 #define MAIN_MENU_FADE_DURATION 2.0f
 
@@ -2433,9 +2496,9 @@ void MainMenu_Draw(void)
 		startAngle = 360 - endAngle;
 	}
 	
+	float shutterT = Clamp((time - ringTime) / shutterTime, 0, 1);
 	if (time >= ringTime && time < ringTime + shutterTime)
 	{
-		float shutterT = (time - ringTime) / shutterTime;
 		float t = 0.5f + (1 - fabsf(2 * (shutterT - 0.5f))) / 2;
 		DrawShutter(t, Grayscale(0.05f), Grayscale(0.1f), 5);
 	}
@@ -2511,11 +2574,10 @@ void MainMenu_Draw(void)
 	DrawRing(screenCenter, 228, 232, startAngle, endAngle, 300, Grayscale(0.15f));
 	DrawRing(screenCenter, 258, 262, startAngle, endAngle, 300, Grayscale(0.15f));
 
+	const float flash0Duration = MAIN_MENU_FADE_DURATION / 2;
+	const float flash1Duration = MAIN_MENU_FADE_DURATION - flash0Duration;
 	if (mainMenuFadeTime >= 0)
 	{
-		float flash0Duration = MAIN_MENU_FADE_DURATION / 2;
-		float flash1Duration = MAIN_MENU_FADE_DURATION - flash0Duration;
-
 		if (mainMenuFadeTime < flash0Duration)
 		{
 			float t0 = mainMenuFadeTime / flash0Duration;
@@ -2546,46 +2608,11 @@ void MainMenu_Draw(void)
 		}
 	}
 
-	// Controls
-	{
-		Rectangle rW = Rect(100 + 00.00f, 750 + 00.00f, 25, 25);
-		Rectangle rA = Rect(100 - 28.00f, 750 + 28.00f, 25, 25);
-		Rectangle rS = Rect(100 + 00.00f, 750 + 28.00f, 25, 25);
-		Rectangle rD = Rect(100 + 28.00f, 750 + 28.00f, 25, 25);
-		DrawRectangleLinesEx(rW, 2, WHITE);
-		DrawRectangleLinesEx(rA, 2, WHITE);
-		DrawRectangleLinesEx(rS, 2, WHITE);
-		DrawRectangleLinesEx(rD, 2, WHITE);
-		Vector2 cW = RectangleCenter(rW);
-		Vector2 cA = RectangleCenter(rA);
-		Vector2 cS = RectangleCenter(rS);
-		Vector2 cD = RectangleCenter(rD);
-		DrawTextCentered("W", cW.x, cW.y, 12, WHITE);
-		DrawTextCentered("A", cA.x, cA.y, 12, WHITE);
-		DrawTextCentered("S", cS.x, cS.y, 12, WHITE);
-		DrawTextCentered("D", cD.x, cD.y, 12, WHITE);
-
-		Rectangle rMM = Rect(100 - 28.00f, 830 + 00.00f, 30, 40);
-		DrawRectangleRoundedLines(rMM, 0.3f, 8, 2, WHITE);
-		DrawLineEx(Vec2(rMM.x, rMM.y + 20), Vec2(rMM.x + rMM.width, rMM.y + 20), 2, WHITE);
-		DrawLineEx(Vec2(rMM.x + rMM.width / 2, rMM.y), Vec2(rMM.x + rMM.width / 2, rMM.y + 20), 2, WHITE);
-		DrawRectangleRounded(Rect(rMM.x + rMM.width / 2 - 2, rMM.y + 5, 4, 10), 0.3f, 8, WHITE);
-
-		Rectangle rMC = Rect(100 + 24.00f, 830 + 00.00f, 30, 40);
-		DrawRectangle(rMC.x, rMC.y, rMC.width / 2, rMC.height / 2, GRAY);
-		DrawRectangleRoundedLines(rMC, 0.3f, 8, 2, WHITE);
-		DrawLineEx(Vec2(rMC.x, rMC.y + 20), Vec2(rMC.x + rMC.width, rMC.y + 20), 2, WHITE);
-		DrawLineEx(Vec2(rMC.x + rMC.width / 2, rMC.y), Vec2(rMC.x + rMC.width / 2, rMC.y + 20), 2, WHITE);
-		DrawRectangleRounded(Rect(rMC.x + rMC.width / 2 - 2, rMC.y + 5, 4, 10), 0.3f, 8, WHITE);
-
-		DrawText("Move", 170, 770, 20, WHITE);
-		DrawText("Aim / Capture", 170, 840, 20, WHITE);
-
-		const int iconMove = 67; // RICON_TARGET_MOVE_FILL
-		const int iconSnap = 184; // RICON_PHOTO_CAMERA_FLASH
-		//GuiDrawIcon(iconMove, 200, 750, 2, WHITE);
-		//GuiDrawIcon(iconSnap, 200, 800, 2, WHITE);
-	}
+	float baseAlpha = Clamp(Remap(shutterT, 0.5f, 1, 0, 1), 0, 1);
+	float fillAlpha = 1;
+	if (mainMenuFadeTime > flash0Duration)
+		fillAlpha = 1 - (mainMenuFadeTime - flash0Duration) / flash1Duration;
+	DrawControls(baseAlpha, Clamp(fillAlpha, 0, 1));
 }
 
 // *---=========---*

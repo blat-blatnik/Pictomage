@@ -149,6 +149,7 @@
     <Media Include="res\bullet-wall.wav" />
     <Media Include="res\explosion.wav" />
     <Media Include="res\long-shot.wav" />
+    <Media Include="res\ringing1.wav" />
     <Media Include="res\shatter.wav" />
     <Media Include="res\shutter1.wav" />
     <Media Include="res\snap.wav" />

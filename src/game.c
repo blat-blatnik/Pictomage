@@ -373,6 +373,7 @@ Sound turretDestroySound;
 Sound shutterSound;
 Sound glassShatterSound;
 Sound bulletHitWallSound;
+Sound ringingSound;
 
 void LoadAllSounds(void)
 {
@@ -386,6 +387,8 @@ void LoadAllSounds(void)
 	shutterSound = LoadSound("res/shutter1.wav");
 	glassShatterSound = LoadSound("res/shatter.wav");
 	bulletHitWallSound = LoadSound("res/bullet-wall.wav");
+	ringingSound = LoadSound("res/ringing1.wav");
+	SetSoundVolume(ringingSound, 0.5f);
 }
 void StopAllLevelSounds(void)
 {
@@ -2329,6 +2332,7 @@ float mainMenuFollowerAngle;
 float mainMenuFollowerExtension;
 float mainMenuFadeTime;
 bool mainMenuPlayedSnap;
+bool mainMenuPlayedRinging;
 void MainMenu_Init(GameState oldState)
 {
 	mainMenuTime = 0;
@@ -2336,6 +2340,7 @@ void MainMenu_Init(GameState oldState)
 	mainMenuFollowerExtension = 0;
 	mainMenuFollowerAngle = PI;
 	mainMenuFadeTime = -1;
+	mainMenuPlayedRinging = false;
 }
 GameState MainMenu_Update(void)
 {
@@ -2499,6 +2504,11 @@ void MainMenu_Draw(void)
 			float t = Smoothstep(flash0Duration, MAIN_MENU_FADE_DURATION, mainMenuFadeTime);
 			Color color = FloatRGBA(1, 1, 1, t);
 			DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, color);
+			if (!mainMenuPlayedRinging)
+			{
+				PlaySound(ringingSound);
+				mainMenuPlayedRinging = true;
+			}
 		}
 	}
 }

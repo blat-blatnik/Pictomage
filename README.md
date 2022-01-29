@@ -1,4 +1,4 @@
-# Raylib Gamejam
+# Pictomage
 
 ## How to build (Web)
 

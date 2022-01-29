@@ -342,7 +342,7 @@ void DoScreenShake(void)
 // |/   Globals   \|
 // *---=========---*
 
-bool godMode = true; //@TODO: Disable this for release.
+bool godMode = false; //@TODO: Disable this for release.
 bool devMode = true; //@TODO: Disable this for release.
 const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
@@ -1513,8 +1513,8 @@ void UpdateBullets(void)
 			}
 			else if (!TileIsPassable(TileAtVec(b->pos))) // @TODO: This is treating bullets as points even though they have a radius..
 			{
-				int tx = (int)b->pos.x;
-				int ty = (int)b->pos.y;
+				int tx = (int)floorf(b->pos.x);
+				int ty = (int)floorf(b->pos.y);
 				RayCollision collision = GetProjectileCollisionWithRect(b->origin, b->vel, Rect(tx, ty, 1, 1));
 				Vector2 normal = { collision.normal.x, collision.normal.y };
 				Vector2 pos = { collision.point.x, collision.point.y };

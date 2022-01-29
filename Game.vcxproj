@@ -147,6 +147,7 @@
   </ItemGroup>
   <ItemGroup>
     <Media Include="res\bullet-wall.wav" />
+    <Media Include="res\eject.wav" />
     <Media Include="res\explosion.wav" />
     <Media Include="res\long-shot.wav" />
     <Media Include="res\ringing1.wav" />
@@ -163,7 +164,6 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\bomb0.png" />
-    <Image Include="res\bomb1.png" />
     <Image Include="res\credits.png" />
     <Image Include="res\entrance0.png" />
     <Image Include="res\entrance1.png" />
@@ -190,17 +190,60 @@
     <Image Include="res\explosion9.png" />
     <Image Include="res\floor0.png" />
     <Image Include="res\floor1.png" />
+    <Image Include="res\floor10.png" />
+    <Image Include="res\floor11.png" />
+    <Image Include="res\floor12.png" />
+    <Image Include="res\floor13.png" />
+    <Image Include="res\floor14.png" />
+    <Image Include="res\floor15.png" />
+    <Image Include="res\floor16.png" />
+    <Image Include="res\floor17.png" />
+    <Image Include="res\floor18.png" />
+    <Image Include="res\floor19.png" />
+    <Image Include="res\floor2.png" />
+    <Image Include="res\floor20.png" />
+    <Image Include="res\floor21.png" />
+    <Image Include="res\floor22.png" />
+    <Image Include="res\floor23.png" />
+    <Image Include="res\floor24.png" />
+    <Image Include="res\floor25.png" />
+    <Image Include="res\floor26.png" />
+    <Image Include="res\floor27.png" />
+    <Image Include="res\floor28.png" />
+    <Image Include="res\floor29.png" />
+    <Image Include="res\floor3.png" />
+    <Image Include="res\floor30.png" />
+    <Image Include="res\floor31.png" />
+    <Image Include="res\floor4.png" />
+    <Image Include="res\floor5.png" />
+    <Image Include="res\floor6.png" />
+    <Image Include="res\floor7.png" />
+    <Image Include="res\floor8.png" />
+    <Image Include="res\floor9.png" />
     <Image Include="res\missing.png" />
     <Image Include="res\player.png" />
     <Image Include="res\turret-base-destroyed0.png" />
     <Image Include="res\turret-base-destroyed1.png" />
+    <Image Include="res\turret-base-destroyed2.png" />
+    <Image Include="res\turret-base-destroyed3.png" />
     <Image Include="res\turret-base0.png" />
     <Image Include="res\turret-base1.png" />
+    <Image Include="res\turret-base2.png" />
+    <Image Include="res\turret-base3.png" />
     <Image Include="res\turret-top-destroyed0.png" />
     <Image Include="res\turret-top-destroyed1.png" />
+    <Image Include="res\turret-top-destroyed2.png" />
+    <Image Include="res\turret-top-destroyed3.png" />
     <Image Include="res\turret-top0.png" />
     <Image Include="res\turret-top1.png" />
+    <Image Include="res\turret-top2.png" />
+    <Image Include="res\turret-top3.png" />
     <Image Include="res\wall0.png" />
+    <Image Include="res\wall1.png" />
+    <Image Include="res\wall2.png" />
+    <Image Include="res\wall3.png" />
+    <Image Include="res\wall4.png" />
+    <Image Include="res\wall5.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

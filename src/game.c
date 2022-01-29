@@ -40,7 +40,7 @@
 #define BOMB_SPEED_CLOSE 8.0f
 #define BOMB_CLOSE_THRESHOLD 6.0f
 #define BOMB_EXPLOSION_RADIUS 4.0f
-#define BOMB_EXPLOSION_DURATION 0.5f
+#define BOMB_EXPLOSION_DURATION 0.45f
 #define PLAYER_CAPTURE_CONE_HALF_ANGLE (40.0f*DEG2RAD)
 #define PLAYER_CAPTURE_CONE_RADIUS 4.0f
 #define PLAYER_CAPTURE_CONE_VISUAL_RADIUS 3.5f
@@ -436,6 +436,7 @@ TextureVariants turretTopVariants;
 TextureVariants destroyedTurretBaseVariants;
 TextureVariants destroyedTurretTopVariants;
 TextureVariants bombVariants;
+Texture explosionFrames[11];
 
 void LoadTextureVariants(TextureVariants *tv, const char *baseName)
 {
@@ -469,6 +470,12 @@ void LoadAllTextures(void)
 
 	playerTexture = LoadTexture("res/player-evil.png");
 	creditsTexture = LoadTexture("res/credits.png");
+
+	for (int i = 0; i < 11; ++i)
+	{
+		char *path = TempPrint("res/explosion%d.png", i);
+		explosionFrames[i] = LoadTexture(path);
+	}
 }
 
 // *---=======---*
@@ -2357,7 +2364,8 @@ void DrawExplosions(void)
 		float t = 2 * Clamp(e->frame / (float)e->durationFrames, 0, 1);
 		float x = 1 - t;
 		float r = (1 - x * x * x * x * x * x) * e->radius;
-		DrawCircleV(e->pos, r, ColorAlpha(RED, 0.5f));
+		int index = ClampInt(11 * e->frame / e->durationFrames, 0, 10);
+		DrawTex(explosionFrames[index], e->pos, Vec2(r, r), WHITE);
 	}
 }
 void DrawShutter(float t, Color innerColor, Color outerColor, float edgeThickness) // t = 0 (fully open), t = 1 (fully closed)

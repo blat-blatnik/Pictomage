@@ -177,6 +177,17 @@
     <Image Include="res\exit-open1.png" />
     <Image Include="res\exit-open2.png" />
     <Image Include="res\exit-open3.png" />
+    <Image Include="res\explosion0.png" />
+    <Image Include="res\explosion1.png" />
+    <Image Include="res\explosion10.png" />
+    <Image Include="res\explosion2.png" />
+    <Image Include="res\explosion3.png" />
+    <Image Include="res\explosion4.png" />
+    <Image Include="res\explosion5.png" />
+    <Image Include="res\explosion6.png" />
+    <Image Include="res\explosion7.png" />
+    <Image Include="res\explosion8.png" />
+    <Image Include="res\explosion9.png" />
     <Image Include="res\floor0.png" />
     <Image Include="res\floor1.png" />
     <Image Include="res\missing.png" />

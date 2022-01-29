@@ -2632,7 +2632,7 @@ GameState MainMenu_Update(void)
 		mainMenuFadeTime += DELTA_TIME;
 	if (mainMenuFadeTime > MAIN_MENU_FADE_DURATION)
 	{
-		LoadRoom(&currentRoom, "room0");
+		LoadRoom(&currentRoom, "tutorial0");
 		CopyRoomToGame(&currentRoom);
 		return GAME_STATE_FADE_IN;
 	}

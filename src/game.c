@@ -3969,6 +3969,8 @@ void LevelEditor_Draw(void)
 				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, spinnerRect);
 				int variant = selection.turret->variant;
 				isFocused = GuiSpinner(spinnerRect, "", &variant, 0, minVariants - 1, isFocused);
+				if (variant == -1)
+					variant = minVariants - 1;
 				selection.turret->variant = (u8)ClampInt(variant, 0, minVariants - 1);
 				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
 				y += 25;
@@ -3994,6 +3996,8 @@ void LevelEditor_Draw(void)
 				int variant = selection.bomb->variant;
 				int numVariants = bombVariants.numVariants;
 				isFocused = GuiSpinner(spinnerRect, "", &variant, 0, numVariants - 1, isFocused);
+				if (variant == -1)
+					variant = numVariants - 1;
 				selection.bomb->variant = (u8)ClampInt(variant, 0, numVariants - 1);
 				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
 				y += 25;
@@ -4054,6 +4058,8 @@ void LevelEditor_Draw(void)
 				Rectangle spinnerRect = Rect(x, y, 80, 20);
 				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, spinnerRect);
 				isFocused = GuiSpinner(spinnerRect, "", &variant, 0, numVariants - 1, isFocused);
+				if (variant == -1)
+					variant = numVariants - 1;
 				selection.tileVariant = ClampInt(variant, 0, numVariants - 1);
 				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
 				y += 25;

@@ -2860,8 +2860,8 @@ GameState Playing_Update(void)
 		UpdateSparks();
 		UpdateShards();
 		UpdateExplosions();
-		UpdateTriggerredMessages();
 	}
+	UpdateTriggerredMessages();
 	
 	Tile playerTile = TileAtVec(player.pos);
 	if (playerTile == TILE_EXIT && NumRemainingEnemies() == 0)
@@ -2958,13 +2958,15 @@ GameState LevelTransition_Update(void)
 	if (levelTransitionTime >= phase3Start && !levelTransitionLoadedNextLevel)
 	{
 		levelTransitionLoadedNextLevel = true;
+		if (!nextRoomName[0])
+			return GAME_STATE_CREDITS;
+
 		bool loadedNextLevel = LoadRoom(&currentRoom, nextRoomName);
 		if (loadedNextLevel)
 		{
 			CopyRoomToGame(&currentRoom);
 			CenterCameraOnLevel();
 		}
-		else return GAME_STATE_CREDITS;
 	}
 
 	if (levelTransitionTime > phase3End)
@@ -3572,13 +3574,37 @@ GameState LevelEditor_Update(void)
 
 	if (selection.kind == EDITOR_SELECTION_KIND_TILE && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
 	{
-		int tileX = (int)mousePosTiles.x;
-		int tileY = (int)mousePosTiles.y;
-		if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
+		if (!CheckCollisionPointRec(lastMouseClickPos, propertiesWindowRect) &&
+			!CheckCollisionPointRec(lastMouseClickPos, consoleWindowRect) &&
+			!CheckCollisionPointRec(lastMouseClickPos, objectsWindowRect) &&
+			!CheckCollisionPointRec(lastMouseClickPos, tilesWindowRect))
 		{
-			Vector2 p1 = mousePosTiles;
-			Vector2 p0 = Vector2Subtract(mousePosTiles, mouseDeltaTiles);
-			FillAllTilesBetween(p0, p1, selection.tile, selection.tileVariant);
+			int tileX = (int)floorf(mousePosTiles.x);
+			int tileY = (int)floorf(mousePosTiles.y);
+			if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
+			{
+				Vector2 p1 = mousePosTiles;
+				Vector2 p0 = Vector2Subtract(mousePosTiles, mouseDeltaTiles);
+				FillAllTilesBetween(p0, p1, selection.tile, selection.tileVariant);
+			}
+		}
+	}
+
+	if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE))
+	{
+		if (!CheckCollisionPointRec(mousePos, propertiesWindowRect) &&
+			!CheckCollisionPointRec(mousePos, consoleWindowRect) &&
+			!CheckCollisionPointRec(mousePos, objectsWindowRect) &&
+			!CheckCollisionPointRec(mousePos, tilesWindowRect))
+		{
+			int tileX = (int)floorf(mousePosTiles.x);
+			int tileY = (int)floorf(mousePosTiles.y);
+			if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
+			{
+				selection.kind = EDITOR_SELECTION_KIND_TILE;
+				selection.tile = tiles[tileY][tileX];
+				selection.tileVariant = tileVariants[tileY][tileX];
+			}
 		}
 	}
 
@@ -3587,10 +3613,13 @@ GameState LevelEditor_Update(void)
 		lastMouseClickPos = mousePos;
 		if (selection.kind == EDITOR_SELECTION_KIND_TILE)
 		{
-			if (!CheckCollisionPointRec(mousePos, propertiesWindowRect))
+			if (!CheckCollisionPointRec(mousePos, propertiesWindowRect) &&
+				!CheckCollisionPointRec(mousePos, consoleWindowRect) &&
+				!CheckCollisionPointRec(mousePos, objectsWindowRect) &&
+				!CheckCollisionPointRec(mousePos, tilesWindowRect))
 			{
-				int tileX = (int)mousePosTiles.x;
-				int tileY = (int)mousePosTiles.y;
+				int tileX = (int)floorf(mousePosTiles.x);
+				int tileY = (int)floorf(mousePosTiles.y);
 				if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
 				{
 					tiles[tileY][tileX] = selection.tile;
@@ -3969,8 +3998,9 @@ void LevelEditor_Draw(void)
 				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, spinnerRect);
 				int variant = selection.turret->variant;
 				isFocused = GuiSpinner(spinnerRect, "", &variant, 0, minVariants - 1, isFocused);
-				if (variant == -1)
-					variant = minVariants - 1;
+				if (variant < 0)
+					variant = minVariants + variant;
+				variant %= minVariants;
 				selection.turret->variant = (u8)ClampInt(variant, 0, minVariants - 1);
 				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
 				y += 25;
@@ -3996,8 +4026,9 @@ void LevelEditor_Draw(void)
 				int variant = selection.bomb->variant;
 				int numVariants = bombVariants.numVariants;
 				isFocused = GuiSpinner(spinnerRect, "", &variant, 0, numVariants - 1, isFocused);
-				if (variant == -1)
-					variant = numVariants - 1;
+				if (variant < 0)
+					variant = numVariants + variant;
+				variant %= numVariants;
 				selection.bomb->variant = (u8)ClampInt(variant, 0, numVariants - 1);
 				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
 				y += 25;
@@ -4058,8 +4089,9 @@ void LevelEditor_Draw(void)
 				Rectangle spinnerRect = Rect(x, y, 80, 20);
 				bool isFocused = CheckCollisionPointRec(lastMouseClickPos, spinnerRect);
 				isFocused = GuiSpinner(spinnerRect, "", &variant, 0, numVariants - 1, isFocused);
-				if (variant == -1)
-					variant = numVariants - 1;
+				if (variant < 0)
+					variant = numVariants + variant;
+				variant %= numVariants;
 				selection.tileVariant = ClampInt(variant, 0, numVariants - 1);
 				GuiLabel(Rect(x + 90, y, 80, 20), "Variant");
 				y += 25;
@@ -4095,6 +4127,12 @@ void LevelEditor_Draw(void)
 				if (GuiButton(Rect(x + 75, y, 65, 20), "Reload"))
 				{
 					LoadRoom(&currentRoom, currentRoom.name);
+					CopyRoomToGame(&currentRoom);
+				}
+				y += 25;
+				if (GuiButton(Rect(x, y, 65, 20), "Next"))
+				{
+					LoadRoom(&currentRoom, nextRoomName);
 					CopyRoomToGame(&currentRoom);
 				}
 				y += 25;
@@ -4154,6 +4192,8 @@ void GameInit(void)
 {
 	//@TODO: Check is this can work. Sometimes it causes weird flickering when drawing circles.
 	//SetConfigFlags(FLAG_MSAA_4X_HINT);
+
+	SetExitKey(0);
 	
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pictomage");
 	SetTargetFPS(FPS);

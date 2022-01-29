@@ -343,10 +343,11 @@ void DoScreenShake(void)
 // *---=========---*
 
 bool godMode = false; //@TODO: Disable this for release.
-bool devMode = false; //@TODO: Disable this for release.
+bool devMode = true; //@TODO: Disable this for release.
 const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
 int deathCount;
+double scoreTime;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
@@ -989,6 +990,13 @@ void DrawTrail(Vector2 pos, Vector2 vel, Vector2 origin, float radius, float tra
 		rlVertex2fv(trail3);
 	}
 	rlEnd();
+}
+void DrawScoreTime(void)
+{
+	double t = scoreTime;
+	int minutes = (int)(t / 60);
+	int seconds = (int)(t - minutes * 60.0);
+	DrawTextFormat(800, 30, 30, WHITE, "%2d:%02d", minutes, seconds);
 }
 
 void CenterCameraOnLevel(void)
@@ -2617,6 +2625,7 @@ bool mainMenuPlayedRinging;
 void MainMenu_Init(GameState oldState)
 {
 	deathCount = 0;
+	scoreTime = 0;
 	mainMenuTime = 0;
 	mainMenuPlayedSnap = false;
 	mainMenuFollowerExtension = 0;
@@ -2844,6 +2853,8 @@ GameState Playing_Update(void)
 	if (IsKeyPressed(KEY_R))
 		return GAME_STATE_RESTARTING;
 
+	scoreTime += DELTA_TIME;
+
 	double gracePeriodTime = timeAtStartOfFrame - gracePeriodStartTime;
 	if (gracePeriodTime > GRACE_PERIOD || player.captureFrame != 0 || player.releaseFrame != 0)
 		hasGracePeriod = false;
@@ -2896,6 +2907,7 @@ void Playing_Draw(void)
 	SetupScreenCoordinateDrawing();
 	{
 		DrawTriggerMessages(false);
+		DrawScoreTime();
 		//float time = 2 * fmod(GetTime(), 1);
 		//float t = fabsf(time - 1);
 		//DrawShutter(t);
@@ -3295,15 +3307,20 @@ void Credits_Init(GameState oldState)
 GameState Credits_Update(void)
 {
 	creditsTime += DELTA_TIME;
-	if (creditsTime > CREDITS_LENGTH + 1)
-		return GAME_STATE_MAIN_MENU;
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
 	{
-		++creditsClickedCount;
-		if (creditsClickedCount == 2)
+		if (creditsTime > CREDITS_LENGTH + 1)
 		{
-			creditsTime = CREDITS_LENGTH - 2;
+			return GAME_STATE_MAIN_MENU;
+		}
+		else
+		{
+			++creditsClickedCount;
+			if (creditsClickedCount == 2)
+			{
+				creditsTime = CREDITS_LENGTH - 2;
+			}
 		}
 	}
 	return GAME_STATE_CREDITS;
@@ -3358,10 +3375,34 @@ void Credits_Draw(void)
 	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "DWOBoyle"); y += 80; t0 += 0.5f; t1 += 0.5f;
 	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "Iridiuss"); y += 80; t0 += 0.5f; t1 += 0.5f;
 
-	if (creditsClickedCount == 1)
+	if (creditsClickedCount == 1 || creditsTime >= CREDITS_LENGTH + 1)
 	{
 		DrawMouse(100 - 28.00f, 830 + 00.00f, WHITE, GRAY);
-		DrawText("Skip", 130, 840, 20, WHITE);
+		if (creditsTime >= CREDITS_LENGTH + 1)
+		{
+			float scoreAlpha = Clamp((creditsTime - CREDITS_LENGTH - 1) / 2, 0, 1);
+			
+			DrawRectangleRoundedLines(Rect(300, 300, 300, 300), 0.2f, 30, 2, ColorAlpha(WHITE, scoreAlpha));
+			double t = scoreTime;
+			int minutes = (int)(t / 60);
+			int seconds = (int)(t - minutes * 60.0);
+			char *time = TempPrint("Time: %2d:%02d", minutes, seconds);
+			DrawTextCentered(time, 450, 430, 40, ColorAlpha(WHITE, scoreAlpha));
+
+			if (deathCount == 0)
+				DrawTextCentered("Deathless!", 450, 480, 40, ColorAlpha(ORANGE, scoreAlpha));
+			else if (deathCount == 1)
+				DrawTextCentered("1 Death", 450, 480, 40, ColorAlpha(WHITE, scoreAlpha));
+			else
+			{
+				char *text = TempPrint("%d Deaths", deathCount);
+				DrawTextCentered(text, 450, 480, 40, ColorAlpha(WHITE, scoreAlpha));
+			}
+
+			DrawText("Continue", 130, 840, 20, WHITE);
+		}
+		else
+			DrawText("Skip", 130, 840, 20, WHITE);
 	}
 }
 

@@ -343,7 +343,7 @@ void DoScreenShake(void)
 // *---=========---*
 
 bool godMode = false; //@TODO: Disable this for release.
-bool devMode = true; //@TODO: Disable this for release.
+bool devMode = false; //@TODO: Disable this for release.
 const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
 int deathCount;
@@ -4191,7 +4191,7 @@ void LevelEditor_Draw(void)
 
 void GameInit(void)
 {
-	//@TODO: Check is this can work. Sometimes it causes weird flickering when drawing circles.
+	//@TODO: Check if this can work. Sometimes it causes weird flickering when drawing circles.
 	//SetConfigFlags(FLAG_MSAA_4X_HINT);
 
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pictomage");

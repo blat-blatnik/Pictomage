@@ -244,6 +244,14 @@
     <Image Include="res\wall3.png" />
     <Image Include="res\wall4.png" />
     <Image Include="res\wall5.png" />
+    <Image Include="screenshots\1.png" />
+    <Image Include="screenshots\2.png" />
+    <Image Include="screenshots\3.png" />
+    <Image Include="screenshots\4.png" />
+    <Image Include="screenshots\5.png" />
+    <Image Include="screenshots\6.png" />
+    <Image Include="screenshots\7.png" />
+    <Image Include="screenshots\title.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

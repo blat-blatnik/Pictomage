@@ -477,7 +477,7 @@ void LoadAllTextures(void)
 	LoadTextureVariants(&destroyedTurretBaseVariants, "turret-base-destroyed");
 	LoadTextureVariants(&destroyedTurretTopVariants, "turret-top-destroyed");
 
-	playerTexture = LoadTexture("res/player-evil.png");
+	playerTexture = LoadTexture("res/player.png");
 	creditsTexture = LoadTexture("res/credits.png");
 
 	for (int i = 0; i < 11; ++i)

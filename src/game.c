@@ -3132,11 +3132,7 @@ void FadeIn_Draw(void)
 	float t = 1 - Smoothstep(0, FADE_IN_DURATION, fadeInTime);
 	Color color = FloatRGBA(1, 1, 1, t);
 	DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, color);
-}
-
-// *---========---*
-// |/   Paused   \|
-// *---========---*
+}s
 
 void Paused_Init(GameState oldState)
 {

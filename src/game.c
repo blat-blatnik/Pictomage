@@ -3097,10 +3097,9 @@ void LevelTransition_Draw(void)
 	}
 	rlDrawRenderBatchActive();
 
-	//SetupScreenCoordinateDrawing();
+	SetupScreenCoordinateDrawing();
 	{
-		//DrawTriggerMessages(false);
-		//DrawRectangle(0, 0, (int)(levelTransitionTime * 400), 100, WHITE);
+		DrawScoreTime();
 	}
 }
 

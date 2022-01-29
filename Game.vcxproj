@@ -142,6 +142,7 @@
     <None Include="res\room10.bin" />
     <None Include="res\room11.bin" />
     <None Include="res\room12.bin" />
+    <None Include="res\room13.bin" />
     <None Include="res\room2.bin" />
     <None Include="res\room3.bin" />
     <None Include="res\room4.bin" />

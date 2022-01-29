@@ -1,5 +1,11 @@
 #include "basic.h"
 
+// NOTE: This code is an absolute mess.
+//       I just rushed to get as much stuff in as possible in a week, 
+//       and pretty much everything is barely held together with duct tape.
+//
+//       - Blat Blatnik
+
 // *---===========---*
 // |/   Constants   \|
 // *---===========---*

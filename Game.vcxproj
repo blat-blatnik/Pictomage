@@ -158,8 +158,8 @@
     <Media Include="res\turret-destroy.wav" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="credits.txt" />
-    <Text Include="room-file-format.txt" />
+    <Text Include="CREDITS.md" />
+    <Text Include="room-file-format.md" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\bomb0.png" />

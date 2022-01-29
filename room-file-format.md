@@ -1,26 +1,26 @@
-uint64 flags
+# Room file format
+
+```c
+uint64_t flags // These are completely unused.
 char nextRoomName[64]
-uint8 numTilesX
-uint8 numTilesY
-uint8 tiles[numTilesY][numTilesX]
-uint8 tileVariants[numTilesY][numTilesX]
-// Color evenTileTint0
-// Color evenTileTint1
-// Color oddTileTint0
-// Color oddTileTint1
+uint8_t numTilesX
+uint8_t numTilesY
+uint8_t tiles[numTilesY][numTilesX]
+uint8_t tileVariants[numTilesY][numTilesX]
 Vector2 playerDefaultPos
-uint8 numTurrets
+uint8_t numTurrets
 Vector2 turretPos[numTurrers]
 float turretLookAngle[numTurrets]
-uint8 turretVariants[numTurrets]
+uint8_t turretVariants[numTurrets]
 bool turretIsDestroyed[numTurrets]
-uint8 numBombs
+uint8_t numBombs
 Vector2 bombPos[numBombs]
-uint8 bombVariants[numBombs]
-uint8 numGlassBoxes
+uint8_t bombVariants[numBombs]
+uint8_t numGlassBoxes
 Rectangle glassBoxRects[numGlassBoxes]
 float glassBoxRotations[numGlassBoxes]
-uint8 numTriggerMessages
+uint8_t numTriggerMessages
 Rectangle triggerMessageRects[numTriggerMessages]
 bool triggerMessageOnce[numTriggerMessages]
 char triggerMessages[numTriggerMessages][128]
+```

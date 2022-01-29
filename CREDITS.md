@@ -1,3 +1,5 @@
+## Sound effects
+
 Explosion sound (res/explosion.wav) -- EFlexMusic (boyermanproductionz@gmail.com) -- https://freesound.org/people/EFlexMusic/sounds/388528/
 Glass shatter sound (res/shatter.wav) -- Profispiesser -- https://freesound.org/people/Profispiesser/sounds/583065/
 Camera snap (res/shutter1.wav) -- HughGuiney (@LordPancreas) -- https://freesound.org/people/HughGuiney/sounds/352832/
@@ -8,4 +10,7 @@ Ear ringing (res/ringing1.wav) -- ArrowheadProductions -- https://freesound.org/
 Teleport (res/teleport.wav) -- steaq -- https://freesound.org/people/steaq/sounds/560124/
 Teleport (res/teleport.wav) -- krzysiunet -- https://freesound.org/people/krzysiunet/sounds/345835/
 Teleport (res/teleport.wav) -- DWOBoyle -- https://freesound.org/people/DWOBoyle/sounds/474180/
+
+## Libraries
+
 Raylib -- Ray (@raysan5) -- https://www.raylib.com/

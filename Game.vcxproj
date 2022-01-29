@@ -153,7 +153,7 @@
     <Media Include="res\shatter.wav" />
     <Media Include="res\shutter-echo.wav" />
     <Media Include="res\shutter1.wav" />
-    <Media Include="res\snap.wav" />
+    <Media Include="res\snap2.wav" />
     <Media Include="res\teleport.wav" />
     <Media Include="res\turret-destroy.wav" />
   </ItemGroup>

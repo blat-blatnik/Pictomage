@@ -4,7 +4,7 @@
 //       I just rushed to get as much stuff in as possible in a week, 
 //       and pretty much everything is barely held together with duct tape.
 //
-//       - Blat Blatnik
+//     - Blat Blatnik
 
 // *---===========---*
 // |/   Constants   \|
@@ -405,10 +405,11 @@ Sound bulletHitWallSound;
 Sound ringingSound;
 Sound shutterEchoSound;
 Sound teleportSound;
+Sound ejectSound;
 
 void LoadAllSounds(void)
 {
-	flashSound = LoadSound("res/snap.wav");
+	flashSound = LoadSound("res/snap2.wav");
 	longShotSound = LoadSound("res/long-shot.wav");
 	SetSoundVolume(longShotSound, 0.1f);
 	explosionSound = LoadSound("res/explosion.wav");
@@ -422,6 +423,7 @@ void LoadAllSounds(void)
 	SetSoundVolume(ringingSound, 0.5f);
 	shutterEchoSound = LoadSound("res/shutter-echo.wav");
 	teleportSound = LoadSound("res/teleport.wav");
+	ejectSound = LoadSound("res/eject.wav");
 }
 void StopAllLevelSounds(void)
 {
@@ -1325,7 +1327,6 @@ void UpdatePlayer(void)
 		if (!hasCapture && player.captureFrame == 0)
 		{
 			player.captureFrame = 1;
-			PlaySound(flashSound);
 
 			for (int i = 0; i < numBullets; ++i)
 			{
@@ -1378,9 +1379,11 @@ void UpdatePlayer(void)
 				}
 			}
 
-			int numCapturedItems = numCapturedBullets + numCapturedTurrets + numCapturedBombs;
-			if (numCapturedItems != 0)
+			int numCapturedEnemies = NumCapturedEnemies();
+			if (numCapturedEnemies != 0)
 			{
+				SetSoundPitch(flashSound, 1.2f);
+
 				Vector2 captureCenter = Vector2Zero();
 				for (int i = 0; i < numCapturedBullets; ++i)
 					captureCenter = Vector2Add(captureCenter, capturedBullets[i].pos);
@@ -1388,7 +1391,7 @@ void UpdatePlayer(void)
 					captureCenter = Vector2Add(captureCenter, capturedTurrets[i].pos);
 				for (int i = 0; i < numCapturedBombs; ++i)
 					captureCenter = Vector2Add(captureCenter, capturedBombs[i].pos);
-				captureCenter = Vector2Scale(captureCenter, 1.0f / numCapturedItems);
+				captureCenter = Vector2Scale(captureCenter, 1.0f / numCapturedEnemies);
 
 				for (int i = 0; i < numCapturedBullets; ++i)
 					capturedBullets[i].pos = Vector2Subtract(capturedBullets[i].pos, captureCenter);
@@ -1397,9 +1400,16 @@ void UpdatePlayer(void)
 				for (int i = 0; i < numCapturedBombs; ++i)
 					capturedBombs[i].pos = Vector2Subtract(capturedBombs[i].pos, captureCenter);
 			}
+			else
+			{
+				SetSoundPitch(flashSound, 0.8f);
+			}
+
+			PlaySound(flashSound);
 		}
 		else if (hasCapture)
 		{
+			PlaySound(ejectSound);
 			player.releaseFrame = 1;
 			player.isReleasingCapture = true;
 			player.releasePos = mousePos;
@@ -2129,6 +2139,10 @@ void DrawPlayerCaptureCone(void)
 	};
 
 	float lookAngleDegrees = (RAD2DEG * (-player.lookAngle)) + 90;
+
+	float angle0 = lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE;
+	float angle1 = lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE;
+
 	if (player.captureFrame > 0 || player.releaseFrame > 0)
 	{
 		if (player.captureFrame > 1 || player.releaseFrame > 1)
@@ -2141,19 +2155,18 @@ void DrawPlayerCaptureCone(void)
 			float flashDist = Clamp(maxCaptureFrame / halfFrames, 0, 1);
 			float alpha = 1 - Clamp((maxCaptureFrame - halfFrames) / halfFrames, 0, 1);
 
+			Color color;
+			if (maxCaptureFrame == player.captureFrame && NumCapturedEnemies() == 0)
+				color = ColorAlpha(YELLOW, 0.2f * alpha);
+			else
+				color = ColorAlpha(YELLOW, alpha);
+
 			float radius = flashDist * (PLAYER_CAPTURE_CONE_RADIUS + - offset);
-			DrawCircleSector(captureOrigin,
-				radius,
-				lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE - 2,
-				lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE + 2,
-				12,
-				ColorAlpha(YELLOW, alpha));
+			DrawRing(captureOrigin, 0.1f, radius, angle0 - 2, angle1 + 2, 12, color);
 		}
 	}
 	else if (NumCapturedEnemies() == 0)
 	{
-		float angle0 = lookAngleDegrees - RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE;
-		float angle1 = lookAngleDegrees + RAD2DEG * PLAYER_CAPTURE_CONE_HALF_ANGLE;
 		DrawRing(captureOrigin, 0.1f, PLAYER_CAPTURE_CONE_VISUAL_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.1f));
 		DrawRingLines(captureOrigin, 0.1f, PLAYER_CAPTURE_CONE_VISUAL_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.5f));
 		//DrawCircleSectorLines(captureOrigin, PLAYER_CAPTURE_CONE_RADIUS - offset, angle0, angle1, 12, ColorAlpha(SKYBLUE, 0.5f));
@@ -3340,6 +3353,7 @@ void Credits_Draw(void)
 	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "steaq"); y += 80; t0 += 0.5f; t1 += 0.5f;
 	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "krzysiunet"); y += 80; t0 += 0.5f; t1 += 0.5f;
 	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "DWOBoyle"); y += 80; t0 += 0.5f; t1 += 0.5f;
+	DrawPopupMessage(creditsTime - t0, creditsTime - t1, screenCenter.x, y, "Iridiuss"); y += 80; t0 += 0.5f; t1 += 0.5f;
 
 	if (creditsClickedCount == 1)
 	{

@@ -2318,7 +2318,8 @@ void DrawBullets(void)
 	{
 		Bullet b = bullets[i];
 		DrawTrail(b.pos, b.vel, b.origin, BULLET_RADIUS, PixelsToTiles(400), trailColor0, trailColor1);
-		DrawCircleV(b.pos, BULLET_RADIUS, DARKGRAY);
+		DrawCircleV(b.pos, BULLET_RADIUS, BLACK);
+		DrawCircleV(b.pos, BULLET_RADIUS - PixelsToTiles(2), DARKGRAY);
 	}
 }
 void DrawTurrets(void)
@@ -3572,24 +3573,6 @@ GameState LevelEditor_Update(void)
 	else if (wheelMove < 0)
 		ZoomInToPoint(mousePos, cameraZoom / 1.1f);
 
-	if (selection.kind == EDITOR_SELECTION_KIND_TILE && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-	{
-		if (!CheckCollisionPointRec(lastMouseClickPos, propertiesWindowRect) &&
-			!CheckCollisionPointRec(lastMouseClickPos, consoleWindowRect) &&
-			!CheckCollisionPointRec(lastMouseClickPos, objectsWindowRect) &&
-			!CheckCollisionPointRec(lastMouseClickPos, tilesWindowRect))
-		{
-			int tileX = (int)floorf(mousePosTiles.x);
-			int tileY = (int)floorf(mousePosTiles.y);
-			if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
-			{
-				Vector2 p1 = mousePosTiles;
-				Vector2 p0 = Vector2Subtract(mousePosTiles, mouseDeltaTiles);
-				FillAllTilesBetween(p0, p1, selection.tile, selection.tileVariant);
-			}
-		}
-	}
-
 	if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE))
 	{
 		if (!CheckCollisionPointRec(mousePos, propertiesWindowRect) &&
@@ -3679,6 +3662,24 @@ GameState LevelEditor_Update(void)
 					selection.kind = EDITOR_SELECTION_KIND_PLAYER;
 					selection.player = &player;
 				}
+			}
+		}
+	}
+
+	if (selection.kind == EDITOR_SELECTION_KIND_TILE && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+	{
+		if (!CheckCollisionPointRec(lastMouseClickPos, propertiesWindowRect) &&
+			!CheckCollisionPointRec(lastMouseClickPos, consoleWindowRect) &&
+			!CheckCollisionPointRec(lastMouseClickPos, objectsWindowRect) &&
+			!CheckCollisionPointRec(lastMouseClickPos, tilesWindowRect))
+		{
+			int tileX = (int)floorf(mousePosTiles.x);
+			int tileY = (int)floorf(mousePosTiles.y);
+			if (tileX >= 0 && tileX < numTilesX && tileY >= 0 && tileY < numTilesY)
+			{
+				Vector2 p1 = mousePosTiles;
+				Vector2 p0 = Vector2Subtract(mousePosTiles, mouseDeltaTiles);
+				FillAllTilesBetween(p0, p1, selection.tile, selection.tileVariant);
 			}
 		}
 	}
@@ -4193,9 +4194,8 @@ void GameInit(void)
 	//@TODO: Check is this can work. Sometimes it causes weird flickering when drawing circles.
 	//SetConfigFlags(FLAG_MSAA_4X_HINT);
 
-	SetExitKey(0);
-	
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pictomage");
+	SetExitKey(0);
 	SetTargetFPS(FPS);
 	InitAudioDevice();
 	rlDisableBackfaceCulling(); // It's a 2D game we don't need this..

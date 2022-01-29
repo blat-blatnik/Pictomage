@@ -2406,11 +2406,13 @@ void DrawShutter(float t, Color innerColor, Color outerColor, float edgeThicknes
 }
 void DrawGlassBoxes(void)
 {
+	const Color color = ColorAlpha(BLUE, 0.3f);
 	for (int i = 0; i < numGlassBoxes; ++i)
 	{
 		GlassBox box = glassBoxes[i];
 		//DrawRectanglePro(box.rect, RectangleCenter(box.rect), RAD2DEG * box.rotation, ColorAlpha(BLUE, 0.2f));
-		DrawRectangleRec(box.rect, ColorAlpha(BLUE, 0.3f));
+		DrawRectangleRec(box.rect, color);
+		DrawRectangleLinesEx(box.rect, 0.08f, color);
 	}
 }
 void DrawTriggerMessages(bool debug)

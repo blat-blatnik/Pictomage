@@ -1,6 +1,6 @@
 # Room file format
 
-This document describes the binary format in which all the rooms were stored. The format is little endian.
+This document describes the binary format in which all the rooms were stored. The format is little endian. The fields are stored sequentially.
 
 ```c
 uint64_t  flags                              // Unused. Intended as a kind of versioning system, but is always 0.

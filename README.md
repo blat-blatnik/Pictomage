@@ -1,5 +1,11 @@
 # Pictomage
 
+A top-down 2D puzzle-shooter game. Made in 1 week for the [Raylib 5K gamejam](https://itch.io/jam/raylib-5k-gamejam). Play it from your browser on [itch.io](https://blatnik.itch.io/pictomage)!
+
+<p align="center">
+  <img src="./screenshots/5.png" alt="Screenshot" width="500"/>
+</p>
+
 ## How to build (Web)
 
 This all assumes you are using Windows 10. You will need the Emscripten SDK:
@@ -20,4 +26,4 @@ This all assumes you are using Windows 10. You will need the Emscripten SDK:
 
 1. You need to download and install [Visual Studio 2022](https://visualstudio.microsoft.com/vs/).
 2. When you need to select which components to install, make sure `Desktop development with C++` is ticked.
-3. Open up `Game.sln` in Visual Studio and click the run button at the top.
+3. Open up `Pictomage.sln` in Visual Studio and click the run button at the top.

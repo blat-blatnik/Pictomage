@@ -123,13 +123,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\basic.h" />
-    <ClInclude Include="src\lib\easings.h" />
-    <ClInclude Include="src\lib\physac.h" />
     <ClInclude Include="src\lib\raygui.h" />
     <ClInclude Include="src\lib\raylib.h" />
     <ClInclude Include="src\lib\raymath.h" />
-    <ClInclude Include="src\lib\rcamera.h" />
-    <ClInclude Include="src\lib\rgestures.h" />
     <ClInclude Include="src\lib\rlgl.h" />
     <ClInclude Include="src\lib\rmem.h" />
   </ItemGroup>

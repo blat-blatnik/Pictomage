@@ -168,32 +168,27 @@ typedef struct Room
 	char name[MAX_ROOM_NAME];
 	char next[MAX_ROOM_NAME];
 
-	int numTilesX;
-	int numTilesY;
-	Tile tiles[MAX_TILES_Y][MAX_TILES_X];
+	u8 numTilesX;
+	u8 numTilesY;
+	u8 tiles[MAX_TILES_Y][MAX_TILES_X];
 	u8 tileVariants[MAX_TILES_Y][MAX_TILES_X];
-
-	Color evenTileTint0;
-	Color evenTileTint1;
-	Color oddTileTint0;
-	Color oddTileTint1;
 
 	Vector2 playerDefaultPos;
 	
-	int numTurrets;
+	u8 numTurrets;
 	Vector2 turretPos[MAX_TURRETS];
 	float turretLookAngle[MAX_TURRETS];
 	bool turretIsDestroyed[MAX_TURRETS];
 	u8 turretVariants[MAX_TURRETS];
 
-	int numBombs;
+	u8 numBombs;
 	Vector2 bombPos[MAX_BOMBS];
 	u8 bombVariants[MAX_BOMBS];
 
-	int numGlassBoxes;
+	u8 numGlassBoxes;
 	Rectangle glassBoxRects[MAX_GLASS_BOXES];
 
-	int numTriggerMessages;
+	u8 numTriggerMessages;
 	Rectangle triggerMessagesRects[MAX_TRIGGER_MESSAGES];
 	bool triggerMessagesOnce[MAX_TRIGGER_MESSAGES];
 	char triggerMessages[MAX_TRIGGER_MESSAGES][MAX_POPUP_MESSAGE_LENGTH];
@@ -876,7 +871,7 @@ void ShiftAllObjectsBy(float dx, float dy)
 }
 void ExplodeBomb(int index)
 {
-	assert(index >= 0 && index < numBombs);
+	ASSERT(index >= 0 && index < numBombs);
 	Bomb *bomb = &bombs[index];
 	SpawnExplosion(bomb->pos, BOMB_EXPLOSION_DURATION, BOMB_EXPLOSION_RADIUS);
 
@@ -970,27 +965,6 @@ void ShatterGlassBox(int index, Vector2 pos, Vector2 incident, float alignedForc
 
 	DespawnGlassBox(index);
 }
-void DrawTrail(Vector2 pos, Vector2 vel, Vector2 origin, float radius, float trailLength, Color color0, Color color1)
-{
-	Vector2 perp1 = Vector2Scale(Vector2Normalize(Vec2(-vel.y, +vel.x)), radius);
-	Vector2 perp2 = Vector2Scale(Vector2Normalize(Vec2(+vel.y, -vel.x)), radius);
-	Vector2 toOrigin = Vector2Subtract(origin, pos);
-	Vector2 perp3 = Vector2Scale(Vector2Normalize(toOrigin), trailLength);
-	if (Vector2LengthSqr(perp3) > Vector2LengthSqr(toOrigin))
-		perp3 = toOrigin;
-	Vector2 trail1 = Vector2Add(pos, perp1);
-	Vector2 trail2 = Vector2Add(pos, perp2);
-	Vector2 trail3 = Vector2Add(pos, perp3);
-	rlBegin(RL_TRIANGLES);
-	{
-		rlColor(color1);
-		rlVertex2fv(trail1);
-		rlVertex2fv(trail2);
-		rlColor(color0);
-		rlVertex2fv(trail3);
-	}
-	rlEnd();
-}
 void DrawScoreTime(void)
 {
 	double t = scoreTime;
@@ -1021,80 +995,35 @@ bool LoadRoom(Room *room, const char *filename)
 		return false;
 	}
 
-	u64 flags = 0;
-	char next[MAX_ROOM_NAME];
-	u8 numTilesX = 1;
-	u8 numTilesY = 1;
-	u8 tiles[MAX_TILES_Y][MAX_TILES_X] = { 0 };
-	u8 tileVariants[MAX_TILES_Y][MAX_TILES_X] = { 0 };
-	Vector2 playerDefaultPos = Vec2(0.5f, 0.5f);
-	u8 numTurrets = 0;
-	Vector2 turretPos[MAX_TURRETS] = { 0 };
-	float turretLookAngle[MAX_TURRETS] = { 0 };
-	bool turretIsDestroyed[MAX_TURRETS] = { 0 };
-	u8 turretVariants[MAX_TURRETS] = { 0 };
-	u8 numBombs = 0;
-	Vector2 bombPos[MAX_BOMBS] = { 0 };
-	u8 bombVariants[MAX_BOMBS] = { 0 };
-	u8 numGlassBoxes = 0;
-	Rectangle glassBoxRects[MAX_GLASS_BOXES] = { 0 };
-	u8 numTriggerMessages = 0;
-	Rectangle triggerMessagesRects[MAX_TRIGGER_MESSAGES] = { 0 };
-	bool triggerMessagesOnce[MAX_TRIGGER_MESSAGES] = { 0 };
-	char triggerMessages[MAX_TRIGGER_MESSAGES][MAX_POPUP_MESSAGE_LENGTH] = { 0 };
-
-	fread(&flags, sizeof flags, 1, file);
-	fread(next, sizeof next, 1, file);
-	fread(&numTilesX, sizeof numTilesX, 1, file);
-	fread(&numTilesY, sizeof numTilesY, 1, file);
-	for (u8 y = 0; y < numTilesY; ++y)
-		fread(tiles[y], sizeof tiles[0][0], numTilesX, file);
-	for (u8 y = 0; y < numTilesY; ++y)
-		fread(tileVariants[y], sizeof tileVariants[0][0], numTilesX, file);
-	fread(&playerDefaultPos, sizeof playerDefaultPos, 1, file);
-	fread(&numTurrets, sizeof numTurrets, 1, file);
-	fread(turretPos, sizeof turretPos[0], numTurrets, file);
-	fread(turretLookAngle, sizeof turretLookAngle[0], numTurrets, file);
-	fread(turretIsDestroyed, sizeof turretIsDestroyed[0], numTurrets, file);
-	fread(turretVariants, sizeof turretVariants[0], numTurrets, file);
-	fread(&numBombs, sizeof numBombs, 1, file);
-	fread(bombPos, sizeof bombPos[0], numBombs, file);
-	fread(bombVariants, sizeof bombVariants[0], numBombs, file);
-	fread(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
-	fread(glassBoxRects, sizeof glassBoxRects[0], numGlassBoxes, file);
-	fread(&numTriggerMessages, sizeof numTriggerMessages, 1, file);
-	fread(triggerMessagesRects, sizeof triggerMessagesRects[0], numTriggerMessages, file);
-	fread(triggerMessagesOnce, sizeof triggerMessagesOnce[0], numTriggerMessages, file);
-	fread(triggerMessages, sizeof triggerMessages[0], numTriggerMessages, file);
-	fclose(file);
-
-	char name[sizeof room->name];
-	snprintf(name, sizeof name, "%s", filename);
 	memset(room, 0, sizeof room[0]);
-	memcpy(room->name, name, sizeof room->name);
-	memcpy(room->next, next, sizeof room->next);
-	room->numTilesX = (int)numTilesX;
-	room->numTilesY = (int)numTilesY;
-	for (u8 y = 0; y < numTilesY; ++y)
-		for (u8 x = 0; x < numTilesX; ++x)
-			room->tiles[y][x] = (Tile)tiles[y][x];
-	memcpy(room->tileVariants, tileVariants, sizeof tileVariants);
-	room->playerDefaultPos = playerDefaultPos;
-	room->numTurrets = (int)numTurrets;
-	memcpy(room->turretPos, turretPos, sizeof turretPos);
-	memcpy(room->turretLookAngle, turretLookAngle, sizeof turretLookAngle);
-	memcpy(room->turretIsDestroyed, turretIsDestroyed, sizeof turretIsDestroyed);
-	memcpy(room->turretVariants, turretVariants, sizeof turretVariants);
-	room->numBombs = (int)numBombs;
-	memcpy(room->bombPos, bombPos, sizeof bombPos);
-	memcpy(room->bombVariants, bombVariants, sizeof bombVariants);
-	room->numGlassBoxes = (int)numGlassBoxes;
-	memcpy(room->glassBoxRects, glassBoxRects, sizeof glassBoxRects);
-	room->numTriggerMessages = numTriggerMessages;
-	memcpy(room->triggerMessagesRects, triggerMessagesRects, sizeof triggerMessagesRects);
-	memcpy(room->triggerMessagesOnce, triggerMessagesOnce, sizeof triggerMessagesOnce);
-	memcpy(room->triggerMessages, triggerMessages, sizeof triggerMessages);
+	snprintf(room->name, sizeof room->name, "%s", filename);
 	
+	u64 flags = 0; 
+	fread(&flags, sizeof flags, 1, file);
+	fread(room->next, sizeof room->next, 1, file);
+	fread(&room->numTilesX, sizeof room->numTilesX, 1, file);
+	fread(&room->numTilesY, sizeof room->numTilesY, 1, file);
+	for (u8 y = 0; y < room->numTilesY; ++y)
+		fread(room->tiles[y], sizeof room->tiles[0][0], room->numTilesX, file);
+	for (u8 y = 0; y < room->numTilesY; ++y)
+		fread(room->tileVariants[y], sizeof room->tileVariants[0][0], room->numTilesX, file);
+	fread(&room->playerDefaultPos, sizeof room->playerDefaultPos, 1, file);
+	fread(&room->numTurrets, sizeof room->numTurrets, 1, file);
+	fread(room->turretPos, sizeof room->turretPos[0], room->numTurrets, file);
+	fread(room->turretLookAngle, sizeof room->turretLookAngle[0], room->numTurrets, file);
+	fread(room->turretIsDestroyed, sizeof room->turretIsDestroyed[0], room->numTurrets, file);
+	fread(room->turretVariants, sizeof room->turretVariants[0], room->numTurrets, file);
+	fread(&room->numBombs, sizeof room->numBombs, 1, file);
+	fread(room->bombPos, sizeof room->bombPos[0], room->numBombs, file);
+	fread(room->bombVariants, sizeof room->bombVariants[0], room->numBombs, file);
+	fread(&room->numGlassBoxes, sizeof room->numGlassBoxes, 1, file);
+	fread(room->glassBoxRects, sizeof room->glassBoxRects[0], room->numGlassBoxes, file);
+	fread(&room->numTriggerMessages, sizeof room->numTriggerMessages, 1, file);
+	fread(room->triggerMessagesRects, sizeof room->triggerMessagesRects[0], room->numTriggerMessages, file);
+	fread(room->triggerMessagesOnce, sizeof room->triggerMessagesOnce[0], room->numTriggerMessages, file);
+	fread(room->triggerMessages, sizeof room->triggerMessages[0], room->numTriggerMessages, file);
+
+	fclose(file);
 	TraceLog(LOG_INFO, "Loaded room '%s'.", filepath);
 	return true;
 }
@@ -1111,46 +1040,27 @@ void SaveRoom(const Room *room)
 	u64 flags = 0;
 	fwrite(&flags, sizeof flags, 1, file);
 	fwrite(room->next, sizeof room->next, 1, file);
-
-	u8 numTilesX = (u8)room->numTilesX;
-	u8 numTilesY = (u8)room->numTilesY;
-	fwrite(&numTilesX, sizeof numTilesX, 1, file);
-	fwrite(&numTilesY, sizeof numTilesY, 1, file);
-
-	for (u8 y = 0; y < numTilesY; ++y)
-	{
-		for (u8 x = 0; x < numTilesX; ++x)
-		{
-			u8 tile = (u8)room->tiles[y][x];
-			fwrite(&tile, sizeof tile, 1, file);
-		}
-	}
-	for (u8 y = 0; y < numTilesY; ++y)
-		fwrite(tileVariants[y], sizeof tileVariants[0][0], numTilesX, file);
-
+	fwrite(&room->numTilesX, sizeof room->numTilesX, 1, file);
+	fwrite(&room->numTilesY, sizeof room->numTilesY, 1, file);
+	for (u8 y = 0; y < room->numTilesY; ++y)
+		fwrite(room->tiles[y], sizeof room->tileVariants[0][0], room->numTilesX, file);
+	for (u8 y = 0; y < room->numTilesY; ++y)
+		fwrite(room->tileVariants[y], sizeof room->tileVariants[0][0], room->numTilesX, file);
 	fwrite(&room->playerDefaultPos, sizeof room->playerDefaultPos, 1, file);
-
-	u8 numTurrets = (u8)room->numTurrets;
-	fwrite(&numTurrets, sizeof numTurrets, 1, file);
-	fwrite(room->turretPos, sizeof room->turretPos[0], numTurrets, file);
-	fwrite(room->turretLookAngle, sizeof room->turretLookAngle[0], numTurrets, file);
-	fwrite(room->turretIsDestroyed, sizeof room->turretIsDestroyed[0], numTurrets, file);
-	fwrite(room->turretVariants, sizeof room->turretVariants[0], numTurrets, file);
-
-	u8 numBombs = (u8)room->numBombs;
-	fwrite(&numBombs, sizeof numBombs, 1, file);
-	fwrite(room->bombPos, sizeof room->bombPos[0], numBombs, file);
-	fwrite(room->bombVariants, sizeof room->bombVariants[0], numBombs, file);
-
-	u8 numGlassBoxes = (u8)room->numGlassBoxes;
-	fwrite(&numGlassBoxes, sizeof numGlassBoxes, 1, file);
-	fwrite(room->glassBoxRects, sizeof room->glassBoxRects[0], numGlassBoxes, file);
-
-	u8 numTriggerMessages = (u8)room->numTriggerMessages;
-	fwrite(&numTriggerMessages, sizeof numTriggerMessages, 1, file);
-	fwrite(room->triggerMessagesRects, sizeof room->triggerMessagesRects[0], numTriggerMessages, file);
-	fwrite(room->triggerMessagesOnce, sizeof room->triggerMessagesOnce[0], numTriggerMessages, file);
-	fwrite(room->triggerMessages, sizeof room->triggerMessages[0], numTriggerMessages, file);
+	fwrite(&room->numTurrets, sizeof room->numTurrets, 1, file);
+	fwrite(room->turretPos, sizeof room->turretPos[0], room->numTurrets, file);
+	fwrite(room->turretLookAngle, sizeof room->turretLookAngle[0], room->numTurrets, file);
+	fwrite(room->turretIsDestroyed, sizeof room->turretIsDestroyed[0], room->numTurrets, file);
+	fwrite(room->turretVariants, sizeof room->turretVariants[0], room->numTurrets, file);
+	fwrite(&room->numBombs, sizeof room->numBombs, 1, file);
+	fwrite(room->bombPos, sizeof room->bombPos[0], room->numBombs, file);
+	fwrite(room->bombVariants, sizeof room->bombVariants[0], room->numBombs, file);
+	fwrite(&room->numGlassBoxes, sizeof room->numGlassBoxes, 1, file);
+	fwrite(room->glassBoxRects, sizeof room->glassBoxRects[0], room->numGlassBoxes, file);
+	fwrite(&room->numTriggerMessages, sizeof room->numTriggerMessages, 1, file);
+	fwrite(room->triggerMessagesRects, sizeof room->triggerMessagesRects[0], room->numTriggerMessages, file);
+	fwrite(room->triggerMessagesOnce, sizeof room->triggerMessagesOnce[0], room->numTriggerMessages, file);
+	fwrite(room->triggerMessages, sizeof room->triggerMessages[0], room->numTriggerMessages, file);
 
 	fclose(file);
 	TraceLog(LOG_INFO, "Saved room '%s'.", filepath);
@@ -1187,16 +1097,19 @@ void CopyRoomToGame(Room *room)
 	screenShakeIntensity = 0;
 	screenShakeDamping = 0;
 
-	numTilesX = room->numTilesX;
-	numTilesY = room->numTilesY;
+	numTilesX = (int)room->numTilesX;
+	numTilesY = (int)room->numTilesY;
 	for (int y = 0; y < numTilesY; ++y)
 	{
-		memcpy(tiles[y], room->tiles[y], sizeof tiles[0]);
-		memcpy(tileVariants[y], room->tileVariants[y], sizeof tileVariants[0]);
+		for (int x = 0; x < numTilesX; ++x)
+		{
+			tiles[y][x] = (Tile)room->tiles[y][x];
+			tileVariants[y][x] = (Tile)room->tileVariants[y][x];
+		}
 	}
 
 	player.pos = room->playerDefaultPos;
-	for (int i = 0; i < room->numTurrets; ++i)
+	for (u8 i = 0; i < room->numTurrets; ++i)
 	{
 		Turret *turret = SpawnTurret(room->turretPos[i], room->turretLookAngle[i]);
 		if (turret)
@@ -1205,7 +1118,7 @@ void CopyRoomToGame(Room *room)
 			turret->isDestroyed = room->turretIsDestroyed[i];
 		}
 	}
-	for (int i = 0; i < room->numBombs; ++i)
+	for (u8 i = 0; i < room->numBombs; ++i)
 	{
 		Bomb *bomb = SpawnBomb(room->bombPos[i]);
 		if (bomb)
@@ -1213,9 +1126,9 @@ void CopyRoomToGame(Room *room)
 			bomb->variant = room->bombVariants[i];
 		}
 	}
-	for (int i = 0; i < room->numGlassBoxes; ++i)
+	for (u8 i = 0; i < room->numGlassBoxes; ++i)
 		SpawnGlassBox(room->glassBoxRects[i]);
-	for (int i = 0; i < room->numTriggerMessages; ++i)
+	for (u8 i = 0; i < room->numTriggerMessages; ++i)
 		SpawnTriggerMessage(room->triggerMessagesRects[i], room->triggerMessagesOnce[i], room->triggerMessages[i]);
 }
 void CopyGameToRoom(Room *room)
@@ -1225,15 +1138,18 @@ void CopyGameToRoom(Room *room)
 	memset(room, 0, sizeof room[0]);
 	memcpy(room->name, name, sizeof name);
 	memcpy(room->next, nextRoomName, sizeof room->next);
-	room->numTilesX = numTilesX;
-	room->numTilesY = numTilesY;
+	room->numTilesX = (u8)numTilesX;
+	room->numTilesY = (u8)numTilesY;
 	for (int y = 0; y < numTilesY; ++y)
 	{
-		memcpy(room->tiles[y], tiles[y], numTilesX * sizeof tiles[y][0]);
-		memcpy(room->tileVariants[y], tileVariants[y], numTilesX * sizeof tileVariants[y][0]);
+		for (int x = 0; x < numTilesX; ++x)
+		{
+			room->tiles[y][x] = (u8)tiles[y][x];
+			room->tileVariants[y][x] = (u8)tileVariants[y][x];
+		}
 	}
 	room->playerDefaultPos = player.pos;
-	room->numTurrets = numTurrets;
+	room->numTurrets = (u8)numTurrets;
 	for (int i = 0; i < numTurrets; ++i)
 	{
 		Turret t = turrets[i];
@@ -1242,20 +1158,20 @@ void CopyGameToRoom(Room *room)
 		room->turretIsDestroyed[i] = t.isDestroyed;
 		room->turretVariants[i] = t.variant;
 	}
-	room->numBombs = numBombs;
+	room->numBombs = (u8)numBombs;
 	for (int i = 0; i < numBombs; ++i)
 	{
 		Bomb b = bombs[i];
 		room->bombPos[i] = b.pos;
 		room->bombVariants[i] = b.variant;
 	}
-	room->numGlassBoxes = numGlassBoxes;
+	room->numGlassBoxes = (u8)numGlassBoxes;
 	for (int i = 0; i < numGlassBoxes; ++i)
 	{
 		GlassBox box = glassBoxes[i];
 		room->glassBoxRects[i] = box.rect;
 	}
-	room->numTriggerMessages = numTriggerMessages;
+	room->numTriggerMessages = (u8)numTriggerMessages;
 	for (int i = 0; i < numTriggerMessages; ++i)
 	{
 		TriggerMessage tm = triggerMessages[i];
@@ -2060,7 +1976,7 @@ void DrawPopupMessage(float enterTime, float leaveTime, float centerX, float cen
 	float t1Leave = Clamp((leaveTime) / (1 - flyInOutTime), 0, 1);
 
 	char text[MAX_POPUP_MESSAGE_LENGTH];
-	uptr len = strlen(message);
+	size_t len = strlen(message);
 	if (len + 1 > MAX_POPUP_MESSAGE_LENGTH)
 		len = MAX_POPUP_MESSAGE_LENGTH - 1;
 	memcpy(text, message, len);
@@ -4241,7 +4157,7 @@ void GameInit(void)
 	rlDisableBackfaceCulling(); // It's a 2D game we don't need this..
 	rlDisableDepthTest();
 
-	rng = SeedRandom(time(NULL));
+	rng = SeedRandom((u64)(GetTime() * 1000000) * 11400714819323198485llu);
 
 	LoadAllTextures();
 	LoadAllSounds();

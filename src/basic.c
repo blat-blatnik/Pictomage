@@ -10,7 +10,7 @@ void BasicInit(void)
 	TempStorageAllocator = CreateBiStackFromBuffer(TempStorage, sizeof TempStorage);
 }
 
-void *TempAlloc(uptr size)
+void *TempAlloc(size_t size)
 {
 	void *result = BiStackAllocFront(&TempStorageAllocator, size);
 	if (!result)
@@ -24,26 +24,6 @@ void TempReset(void)
 	BiStackResetAll(&TempStorageAllocator);
 }
 
-void *TempCopy(const void *data, uptr size)
-{
-	ASSERT(data || size == 0);
-	void *copy = TempAlloc(size);
-	if (!copy)
-		return NULL;
-	memcpy(copy, data, size);
-	return copy;
-}
-char *TempString(const char *str)
-{
-	ASSERT(str);
-	uptr len = strlen(str);
-	char *copy = TempAlloc(len + 1); // +1 for 0 terminator.
-	if (!copy)
-		return NULL;
-	memcpy(copy, str, len);
-	copy[len] = 0;
-	return copy;
-}
 char *TempPrint(FORMAT_STRING format, ...)
 {
 	ASSERT(format);
@@ -62,9 +42,9 @@ char *TempPrintv(FORMAT_STRING format, va_list args)
 	int neededLength = vsnprintf(NULL, 0, format, argsCopy);
 	va_end(argsCopy);
 	if (neededLength < 0)
-		return TempString("[FORMAT ERROR]");
+		return TempPrint("[FORMAT ERROR]");
 
-	uptr neededBytes = (uptr)neededLength + 1;
+	size_t neededBytes = (size_t)neededLength + 1;
 	char *result = TempAlloc(neededBytes); // +1 for NULL terminator.
 	if (!result)
 		return NULL;
@@ -73,33 +53,23 @@ char *TempPrintv(FORMAT_STRING format, va_list args)
 	return result;
 }
 
-u64 HashBytes(const void *data, uptr size)
+u64 HashBytes(const void *data, size_t size)
 {
 	ASSERT(data || size == 0);
 	const u8 *bytes = data;
 
 	// FNV-1a -- https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#The_hash
 	u64 hash = 14695981039346656037u;
-	for (uptr i = 0; i < size; ++i)
+	for (size_t i = 0; i < size; ++i)
 		hash = (hash * 1099511628211u) ^ bytes[i];
 	return hash;
 }
-u64 HashString(const char *str)
-{
-	ASSERT(str);
-
-	// FNV-1a -- https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#The_hash
-	u64 hash = 14695981039346656037u;
-	for (uptr i = 0; str[i]; ++i)
-		hash = (hash * 1099511628211u) ^ (u8)str[i];
-	return hash;
-}
-void SwapMemory(void *a, void *b, uptr size)
+void SwapMemory(void *a, void *b, size_t size)
 {
 	ASSERT((a && b) || size == 0);
 	u8 *bytesA = a;
 	u8 *bytesB = b;
-	for (uptr i = 0; i < size; ++i)
+	for (size_t i = 0; i < size; ++i)
 	{
 		u8 temp = bytesA[i];
 		bytesA[i] = bytesB[i];
@@ -148,14 +118,6 @@ Vector2 Vec2(float x, float y)
 {
 	return (Vector2) { x, y };
 }
-Vector3 Vec3(float x, float y, float z)
-{
-	return (Vector3) { x, y, z };
-}
-Vector4 Vec4(float x, float y, float z, float w)
-{
-	return (Vector4) { x, y, z, w };
-}
 Vector2 Vec2FromPolar(float length, float angleRadians)
 {
 	float s = sinf(angleRadians);
@@ -166,14 +128,6 @@ Vector2 Vec2FromPolar(float length, float angleRadians)
 Vector2 Vec2Broadcast(float xy)
 {
 	return (Vector2) { xy, xy };
-}
-Vector3 Vec3Broadcast(float xyz)
-{
-	return (Vector3) { xyz, xyz, xyz };
-}
-Vector4 Vec4Broadcast(float xyzw)
-{
-	return (Vector4) { xyzw, xyzw, xyzw, xyzw };
 }
 Color FloatRGBA(float r, float g, float b, float a)
 {
@@ -324,24 +278,17 @@ u32 Random32(Random *rand)
 	u32 y = (u32)(x >> 27);
 	return (y >> count) | (y << (-count & 31));
 }
-uint RandomUint(Random *rand, uint inclusiveMin, uint exclusiveMax)
+int RandomInt(Random *rand, int inclusiveMin, int exclusiveMax)
 {
 	ASSERT(rand && inclusiveMin < exclusiveMax);
-	
+
 	// Optimal bounded generation: https://github.com/apple/swift/pull/39143
-	u64 range = exclusiveMax - inclusiveMin;
+	u64 range = (u64)(exclusiveMax - inclusiveMin);
 	u32 r1 = Random32(rand);
 	u32 r2 = Random32(rand);
 	u64 hi = range * r1;
 	u64 lo = (u32)hi + ((range * r2) >> 32);
-	return inclusiveMin + (u32)((hi >> 32) + (lo >> 32));
-}
-int RandomInt(Random *rand, int inclusiveMin, int exclusiveMax)
-{
-	ASSERT(rand && inclusiveMin < exclusiveMax);
-	uint range = (uint)(exclusiveMax - inclusiveMin);
-	uint r = RandomUint(rand, 0, range);
-	return inclusiveMin + (int)r;
+	return inclusiveMin + (int)((hi >> 32) + (lo >> 32));
 }
 float RandomFloat(Random *rand, float inclusiveMin, float exclusiveMax)
 {
@@ -360,29 +307,6 @@ bool RandomProbability(Random *rand, float prob)
 {
 	return RandomFloat01(rand) < prob;
 }
-void RandomShuffle(Random *rand, void *items, uptr elementCount, uptr elementSize)
-{
-	ASSERT(rand && (items || (elementCount * elementSize == 0 || elementSize == 0)));
-	ASSERT(elementCount < INT_MAX); // We don't have a RandomU64 function..
-
-	// https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
-	if (elementCount <= 1)
-		return;
-
-	u8 *bytes = items;
-	for (uptr i = elementCount - 1; i > 0; --i)
-	{
-		uptr j = RandomUint(rand, 0, (uint)i + 1);
-		u8 *src = bytes + i * elementSize;
-		u8 *dst = bytes + j * elementSize;
-		for (size_t k = 0; k < elementSize; ++k)
-		{
-			u8 temp = src[k];
-			src[k] = dst[k];
-			dst[k] = temp;
-		}
-	}
-}
 Vector2 RandomVector(Random *rand, float magnitude)
 {
 	float angle = RandomFloat(rand, -PI, +PI);
@@ -397,7 +321,6 @@ Vector2 RandomVector(Random *rand, float magnitude)
 Vector2 RandomNormal(Random *rand, float mean, float sdev)
 {
 	// https://en.wikipedia.org/wiki/Marsaglia_polar_method#Implementation
-
 	float u, v, s;
 	do
 	{
@@ -409,68 +332,6 @@ Vector2 RandomNormal(Random *rand, float mean, float sdev)
 	return Vec2(
 		mean + u * sdev * s,
 		mean + v * sdev * s);
-}
-
-StringBuilder CreateStringBuilder(char *buffer, uptr capacity)
-{
-	ASSERT(buffer || capacity == 0);
-	StringBuilder builder = { 
-		.buffer = buffer, 
-		.capacity = capacity, 
-		.bytesNeeded = 1 
-	};
-
-	if (builder.capacity > 0)
-		builder.buffer[builder.cursor++] = 0;
-	
-	return builder;
-}
-void StringAppendString(StringBuilder *builder, const char *str)
-{
-	ASSERT(builder && str);
-	for (uptr i = 0; str[i]; ++i)
-		StringAppendChar(builder, str[i]);
-}
-void StringAppendBytes(StringBuilder *builder, const void *bytes, uptr size)
-{
-	ASSERT(builder && (bytes || size == 0));
-	const u8 *data = bytes;
-	for (uptr i = 0; i < size; ++i)
-		StringAppendChar(builder, (char)data[i]);
-}
-void StringAppendChar(StringBuilder *builder, char c)
-{
-	ASSERT(builder);
-	if (builder->cursor + 1 < builder->capacity)
-	{
-		builder->buffer[builder->cursor++] = c;
-		builder->buffer[builder->cursor] = 0; // Keep the buffer 0 terminated at all times!
-	}
-	builder->bytesNeeded++;
-}
-void PrintToString(StringBuilder *builder, FORMAT_STRING format, ...)
-{
-	ASSERT(builder && format);
-	va_list args;
-	va_start(args, format);
-	PrintvToString(builder, format, args);
-	va_end(args);
-}
-void PrintvToString(StringBuilder *builder, FORMAT_STRING format, va_list args)
-{
-	ASSERT(builder && format);
-
-	uptr bytesRemaining = builder->capacity - builder->cursor;
-	int len = snprintf(builder->buffer + builder->cursor, bytesRemaining, format, args);
-	if (len < 0)
-	{
-		StringAppendString(builder, "[FORMAT ERROR]");
-		return;
-	}
-
-	uptr charsWritten = (uptr)len;
-	builder->cursor += charsWritten;
-	builder->bytesNeeded += charsWritten;
 }
 
 void rlColor(Color color)
@@ -576,6 +437,11 @@ RayCollision GetProjectileCollisionWithRect(Vector2 pos, Vector2 vel, Rectangle 
 }
 bool _fixed_CheckCollisionCircleRec(Vector2 center, float radius, Rectangle rect)
 {
+	// I noticed bullets were passing through the corners of glass boxes when I was using Raylib's CheckCollisionCircleRec.
+	// I then switched it to CheckCollisionPointRec and the problem went away. I thus concluded that CheckCollisionCircleRec
+	// is bugged, and wrote this to replace it. After the gamejam, I tried to replicate the issue in a self contained program
+	// but I couldn't..
+
 	Vector2 nearestPoint;
 	nearestPoint.x = Clamp(center.x, rect.x, rect.x + rect.width);
 	nearestPoint.y = Clamp(center.y, rect.y, rect.y + rect.height);
@@ -583,10 +449,6 @@ bool _fixed_CheckCollisionCircleRec(Vector2 center, float radius, Rectangle rect
 	Vector2 toNearest = Vector2Subtract(nearestPoint, center);
 	float dist2 = Vector2LengthSqr(toNearest);
 	return dist2 < radius * radius;
-	//if (overlap > 0 && len > 0)
-	//	return Vector2Subtract(center, Vector2Scale(toNearest, overlap / len));
-	//else
-	//	return center;
 }
 
 void GuiText(Rectangle rect, FORMAT_STRING format, ...)
@@ -742,6 +604,27 @@ void DrawCircleGradientV(Vector2 center, Vector2 radius, Color innerColor, Color
 			rlVertex2f(points[j + 0].x, points[j + 0].y);
 			rlVertex2f(points[j + 1].x, points[j + 1].y);
 		}
+	}
+	rlEnd();
+}
+void DrawTrail(Vector2 pos, Vector2 vel, Vector2 origin, float radius, float trailLength, Color color0, Color color1)
+{
+	Vector2 perp1 = Vector2Scale(Vector2Normalize(Vec2(-vel.y, +vel.x)), radius);
+	Vector2 perp2 = Vector2Scale(Vector2Normalize(Vec2(+vel.y, -vel.x)), radius);
+	Vector2 toOrigin = Vector2Subtract(origin, pos);
+	Vector2 perp3 = Vector2Scale(Vector2Normalize(toOrigin), trailLength);
+	if (Vector2LengthSqr(perp3) > Vector2LengthSqr(toOrigin))
+		perp3 = toOrigin;
+	Vector2 trail1 = Vector2Add(pos, perp1);
+	Vector2 trail2 = Vector2Add(pos, perp2);
+	Vector2 trail3 = Vector2Add(pos, perp3);
+	rlBegin(RL_TRIANGLES);
+	{
+		rlColor(color1);
+		rlVertex2fv(trail1);
+		rlVertex2fv(trail2);
+		rlColor(color0);
+		rlVertex2fv(trail3);
 	}
 	rlEnd();
 }

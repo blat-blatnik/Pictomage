@@ -6,8 +6,6 @@
 #include "lib/raygui.h"
 #define RMEM_IMPLEMENTATION
 #include "lib/rmem.h"
-#define PHYSAC_IMPLEMENTATION
-#include "lib/physac.h"
 
 void BasicInit(void);
 void GameInit(void);
@@ -18,10 +16,10 @@ int main(void)
     BasicInit();
     GameInit();
 
-    #ifndef __EMSCRIPTEN__
+    #ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(GameLoopOneIteration, 0, 1);
+    #else
     while (!WindowShouldClose())
         GameLoopOneIteration();
-    #else
-    emscripten_set_main_loop(GameLoopOneIteration, 0, 1);
     #endif
 }

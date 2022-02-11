@@ -6,18 +6,11 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <assert.h>
-#include <limits.h>
 #include <stdio.h>
 #include <math.h>
-#include <time.h>
 #include "lib/raylib.h"
 #include "lib/raygui.h"
 #include "lib/raymath.h"
-#include "lib/rgestures.h"
-#include "lib/rcamera.h"
-#include "lib/physac.h"
-#include "lib/easings.h"
 #include "lib/rlgl.h"
 #include "lib/rmem.h"
 
@@ -45,21 +38,15 @@ typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
-typedef intptr_t iptr;
-typedef uintptr_t uptr;
-typedef unsigned int uint;
 
-void *TempAlloc(uptr size);
+void *TempAlloc(size_t size);
 void TempReset(void);
 
-void *TempCopy(const void *data, uptr size);
-char *TempString(const char *str);
 char *TempPrint(FORMAT_STRING format, ...);
 char *TempPrintv(FORMAT_STRING format, va_list args);
 
-u64 HashBytes(const void *bytes, uptr size);
-u64 HashString(const char *str);
-void SwapMemory(void *a, void *b, uptr size);
+u64 HashBytes(const void *bytes, size_t size);
+void SwapMemory(void *a, void *b, size_t size);
 
 float Smoothstep(float edge0, float edge1, float x);
 float Wrap(float x, float max); // x -> [0, max)
@@ -68,11 +55,7 @@ bool IsAngleBetween(float target, float angle1, float angle2);
 float AngleBetween(Vector2 a, Vector2 b);
 int ClampInt(int x, int min, int max);
 Vector2 Vec2(float x, float y);
-Vector3 Vec3(float x, float y, float z);
-Vector4 Vec4(float x, float y, float z, float w);
 Vector2 Vec2Broadcast(float xy);
-Vector3 Vec3Broadcast(float xyz);
-Vector4 Vec4Broadcast(float xyzw);
 Vector2 Vec2FromPolar(float length, float angleRadians);
 Color FloatRGBA(float r, float g, float b, float a);
 Color RGBA8(int r, int g, int b, int a);
@@ -97,28 +80,12 @@ float ToRaylibDegrees(float radians);
 typedef u64 Random;
 Random SeedRandom(u64 seed);
 u32 Random32(Random *rand);
-uint RandomUint(Random *rand, uint inclusiveMin, uint exclusiveMax);
 int RandomInt(Random *rand, int inclusiveMin, int exclusiveMax);
 float RandomFloat(Random *rand, float inclusiveMin, float exclusiveMax);
 float RandomFloat01(Random *rand);
 bool RandomProbability(Random *rand, float prob);
-void RandomShuffle(Random *rand, void *items, uptr elementCount, uptr elementSize);
 Vector2 RandomVector(Random *rand, float magnitude);
 Vector2 RandomNormal(Random *rand, float mean, float sdev);
-
-typedef struct StringBuilder
-{
-	char *buffer;
-	uptr capacity;
-	uptr cursor;
-	uptr bytesNeeded;
-} StringBuilder;
-StringBuilder CreateStringBuilder(char *buffer, uptr capacity);
-void StringAppendString(StringBuilder *builder, const char *str);
-void StringAppendBytes(StringBuilder *builder, const void *bytes, uptr size);
-void StringAppendChar(StringBuilder *builder, char c);
-void PrintToString(StringBuilder *builder, FORMAT_STRING format, ...);
-void PrintvToString(StringBuilder *builder, FORMAT_STRING format, va_list args);
 
 void rlColor(Color color);
 void rlVertex2fv(Vector2 v);
@@ -129,7 +96,7 @@ bool CheckCollisionLineCircle(Vector2 p0, Vector2 p1, Vector2 center, float radi
 Vector2 ResolveCollisionCircleRec(Vector2 center, float radius, Rectangle rect);
 Vector2 ResolveCollisionCircles(Vector2 center, float radius, Vector2 obstacleCenter, float obstacleRadius);
 RayCollision GetProjectileCollisionWithRect(Vector2 pos, Vector2 vel, Rectangle rect);
-bool _fixed_CheckCollisionCircleRec(Vector2 center, float radius, Rectangle rect);
+bool _fixed_CheckCollisionCircleRec(Vector2 center, float radius, Rectangle rect); // I found a bug with CheckCollisionCircleRec, so I made a custom one.
 #define CheckCollisionCircleRec _fixed_CheckCollisionCircleRec
 
 void GuiText(Rectangle rect, FORMAT_STRING format, ...);
@@ -145,3 +112,4 @@ void DrawTexRotated(Texture t, Vector2 center, Vector2 extent, Color tint, float
 void DrawTexRec(Texture t, Rectangle rect, Color tint);
 void DrawTexRecRotated(Texture t, Rectangle rect, Color tint, float angleRadians);
 void DrawCircleGradientV(Vector2 center, Vector2 radius, Color innerColor, Color outerColor);
+void DrawTrail(Vector2 pos, Vector2 vel, Vector2 origin, float radius, float trailLength, Color color0, Color color1);

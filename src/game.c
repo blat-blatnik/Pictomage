@@ -28,7 +28,7 @@
 #define MAX_TRIGGER_MESSAGES 10
 #define MAX_TEXTURE_VARIANTS 32
 #define MAX_SPARKS 100
-#define MAX_SHARDS 600
+#define MAX_SHARDS 800
 #define MAX_DECALS 30
 
 #define PLAYER_SPEED 10.0f
@@ -2389,9 +2389,9 @@ void DrawSparks(void)
 }
 void DrawShards(void)
 {
+	rlBegin(RL_QUADS); // We manually draw the rectangles instead of calling DrawRectangleRec for speed.
 	for (int i = 0; i < numShards; ++i)
 	{
-		// @SPEED: We don't really need to do this. It looks a tiny bit better but not much.
 		Shard shard = shards[i];
 		float x = shard.pos.x;
 		float y = shard.pos.y;
@@ -2405,9 +2405,16 @@ void DrawShards(void)
 		{
 			Tile tile = tiles[ty][tx];
 			if (TileIsPassable(tile))
-				DrawRectangleRec((Rectangle) { x, y, w, h }, shard.color);
+			{
+				rlColor(shard.color);
+				rlVertex2f(x + 0, y + 0);
+				rlVertex2f(x + w, y + 0);
+				rlVertex2f(x + w, y + h);
+				rlVertex2f(x + 0, y + h);
+			}
 		}
 	}
+	rlEnd();
 }
 void DrawDecals(void)
 {

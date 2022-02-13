@@ -76,8 +76,6 @@ Vector2 Vector2Ceil(Vector2 v);
 bool Vector2Equal(Vector2 a, Vector2 b);
 float Vec2Angle(Vector2 v);
 
-float ToRaylibDegrees(float radians);
-
 typedef u64 Random;
 Random SeedRandom(u64 seed);
 u32 Random32(Random *rand);

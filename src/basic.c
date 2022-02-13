@@ -256,11 +256,6 @@ float Vec2Angle(Vector2 v)
 	return atan2f(v.y, v.x);
 }
 
-float ToRaylibDegrees(float radians)
-{
-	return (RAD2DEG * (-radians)) + 90;
-}
-
 Random SeedRandom(u64 seed)
 {
 	// PCG-XSH-RR -- https://en.wikipedia.org/wiki/Permuted_congruential_generator#Example_code

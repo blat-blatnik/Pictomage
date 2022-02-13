@@ -336,9 +336,9 @@ void DoScreenShake(void)
 // |/   Globals   \|
 // *---=========---*
 
-bool godMode = false; //@TODO: Disable this for release.
-bool devMode = false; //@TODO: Disable this for release.
-const char *devModeStartRoom = "room0";
+bool godMode = true; //@TODO: Disable this for release.
+bool devMode = true; //@TODO: Disable this for release.
+const char *devModeStartRoom = "tutorial3";
 double timeAtStartOfFrame;
 int deathCount;
 double scoreTime;
@@ -2345,12 +2345,13 @@ void DrawShutter(float t, Color innerColor, Color outerColor, float edgeThicknes
 void DrawGlassBoxes(void)
 {
 	const Color color = ColorAlpha(BLUE, 0.3f);
+	const Color higlightColor = ColorAlpha(SKYBLUE, 0.2f);
 	for (int i = 0; i < numGlassBoxes; ++i)
 	{
 		GlassBox box = glassBoxes[i];
-		//DrawRectanglePro(box.rect, RectangleCenter(box.rect), RAD2DEG * box.rotation, ColorAlpha(BLUE, 0.2f));
 		DrawRectangleRec(box.rect, color);
 		DrawRectangleLinesEx(box.rect, 0.08f, color);
+		DrawRectangleLinesEx(ExpandRectangle(box.rect, -0.08f), 0.04f, higlightColor);
 	}
 }
 void DrawTriggerMessages(bool debug)

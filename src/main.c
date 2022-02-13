@@ -1,11 +1,18 @@
-#ifdef __EMSCRIPTEN__
-#   include <emscripten/emscripten.h>
-#endif
-
 #define RAYGUI_IMPLEMENTATION
 #include "lib/raygui.h"
 #define RMEM_IMPLEMENTATION
 #include "lib/rmem.h"
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+
+// Run on a dedicated GPU if both a dedicated and integrated one are avaliable.
+// See: https://stackoverflow.com/a/39047129
+#if defined _MSC_VER
+__declspec(dllexport) unsigned long NvOptimusEnablement = 1;
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+#endif
 
 void BasicInit(void);
 void GameInit(void);

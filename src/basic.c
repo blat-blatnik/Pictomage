@@ -1,6 +1,6 @@
 #include "basic.h"
 
-#define TEMP_STORAGE_SIZE (256*1024) // 256kB
+#define TEMP_STORAGE_SIZE (64*1024) // 64kB
 
 static u8 TempStorage[TEMP_STORAGE_SIZE];
 static BiStack TempStorageAllocator;

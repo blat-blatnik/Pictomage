@@ -336,9 +336,9 @@ void DoScreenShake(void)
 // |/   Globals   \|
 // *---=========---*
 
-bool godMode = true; //@TODO: Disable this for release.
-bool devMode = true; //@TODO: Disable this for release.
-const char *devModeStartRoom = "tutorial3";
+bool godMode = false; //@TODO: Disable this for release.
+bool devMode = false; //@TODO: Disable this for release.
+const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
 int deathCount;
 double scoreTime;

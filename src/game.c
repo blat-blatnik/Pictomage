@@ -1810,11 +1810,15 @@ void UpdateExplosions(void)
 					Turret *t = &turrets[j];
 					if (CheckCollisionCircles(t->pos, TURRET_RADIUS, e->pos, r))
 					{
-						int debrisCount = RandomInt(&rng, 40, 80);
+						int debrisCount = RandomInt(&rng, 40, 70);
+						Vector2 toTurret = Vector2Subtract(t->pos, e->pos);
+						float angleToTurret = Vec2Angle(toTurret);
 						for (int k = 0; k < debrisCount; ++k)
 						{
-							float speed = RandomFloat(&rng, 15, 25);
-							Vector2 dir = RandomVector(&rng, speed);
+							float speed = RandomFloat(&rng, 20, 30);
+							float angle = RandomNormal(&rng, angleToTurret, 1).x;
+							Vector2 dir = Vec2FromPolar(speed, angle);
+
 							Vector2 size = {
 								RandomFloat(&rng, 0.1f, 0.2f),
 								RandomFloat(&rng, 0.1f, 0.2f),

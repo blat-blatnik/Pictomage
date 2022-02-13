@@ -28,7 +28,7 @@
 #define MAX_TRIGGER_MESSAGES 10
 #define MAX_TEXTURE_VARIANTS 32
 #define MAX_SPARKS 100
-#define MAX_SHARDS 500
+#define MAX_SHARDS 600
 #define MAX_DECALS 30
 
 #define PLAYER_SPEED 10.0f
@@ -1867,7 +1867,7 @@ void UpdateExplosions(void)
 					}
 				}
 
-				if (CheckCollisionCircles(player.pos, PLAYER_RADIUS, e->pos, r))
+				if (time < 0.5f && CheckCollisionCircles(player.pos, PLAYER_RADIUS, e->pos, r))
 				{
 					Vector2 toPlayer = Vector2Subtract(player.pos, e->pos);
 					float distance = Vector2Length(toPlayer);

@@ -336,9 +336,9 @@ void DoScreenShake(void)
 // |/   Globals   \|
 // *---=========---*
 
-bool godMode = true; //@TODO: Disable this for release.
-bool devMode = true; //@TODO: Disable this for release.
-const char *devModeStartRoom = "room2";
+bool godMode = false; //@TODO: Disable this for release.
+bool devMode = false; //@TODO: Disable this for release.
+const char *devModeStartRoom = "room0";
 double timeAtStartOfFrame;
 int deathCount;
 double scoreTime;
@@ -2389,7 +2389,7 @@ void DrawSparks(void)
 }
 void DrawShards(void)
 {
-	rlDrawRenderBatchActive();
+	rlDrawRenderBatchActive(); // If we don't do this, we get weird rendering glithces with glass on room 2.
 	rlBegin(RL_QUADS); // We manually draw the rectangles instead of calling DrawRectangleRec for speed.
 	for (int i = 0; i < numShards; ++i)
 	{

@@ -2198,24 +2198,28 @@ void DrawPlayerRelease(void)
 		Vector2Add(arrowPos1, Vector2Scale(arrowDir, arrowheadLength)),
 		arrowColor);
 }
-void DrawTiles(bool passable)
+void DrawTiles(Tile kind)
 {
+	bool allEnemiesCleared = NumRemainingEnemies() == 0;
+	Color evenTint = Grayscale(1);
+	Color oddTint = Grayscale(0.95f);
+
 	rlBegin(RL_QUADS);
 	for (int y = 0; y < numTilesY; ++y)
 	{
 		for (int x = 0; x < numTilesX; ++x)
 		{
 			Tile tile = tiles[y][x];
-			if (TileIsPassable(tile) == passable)
+			if (tile == kind || (kind == TILE_ENTRANCE && tile == TILE_EXIT) || (kind == TILE_EXIT && tile == TILE_ENTRANCE))
 			{
 				u8 variant = tileVariants[y][x];
 				Texture2D texture;
-				if (tile == TILE_EXIT && NumRemainingEnemies() == 0)
+				if (tile == TILE_EXIT && allEnemiesCleared)
 					texture = tileExitOpenVariants.variants[variant];
 				else
 					texture = tileTextureVariants[tile].variants[variant];
 
-				Color tint = ((x + y) % 2 == 0) ? Grayscale(1) : Grayscale(0.95f);
+				Color tint = ((x + y) % 2 == 0) ? evenTint : oddTint;
 
 				rlColor(tint);
 				rlSetTexture(texture.id);
@@ -2805,10 +2809,11 @@ void Playing_Draw(void)
 	{
 		DoScreenShake();
 
-		DrawTiles(true);
+		DrawTiles(TILE_FLOOR);
 		DrawDecals();
+		DrawTiles(TILE_EXIT);
 		DrawShards();
-		DrawTiles(false);
+		DrawTiles(TILE_WALL);
 		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
@@ -2925,10 +2930,11 @@ void LevelTransition_Draw(void)
 	{
 		DoScreenShake();
 
-		DrawTiles(true);
+		DrawTiles(TILE_FLOOR);
 		DrawDecals();
+		DrawTiles(TILE_EXIT);
 		DrawShards();
-		DrawTiles(false);
+		DrawTiles(TILE_WALL);
 		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();
@@ -3738,8 +3744,9 @@ void LevelEditor_Draw(void)
 {
 	SetupTileCoordinateDrawing();
 	{
-		DrawTiles(true);
-		DrawTiles(false);
+		DrawTiles(TILE_FLOOR);
+		DrawTiles(TILE_EXIT);
+		DrawTiles(TILE_WALL);
 		DrawGlassBoxes();
 		DrawTurrets();
 		DrawBombs();

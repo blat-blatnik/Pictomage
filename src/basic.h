@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <assert.h>
 #include <stdio.h>
 #include <math.h>
 #include "lib/raylib.h"

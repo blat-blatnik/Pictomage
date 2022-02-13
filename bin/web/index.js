@@ -197,7 +197,7 @@ Module['FS_createPath']("/", "res", true, true);
     }
 
     }
-    loadPackage({"files": [{"filename": "/res/bomb0.png", "start": 0, "end": 880}, {"filename": "/res/bullet-wall.wav", "start": 880, "end": 33024, "audio": 1}, {"filename": "/res/credits.png", "start": 33024, "end": 33358}, {"filename": "/res/eject.wav", "start": 33358, "end": 81076, "audio": 1}, {"filename": "/res/entrance0.png", "start": 81076, "end": 85417}, {"filename": "/res/entrance1.png", "start": 85417, "end": 89875}, {"filename": "/res/entrance2.png", "start": 89875, "end": 94236}, {"filename": "/res/entrance3.png", "start": 94236, "end": 98575}, {"filename": "/res/exit-closed0.png", "start": 98575, "end": 105280}, {"filename": "/res/exit-closed1.png", "start": 105280, "end": 112083}, {"filename": "/res/exit-closed2.png", "start": 112083, "end": 118825}, {"filename": "/res/exit-closed3.png", "start": 118825, "end": 125632}, {"filename": "/res/exit-open0.png", "start": 125632, "end": 132658}, {"filename": "/res/exit-open1.png", "start": 132658, "end": 139818}, {"filename": "/res/exit-open2.png", "start": 139818, "end": 146916}, {"filename": "/res/exit-open3.png", "start": 146916, "end": 154067}, {"filename": "/res/explosion.wav", "start": 154067, "end": 267921, "audio": 1}, {"filename": "/res/explosion0.png", "start": 267921, "end": 269989}, {"filename": "/res/explosion1.png", "start": 269989, "end": 273824}, {"filename": "/res/explosion10.png", "start": 273824, "end": 281845}, {"filename": "/res/explosion2.png", "start": 281845, "end": 286703}, {"filename": "/res/explosion3.png", "start": 286703, "end": 293857}, {"filename": "/res/explosion4.png", "start": 293857, "end": 305081}, {"filename": "/res/explosion5.png", "start": 305081, "end": 318796}, {"filename": "/res/explosion6.png", "start": 318796, "end": 335820}, {"filename": "/res/explosion7.png", "start": 335820, "end": 357262}, {"filename": "/res/explosion8.png", "start": 357262, "end": 371309}, {"filename": "/res/explosion9.png", "start": 371309, "end": 379360}, {"filename": "/res/floor0.png", "start": 379360, "end": 379497}, {"filename": "/res/floor1.png", "start": 379497, "end": 380504}, {"filename": "/res/floor10.png", "start": 380504, "end": 382186}, {"filename": "/res/floor11.png", "start": 382186, "end": 383337}, {"filename": "/res/floor12.png", "start": 383337, "end": 384316}, {"filename": "/res/floor13.png", "start": 384316, "end": 385780}, {"filename": "/res/floor14.png", "start": 385780, "end": 387239}, {"filename": "/res/floor15.png", "start": 387239, "end": 388672}, {"filename": "/res/floor16.png", "start": 388672, "end": 390078}, {"filename": "/res/floor17.png", "start": 390078, "end": 391509}, {"filename": "/res/floor18.png", "start": 391509, "end": 392946}, {"filename": "/res/floor19.png", "start": 392946, "end": 394544}, {"filename": "/res/floor2.png", "start": 394544, "end": 395895}, {"filename": "/res/floor20.png", "start": 395895, "end": 397525}, {"filename": "/res/floor21.png", "start": 397525, "end": 399117}, {"filename": "/res/floor22.png", "start": 399117, "end": 400719}, {"filename": "/res/floor23.png", "start": 400719, "end": 402731}, {"filename": "/res/floor24.png", "start": 402731, "end": 404737}, {"filename": "/res/floor25.png", "start": 404737, "end": 406606}, {"filename": "/res/floor26.png", "start": 406606, "end": 408466}, {"filename": "/res/floor27.png", "start": 408466, "end": 409800}, {"filename": "/res/floor28.png", "start": 409800, "end": 411139}, {"filename": "/res/floor29.png", "start": 411139, "end": 412430}, {"filename": "/res/floor3.png", "start": 412430, "end": 413664}, {"filename": "/res/floor30.png", "start": 413664, "end": 414965}, {"filename": "/res/floor31.png", "start": 414965, "end": 416894}, {"filename": "/res/floor4.png", "start": 416894, "end": 418394}, {"filename": "/res/floor5.png", "start": 418394, "end": 419681}, {"filename": "/res/floor6.png", "start": 419681, "end": 420567}, {"filename": "/res/floor7.png", "start": 420567, "end": 421571}, {"filename": "/res/floor8.png", "start": 421571, "end": 423289}, {"filename": "/res/floor9.png", "start": 423289, "end": 424825}, {"filename": "/res/long-shot.wav", "start": 424825, "end": 460915, "audio": 1}, {"filename": "/res/missing.png", "start": 460915, "end": 461136}, {"filename": "/res/player.png", "start": 461136, "end": 463975}, {"filename": "/res/ringing1.wav", "start": 463975, "end": 645467, "audio": 1}, {"filename": "/res/room0.bin", "start": 645467, "end": 646500}, {"filename": "/res/room1.bin", "start": 646500, "end": 647589}, {"filename": "/res/room10.bin", "start": 647589, "end": 649594}, {"filename": "/res/room11.bin", "start": 649594, "end": 650914}, {"filename": "/res/room12.bin", "start": 650914, "end": 651993}, {"filename": "/res/room13.bin", "start": 651993, "end": 653364}, {"filename": "/res/room14.bin", "start": 653364, "end": 655424}, {"filename": "/res/room2.bin", "start": 655424, "end": 656590}, {"filename": "/res/room3.bin", "start": 656590, "end": 657441}, {"filename": "/res/room4.bin", "start": 657441, "end": 658084}, {"filename": "/res/room5.bin", "start": 658084, "end": 658847}, {"filename": "/res/room6.bin", "start": 658847, "end": 660221}, {"filename": "/res/room7.bin", "start": 660221, "end": 661499}, {"filename": "/res/room8.bin", "start": 661499, "end": 662957}, {"filename": "/res/room9.bin", "start": 662957, "end": 663760}, {"filename": "/res/shatter.wav", "start": 663760, "end": 741846, "audio": 1}, {"filename": "/res/shutter-echo.wav", "start": 741846, "end": 874292, "audio": 1}, {"filename": "/res/shutter1.wav", "start": 874292, "end": 896052, "audio": 1}, {"filename": "/res/snap2.wav", "start": 896052, "end": 918794, "audio": 1}, {"filename": "/res/teleport.wav", "start": 918794, "end": 1095526, "audio": 1}, {"filename": "/res/turret-base-destroyed0.png", "start": 1095526, "end": 1097210}, {"filename": "/res/turret-base-destroyed1.png", "start": 1097210, "end": 1098894}, {"filename": "/res/turret-base-destroyed2.png", "start": 1098894, "end": 1103822}, {"filename": "/res/turret-base-destroyed3.png", "start": 1103822, "end": 1105506}, {"filename": "/res/turret-base0.png", "start": 1105506, "end": 1106306}, {"filename": "/res/turret-base1.png", "start": 1106306, "end": 1108211}, {"filename": "/res/turret-base2.png", "start": 1108211, "end": 1110159}, {"filename": "/res/turret-base3.png", "start": 1110159, "end": 1110959}, {"filename": "/res/turret-destroy.wav", "start": 1110959, "end": 1187765, "audio": 1}, {"filename": "/res/turret-top-destroyed0.png", "start": 1187765, "end": 1196945}, {"filename": "/res/turret-top-destroyed1.png", "start": 1196945, "end": 1204607}, {"filename": "/res/turret-top-destroyed2.png", "start": 1204607, "end": 1212470}, {"filename": "/res/turret-top-destroyed3.png", "start": 1212470, "end": 1219626}, {"filename": "/res/turret-top0.png", "start": 1219626, "end": 1226834}, {"filename": "/res/turret-top1.png", "start": 1226834, "end": 1235748}, {"filename": "/res/turret-top2.png", "start": 1235748, "end": 1246862}, {"filename": "/res/turret-top3.png", "start": 1246862, "end": 1251723}, {"filename": "/res/tutorial0.bin", "start": 1251723, "end": 1252439}, {"filename": "/res/tutorial1.bin", "start": 1252439, "end": 1253394}, {"filename": "/res/tutorial2.bin", "start": 1253394, "end": 1254403}, {"filename": "/res/tutorial3.bin", "start": 1254403, "end": 1255375}, {"filename": "/res/tutorial4.bin", "start": 1255375, "end": 1256380}, {"filename": "/res/tutorial5.bin", "start": 1256380, "end": 1257605}, {"filename": "/res/tutorial6.bin", "start": 1257605, "end": 1259168}, {"filename": "/res/tutorial7.bin", "start": 1259168, "end": 1261058}, {"filename": "/res/wall0.png", "start": 1261058, "end": 1263385}, {"filename": "/res/wall1.png", "start": 1263385, "end": 1265742}, {"filename": "/res/wall2.png", "start": 1265742, "end": 1267738}, {"filename": "/res/wall3.png", "start": 1267738, "end": 1269993}, {"filename": "/res/wall4.png", "start": 1269993, "end": 1272601}, {"filename": "/res/wall5.png", "start": 1272601, "end": 1275125}, {"filename": "/res/wall6.png", "start": 1275125, "end": 1275604}], "remote_package_size": 1275604, "package_uuid": "f7bfe463-53d2-4416-bd3b-6df2ff0c89db"});
+    loadPackage({"files": [{"filename": "/res/bomb0.png", "start": 0, "end": 880}, {"filename": "/res/bullet-wall.wav", "start": 880, "end": 33024, "audio": 1}, {"filename": "/res/credits.png", "start": 33024, "end": 33358}, {"filename": "/res/eject.wav", "start": 33358, "end": 81076, "audio": 1}, {"filename": "/res/entrance0.png", "start": 81076, "end": 85417}, {"filename": "/res/entrance1.png", "start": 85417, "end": 89875}, {"filename": "/res/entrance2.png", "start": 89875, "end": 94236}, {"filename": "/res/entrance3.png", "start": 94236, "end": 98575}, {"filename": "/res/exit-closed0.png", "start": 98575, "end": 105280}, {"filename": "/res/exit-closed1.png", "start": 105280, "end": 112083}, {"filename": "/res/exit-closed2.png", "start": 112083, "end": 118825}, {"filename": "/res/exit-closed3.png", "start": 118825, "end": 125632}, {"filename": "/res/exit-open0.png", "start": 125632, "end": 132658}, {"filename": "/res/exit-open1.png", "start": 132658, "end": 139818}, {"filename": "/res/exit-open2.png", "start": 139818, "end": 146916}, {"filename": "/res/exit-open3.png", "start": 146916, "end": 154067}, {"filename": "/res/explosion.wav", "start": 154067, "end": 267921, "audio": 1}, {"filename": "/res/explosion0.png", "start": 267921, "end": 269989}, {"filename": "/res/explosion1.png", "start": 269989, "end": 273824}, {"filename": "/res/explosion10.png", "start": 273824, "end": 281845}, {"filename": "/res/explosion2.png", "start": 281845, "end": 286703}, {"filename": "/res/explosion3.png", "start": 286703, "end": 293857}, {"filename": "/res/explosion4.png", "start": 293857, "end": 305081}, {"filename": "/res/explosion5.png", "start": 305081, "end": 318796}, {"filename": "/res/explosion6.png", "start": 318796, "end": 335820}, {"filename": "/res/explosion7.png", "start": 335820, "end": 357262}, {"filename": "/res/explosion8.png", "start": 357262, "end": 371309}, {"filename": "/res/explosion9.png", "start": 371309, "end": 379360}, {"filename": "/res/floor0.png", "start": 379360, "end": 379497}, {"filename": "/res/floor1.png", "start": 379497, "end": 380504}, {"filename": "/res/floor10.png", "start": 380504, "end": 382186}, {"filename": "/res/floor11.png", "start": 382186, "end": 383337}, {"filename": "/res/floor12.png", "start": 383337, "end": 384316}, {"filename": "/res/floor13.png", "start": 384316, "end": 385780}, {"filename": "/res/floor14.png", "start": 385780, "end": 387239}, {"filename": "/res/floor15.png", "start": 387239, "end": 388672}, {"filename": "/res/floor16.png", "start": 388672, "end": 390078}, {"filename": "/res/floor17.png", "start": 390078, "end": 391509}, {"filename": "/res/floor18.png", "start": 391509, "end": 392946}, {"filename": "/res/floor19.png", "start": 392946, "end": 394544}, {"filename": "/res/floor2.png", "start": 394544, "end": 395895}, {"filename": "/res/floor20.png", "start": 395895, "end": 397525}, {"filename": "/res/floor21.png", "start": 397525, "end": 399117}, {"filename": "/res/floor22.png", "start": 399117, "end": 400719}, {"filename": "/res/floor23.png", "start": 400719, "end": 402731}, {"filename": "/res/floor24.png", "start": 402731, "end": 404737}, {"filename": "/res/floor25.png", "start": 404737, "end": 406606}, {"filename": "/res/floor26.png", "start": 406606, "end": 408466}, {"filename": "/res/floor27.png", "start": 408466, "end": 409800}, {"filename": "/res/floor28.png", "start": 409800, "end": 411139}, {"filename": "/res/floor29.png", "start": 411139, "end": 412430}, {"filename": "/res/floor3.png", "start": 412430, "end": 413664}, {"filename": "/res/floor30.png", "start": 413664, "end": 414965}, {"filename": "/res/floor31.png", "start": 414965, "end": 416894}, {"filename": "/res/floor4.png", "start": 416894, "end": 418394}, {"filename": "/res/floor5.png", "start": 418394, "end": 419681}, {"filename": "/res/floor6.png", "start": 419681, "end": 420567}, {"filename": "/res/floor7.png", "start": 420567, "end": 421571}, {"filename": "/res/floor8.png", "start": 421571, "end": 423289}, {"filename": "/res/floor9.png", "start": 423289, "end": 424825}, {"filename": "/res/long-shot.wav", "start": 424825, "end": 460915, "audio": 1}, {"filename": "/res/missing.png", "start": 460915, "end": 461136}, {"filename": "/res/player.png", "start": 461136, "end": 463975}, {"filename": "/res/ringing1.wav", "start": 463975, "end": 645467, "audio": 1}, {"filename": "/res/room0.bin", "start": 645467, "end": 646500}, {"filename": "/res/room1.bin", "start": 646500, "end": 647589}, {"filename": "/res/room10.bin", "start": 647589, "end": 649594}, {"filename": "/res/room11.bin", "start": 649594, "end": 650914}, {"filename": "/res/room12.bin", "start": 650914, "end": 651993}, {"filename": "/res/room13.bin", "start": 651993, "end": 653364}, {"filename": "/res/room14.bin", "start": 653364, "end": 655424}, {"filename": "/res/room2.bin", "start": 655424, "end": 656590}, {"filename": "/res/room3.bin", "start": 656590, "end": 657441}, {"filename": "/res/room4.bin", "start": 657441, "end": 658084}, {"filename": "/res/room5.bin", "start": 658084, "end": 658847}, {"filename": "/res/room6.bin", "start": 658847, "end": 660221}, {"filename": "/res/room7.bin", "start": 660221, "end": 661499}, {"filename": "/res/room8.bin", "start": 661499, "end": 662957}, {"filename": "/res/room9.bin", "start": 662957, "end": 663760}, {"filename": "/res/shatter.wav", "start": 663760, "end": 741846, "audio": 1}, {"filename": "/res/shutter-echo.wav", "start": 741846, "end": 874292, "audio": 1}, {"filename": "/res/shutter1.wav", "start": 874292, "end": 896052, "audio": 1}, {"filename": "/res/snap2.wav", "start": 896052, "end": 918794, "audio": 1}, {"filename": "/res/teleport.wav", "start": 918794, "end": 1095526, "audio": 1}, {"filename": "/res/turret-base-destroyed0.png", "start": 1095526, "end": 1097210}, {"filename": "/res/turret-base-destroyed1.png", "start": 1097210, "end": 1098894}, {"filename": "/res/turret-base-destroyed2.png", "start": 1098894, "end": 1103822}, {"filename": "/res/turret-base-destroyed3.png", "start": 1103822, "end": 1105506}, {"filename": "/res/turret-base0.png", "start": 1105506, "end": 1106306}, {"filename": "/res/turret-base1.png", "start": 1106306, "end": 1108211}, {"filename": "/res/turret-base2.png", "start": 1108211, "end": 1110159}, {"filename": "/res/turret-base3.png", "start": 1110159, "end": 1110959}, {"filename": "/res/turret-destroy.wav", "start": 1110959, "end": 1187765, "audio": 1}, {"filename": "/res/turret-top-destroyed0.png", "start": 1187765, "end": 1196945}, {"filename": "/res/turret-top-destroyed1.png", "start": 1196945, "end": 1204607}, {"filename": "/res/turret-top-destroyed2.png", "start": 1204607, "end": 1212470}, {"filename": "/res/turret-top-destroyed3.png", "start": 1212470, "end": 1219626}, {"filename": "/res/turret-top0.png", "start": 1219626, "end": 1226834}, {"filename": "/res/turret-top1.png", "start": 1226834, "end": 1235748}, {"filename": "/res/turret-top2.png", "start": 1235748, "end": 1246862}, {"filename": "/res/turret-top3.png", "start": 1246862, "end": 1251723}, {"filename": "/res/tutorial0.bin", "start": 1251723, "end": 1252439}, {"filename": "/res/tutorial1.bin", "start": 1252439, "end": 1253394}, {"filename": "/res/tutorial2.bin", "start": 1253394, "end": 1254403}, {"filename": "/res/tutorial3.bin", "start": 1254403, "end": 1255375}, {"filename": "/res/tutorial4.bin", "start": 1255375, "end": 1256380}, {"filename": "/res/tutorial5.bin", "start": 1256380, "end": 1257605}, {"filename": "/res/tutorial6.bin", "start": 1257605, "end": 1259168}, {"filename": "/res/tutorial7.bin", "start": 1259168, "end": 1261058}, {"filename": "/res/wall0.png", "start": 1261058, "end": 1263385}, {"filename": "/res/wall1.png", "start": 1263385, "end": 1265742}, {"filename": "/res/wall2.png", "start": 1265742, "end": 1267738}, {"filename": "/res/wall3.png", "start": 1267738, "end": 1269993}, {"filename": "/res/wall4.png", "start": 1269993, "end": 1272601}, {"filename": "/res/wall5.png", "start": 1272601, "end": 1275125}, {"filename": "/res/wall6.png", "start": 1275125, "end": 1275604}], "remote_package_size": 1275604, "package_uuid": "69c54fdb-2b21-4346-b15a-d36c2f6ed2ae"});
 
   })();
 
@@ -1904,16 +1904,16 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  65979: function() {if ((window.AudioContext || window.webkitAudioContext) === undefined) { return 0; } if (typeof(miniaudio) === 'undefined') { miniaudio = {}; miniaudio.devices = []; miniaudio.track_device = function(device) { for (var iDevice = 0; iDevice < miniaudio.devices.length; ++iDevice) { if (miniaudio.devices[iDevice] == null) { miniaudio.devices[iDevice] = device; return iDevice; } } miniaudio.devices.push(device); return miniaudio.devices.length - 1; }; miniaudio.untrack_device_by_index = function(deviceIndex) { miniaudio.devices[deviceIndex] = null; while (miniaudio.devices.length > 0) { if (miniaudio.devices[miniaudio.devices.length-1] == null) { miniaudio.devices.pop(); } else { break; } } }; miniaudio.untrack_device = function(device) { for (var iDevice = 0; iDevice < miniaudio.devices.length; ++iDevice) { if (miniaudio.devices[iDevice] == device) { return miniaudio.untrack_device_by_index(iDevice); } } }; miniaudio.get_device_by_index = function(deviceIndex) { return miniaudio.devices[deviceIndex]; }; miniaudio.unlock_event_types = (function(){ return ['touchstart', 'touchend', 'click']; })(); miniaudio.unlock = function() { for(var i = 0; i < miniaudio.devices.length; ++i) { var device = miniaudio.devices[i]; if (device != null && device.webaudio != null && device.state === 2 ) { device.webaudio.resume(); } } miniaudio.unlock_event_types.map(function(event_type) { document.removeEventListener(event_type, miniaudio.unlock, true); }); }; miniaudio.unlock_event_types.map(function(event_type) { document.addEventListener(event_type, miniaudio.unlock, true); }); } return 1;},  
- 67577: function() {return (navigator.mediaDevices !== undefined && navigator.mediaDevices.getUserMedia !== undefined);},  
- 67681: function() {try { var temp = new (window.AudioContext || window.webkitAudioContext)(); var sampleRate = temp.sampleRate; temp.close(); return sampleRate; } catch(e) { return 0; }},  
- 67852: function($0, $1, $2, $3, $4) {var channels = $0; var sampleRate = $1; var bufferSize = $2; var isCapture = $3; var pDevice = $4; if (typeof(miniaudio) === 'undefined') { return -1; } var device = {}; device.webaudio = new (window.AudioContext || window.webkitAudioContext)({sampleRate:sampleRate}); device.webaudio.suspend(); device.state = 1; device.intermediaryBufferSizeInBytes = channels * bufferSize * 4; device.intermediaryBuffer = Module._malloc(device.intermediaryBufferSizeInBytes); device.intermediaryBufferView = new Float32Array(Module.HEAPF32.buffer, device.intermediaryBuffer, device.intermediaryBufferSizeInBytes); device.scriptNode = device.webaudio.createScriptProcessor(bufferSize, channels, channels); if (isCapture) { device.scriptNode.onaudioprocess = function(e) { if (device.intermediaryBuffer === undefined) { return; } if(device.intermediaryBufferView.length == 0) { device.intermediaryBufferView = new Float32Array(Module.HEAPF32.buffer, device.intermediaryBuffer, device.intermediaryBufferSizeInBytes); } for (var iChannel = 0; iChannel < e.outputBuffer.numberOfChannels; ++iChannel) { e.outputBuffer.getChannelData(iChannel).fill(0.0); } var sendSilence = false; if (device.streamNode === undefined) { sendSilence = true; } if (e.inputBuffer.numberOfChannels != channels) { console.log("Capture: Channel count mismatch. " + e.inputBufer.numberOfChannels + " != " + channels + ". Sending silence."); sendSilence = true; } var totalFramesProcessed = 0; while (totalFramesProcessed < e.inputBuffer.length) { var framesRemaining = e.inputBuffer.length - totalFramesProcessed; var framesToProcess = framesRemaining; if (framesToProcess > (device.intermediaryBufferSizeInBytes/channels/4)) { framesToProcess = (device.intermediaryBufferSizeInBytes/channels/4); } if (sendSilence) { device.intermediaryBufferView.fill(0.0); } else { for (var iFrame = 0; iFrame < framesToProcess; ++iFrame) { for (var iChannel = 0; iChannel < e.inputBuffer.numberOfChannels; ++iChannel) { device.intermediaryBufferView[iFrame*channels + iChannel] = e.inputBuffer.getChannelData(iChannel)[totalFramesProcessed + iFrame]; } } } ccall("ma_device_process_pcm_frames_capture__webaudio", "undefined", ["number", "number", "number"], [pDevice, framesToProcess, device.intermediaryBuffer]); totalFramesProcessed += framesToProcess; } }; navigator.mediaDevices.getUserMedia({audio:true, video:false}) .then(function(stream) { device.streamNode = device.webaudio.createMediaStreamSource(stream); device.streamNode.connect(device.scriptNode); device.scriptNode.connect(device.webaudio.destination); }) .catch(function(error) { device.scriptNode.connect(device.webaudio.destination); }); } else { device.scriptNode.onaudioprocess = function(e) { if (device.intermediaryBuffer === undefined) { return; } if(device.intermediaryBufferView.length == 0) { device.intermediaryBufferView = new Float32Array(Module.HEAPF32.buffer, device.intermediaryBuffer, device.intermediaryBufferSizeInBytes); } var outputSilence = false; if (e.outputBuffer.numberOfChannels != channels) { console.log("Playback: Channel count mismatch. " + e.outputBufer.numberOfChannels + " != " + channels + ". Outputting silence."); outputSilence = true; return; } var totalFramesProcessed = 0; while (totalFramesProcessed < e.outputBuffer.length) { var framesRemaining = e.outputBuffer.length - totalFramesProcessed; var framesToProcess = framesRemaining; if (framesToProcess > (device.intermediaryBufferSizeInBytes/channels/4)) { framesToProcess = (device.intermediaryBufferSizeInBytes/channels/4); } ccall("ma_device_process_pcm_frames_playback__webaudio", "undefined", ["number", "number", "number"], [pDevice, framesToProcess, device.intermediaryBuffer]); if (outputSilence) { for (var iChannel = 0; iChannel < e.outputBuffer.numberOfChannels; ++iChannel) { e.outputBuffer.getChannelData(iChannel).fill(0.0); } } else { for (var iChannel = 0; iChannel < e.outputBuffer.numberOfChannels; ++iChannel) { for (var iFrame = 0; iFrame < framesToProcess; ++iFrame) { e.outputBuffer.getChannelData(iChannel)[totalFramesProcessed + iFrame] = device.intermediaryBufferView[iFrame*channels + iChannel]; } } } totalFramesProcessed += framesToProcess; } }; device.scriptNode.connect(device.webaudio.destination); } return miniaudio.track_device(device);},  
- 72130: function($0) {return miniaudio.get_device_by_index($0).webaudio.sampleRate;},  
- 72196: function($0) {var device = miniaudio.get_device_by_index($0); if (device.scriptNode !== undefined) { device.scriptNode.onaudioprocess = function(e) {}; device.scriptNode.disconnect(); device.scriptNode = undefined; } if (device.streamNode !== undefined) { device.streamNode.disconnect(); device.streamNode = undefined; } device.webaudio.close(); device.webaudio = undefined; if (device.intermediaryBuffer !== undefined) { Module._free(device.intermediaryBuffer); device.intermediaryBuffer = undefined; device.intermediaryBufferView = undefined; device.intermediaryBufferSizeInBytes = undefined; } miniaudio.untrack_device_by_index($0);},  
- 72822: function($0) {var device = miniaudio.get_device_by_index($0); device.webaudio.resume(); device.state = 2;},  
- 72918: function($0) {var device = miniaudio.get_device_by_index($0); device.webaudio.resume(); device.state = 2;},  
- 73014: function($0) {var device = miniaudio.get_device_by_index($0); device.webaudio.suspend(); device.state = 1;},  
- 73111: function($0) {var device = miniaudio.get_device_by_index($0); device.webaudio.suspend(); device.state = 1;}
+  65963: function() {if ((window.AudioContext || window.webkitAudioContext) === undefined) { return 0; } if (typeof(miniaudio) === 'undefined') { miniaudio = {}; miniaudio.devices = []; miniaudio.track_device = function(device) { for (var iDevice = 0; iDevice < miniaudio.devices.length; ++iDevice) { if (miniaudio.devices[iDevice] == null) { miniaudio.devices[iDevice] = device; return iDevice; } } miniaudio.devices.push(device); return miniaudio.devices.length - 1; }; miniaudio.untrack_device_by_index = function(deviceIndex) { miniaudio.devices[deviceIndex] = null; while (miniaudio.devices.length > 0) { if (miniaudio.devices[miniaudio.devices.length-1] == null) { miniaudio.devices.pop(); } else { break; } } }; miniaudio.untrack_device = function(device) { for (var iDevice = 0; iDevice < miniaudio.devices.length; ++iDevice) { if (miniaudio.devices[iDevice] == device) { return miniaudio.untrack_device_by_index(iDevice); } } }; miniaudio.get_device_by_index = function(deviceIndex) { return miniaudio.devices[deviceIndex]; }; miniaudio.unlock_event_types = (function(){ return ['touchstart', 'touchend', 'click']; })(); miniaudio.unlock = function() { for(var i = 0; i < miniaudio.devices.length; ++i) { var device = miniaudio.devices[i]; if (device != null && device.webaudio != null && device.state === 2 ) { device.webaudio.resume(); } } miniaudio.unlock_event_types.map(function(event_type) { document.removeEventListener(event_type, miniaudio.unlock, true); }); }; miniaudio.unlock_event_types.map(function(event_type) { document.addEventListener(event_type, miniaudio.unlock, true); }); } return 1;},  
+ 67561: function() {return (navigator.mediaDevices !== undefined && navigator.mediaDevices.getUserMedia !== undefined);},  
+ 67665: function() {try { var temp = new (window.AudioContext || window.webkitAudioContext)(); var sampleRate = temp.sampleRate; temp.close(); return sampleRate; } catch(e) { return 0; }},  
+ 67836: function($0, $1, $2, $3, $4) {var channels = $0; var sampleRate = $1; var bufferSize = $2; var isCapture = $3; var pDevice = $4; if (typeof(miniaudio) === 'undefined') { return -1; } var device = {}; device.webaudio = new (window.AudioContext || window.webkitAudioContext)({sampleRate:sampleRate}); device.webaudio.suspend(); device.state = 1; device.intermediaryBufferSizeInBytes = channels * bufferSize * 4; device.intermediaryBuffer = Module._malloc(device.intermediaryBufferSizeInBytes); device.intermediaryBufferView = new Float32Array(Module.HEAPF32.buffer, device.intermediaryBuffer, device.intermediaryBufferSizeInBytes); device.scriptNode = device.webaudio.createScriptProcessor(bufferSize, channels, channels); if (isCapture) { device.scriptNode.onaudioprocess = function(e) { if (device.intermediaryBuffer === undefined) { return; } if(device.intermediaryBufferView.length == 0) { device.intermediaryBufferView = new Float32Array(Module.HEAPF32.buffer, device.intermediaryBuffer, device.intermediaryBufferSizeInBytes); } for (var iChannel = 0; iChannel < e.outputBuffer.numberOfChannels; ++iChannel) { e.outputBuffer.getChannelData(iChannel).fill(0.0); } var sendSilence = false; if (device.streamNode === undefined) { sendSilence = true; } if (e.inputBuffer.numberOfChannels != channels) { console.log("Capture: Channel count mismatch. " + e.inputBufer.numberOfChannels + " != " + channels + ". Sending silence."); sendSilence = true; } var totalFramesProcessed = 0; while (totalFramesProcessed < e.inputBuffer.length) { var framesRemaining = e.inputBuffer.length - totalFramesProcessed; var framesToProcess = framesRemaining; if (framesToProcess > (device.intermediaryBufferSizeInBytes/channels/4)) { framesToProcess = (device.intermediaryBufferSizeInBytes/channels/4); } if (sendSilence) { device.intermediaryBufferView.fill(0.0); } else { for (var iFrame = 0; iFrame < framesToProcess; ++iFrame) { for (var iChannel = 0; iChannel < e.inputBuffer.numberOfChannels; ++iChannel) { device.intermediaryBufferView[iFrame*channels + iChannel] = e.inputBuffer.getChannelData(iChannel)[totalFramesProcessed + iFrame]; } } } ccall("ma_device_process_pcm_frames_capture__webaudio", "undefined", ["number", "number", "number"], [pDevice, framesToProcess, device.intermediaryBuffer]); totalFramesProcessed += framesToProcess; } }; navigator.mediaDevices.getUserMedia({audio:true, video:false}) .then(function(stream) { device.streamNode = device.webaudio.createMediaStreamSource(stream); device.streamNode.connect(device.scriptNode); device.scriptNode.connect(device.webaudio.destination); }) .catch(function(error) { device.scriptNode.connect(device.webaudio.destination); }); } else { device.scriptNode.onaudioprocess = function(e) { if (device.intermediaryBuffer === undefined) { return; } if(device.intermediaryBufferView.length == 0) { device.intermediaryBufferView = new Float32Array(Module.HEAPF32.buffer, device.intermediaryBuffer, device.intermediaryBufferSizeInBytes); } var outputSilence = false; if (e.outputBuffer.numberOfChannels != channels) { console.log("Playback: Channel count mismatch. " + e.outputBufer.numberOfChannels + " != " + channels + ". Outputting silence."); outputSilence = true; return; } var totalFramesProcessed = 0; while (totalFramesProcessed < e.outputBuffer.length) { var framesRemaining = e.outputBuffer.length - totalFramesProcessed; var framesToProcess = framesRemaining; if (framesToProcess > (device.intermediaryBufferSizeInBytes/channels/4)) { framesToProcess = (device.intermediaryBufferSizeInBytes/channels/4); } ccall("ma_device_process_pcm_frames_playback__webaudio", "undefined", ["number", "number", "number"], [pDevice, framesToProcess, device.intermediaryBuffer]); if (outputSilence) { for (var iChannel = 0; iChannel < e.outputBuffer.numberOfChannels; ++iChannel) { e.outputBuffer.getChannelData(iChannel).fill(0.0); } } else { for (var iChannel = 0; iChannel < e.outputBuffer.numberOfChannels; ++iChannel) { for (var iFrame = 0; iFrame < framesToProcess; ++iFrame) { e.outputBuffer.getChannelData(iChannel)[totalFramesProcessed + iFrame] = device.intermediaryBufferView[iFrame*channels + iChannel]; } } } totalFramesProcessed += framesToProcess; } }; device.scriptNode.connect(device.webaudio.destination); } return miniaudio.track_device(device);},  
+ 72114: function($0) {return miniaudio.get_device_by_index($0).webaudio.sampleRate;},  
+ 72180: function($0) {var device = miniaudio.get_device_by_index($0); if (device.scriptNode !== undefined) { device.scriptNode.onaudioprocess = function(e) {}; device.scriptNode.disconnect(); device.scriptNode = undefined; } if (device.streamNode !== undefined) { device.streamNode.disconnect(); device.streamNode = undefined; } device.webaudio.close(); device.webaudio = undefined; if (device.intermediaryBuffer !== undefined) { Module._free(device.intermediaryBuffer); device.intermediaryBuffer = undefined; device.intermediaryBufferView = undefined; device.intermediaryBufferSizeInBytes = undefined; } miniaudio.untrack_device_by_index($0);},  
+ 72806: function($0) {var device = miniaudio.get_device_by_index($0); device.webaudio.resume(); device.state = 2;},  
+ 72902: function($0) {var device = miniaudio.get_device_by_index($0); device.webaudio.resume(); device.state = 2;},  
+ 72998: function($0) {var device = miniaudio.get_device_by_index($0); device.webaudio.suspend(); device.state = 1;},  
+ 73095: function($0) {var device = miniaudio.get_device_by_index($0); device.webaudio.suspend(); device.state = 1;}
 };
 function GetCanvasHeight(){ return canvas.clientHeight; }
 function GetCanvasWidth(){ return canvas.clientWidth; }
@@ -2645,7 +2645,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
   var ERRNO_MESSAGES = {0:"Success",1:"Arg list too long",2:"Permission denied",3:"Address already in use",4:"Address not available",5:"Address family not supported by protocol family",6:"No more processes",7:"Socket already connected",8:"Bad file number",9:"Trying to read unreadable message",10:"Mount device busy",11:"Operation canceled",12:"No children",13:"Connection aborted",14:"Connection refused",15:"Connection reset by peer",16:"File locking deadlock error",17:"Destination address required",18:"Math arg out of domain of func",19:"Quota exceeded",20:"File exists",21:"Bad address",22:"File too large",23:"Host is unreachable",24:"Identifier removed",25:"Illegal byte sequence",26:"Connection already in progress",27:"Interrupted system call",28:"Invalid argument",29:"I/O error",30:"Socket is already connected",31:"Is a directory",32:"Too many symbolic links",33:"Too many open files",34:"Too many links",35:"Message too long",36:"Multihop attempted",37:"File or path name too long",38:"Network interface is not configured",39:"Connection reset by network",40:"Network is unreachable",41:"Too many open files in system",42:"No buffer space available",43:"No such device",44:"No such file or directory",45:"Exec format error",46:"No record locks available",47:"The link has been severed",48:"Not enough core",49:"No message of desired type",50:"Protocol not available",51:"No space left on device",52:"Function not implemented",53:"Socket is not connected",54:"Not a directory",55:"Directory not empty",56:"State not recoverable",57:"Socket operation on non-socket",59:"Not a typewriter",60:"No such device or address",61:"Value too large for defined data type",62:"Previous owner died",63:"Not super-user",64:"Broken pipe",65:"Protocol error",66:"Unknown protocol",67:"Protocol wrong type for socket",68:"Math result not representable",69:"Read only file system",70:"Illegal seek",71:"No such process",72:"Stale file handle",73:"Connection timed out",74:"Text file busy",75:"Cross-device link",100:"Device not a stream",101:"Bad font file fmt",102:"Invalid slot",103:"Invalid request code",104:"No anode",105:"Block device required",106:"Channel number out of range",107:"Level 3 halted",108:"Level 3 reset",109:"Link number out of range",110:"Protocol driver not attached",111:"No CSI structure available",112:"Level 2 halted",113:"Invalid exchange",114:"Invalid request descriptor",115:"Exchange full",116:"No data (for no delay io)",117:"Timer expired",118:"Out of streams resources",119:"Machine is not on the network",120:"Package not installed",121:"The object is remote",122:"Advertise error",123:"Srmount error",124:"Communication error on send",125:"Cross mount point (not really error)",126:"Given log. name not unique",127:"f.d. invalid for this operation",128:"Remote address changed",129:"Can   access a needed shared lib",130:"Accessing a corrupted shared lib",131:".lib section in a.out corrupted",132:"Attempting to link in too many libs",133:"Attempting to exec a shared library",135:"Streams pipe error",136:"Too many users",137:"Socket type not supported",138:"Not supported",139:"Protocol family not supported",140:"Can't send after socket shutdown",141:"Too many references",142:"Host is down",148:"No medium (in tape drive)",156:"Level 2 not synchronized"};
   
   var ERRNO_CODES = {};
-  var FS = {root:null,mounts:[],devices:{},streams:[],nextInode:1,nameTable:null,currentPath:"/",initialized:false,ignorePermissions:true,ErrnoError:null,genericErrors:{},filesystems:null,syncFSRequests:0,lookupPath:function(path, opts = {}) {
+  var FS = {root:null,mounts:[],devices:{},streams:[],nextInode:1,nameTable:null,currentPath:"/",initialized:false,ignorePermissions:true,ErrnoError:null,genericErrors:{},filesystems:null,syncFSRequests:0,lookupPath:(path, opts = {}) => {
         path = PATH_FS.resolve(FS.cwd(), path);
   
         if (!path) return { path: '', node: null };
@@ -2665,9 +2665,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         }
   
         // split the path
-        var parts = PATH.normalizeArray(path.split('/').filter(function(p) {
-          return !!p;
-        }), false);
+        var parts = PATH.normalizeArray(path.split('/').filter((p) => !!p), false);
   
         // start at the root
         var current = FS.root;
@@ -2709,7 +2707,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         }
   
         return { path: current_path, node: current };
-      },getPath:function(node) {
+      },getPath:(node) => {
         var path;
         while (true) {
           if (FS.isRoot(node)) {
@@ -2720,18 +2718,18 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           path = path ? node.name + '/' + path : node.name;
           node = node.parent;
         }
-      },hashName:function(parentid, name) {
+      },hashName:(parentid, name) => {
         var hash = 0;
   
         for (var i = 0; i < name.length; i++) {
           hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
         }
         return ((parentid + hash) >>> 0) % FS.nameTable.length;
-      },hashAddNode:function(node) {
+      },hashAddNode:(node) => {
         var hash = FS.hashName(node.parent.id, node.name);
         node.name_next = FS.nameTable[hash];
         FS.nameTable[hash] = node;
-      },hashRemoveNode:function(node) {
+      },hashRemoveNode:(node) => {
         var hash = FS.hashName(node.parent.id, node.name);
         if (FS.nameTable[hash] === node) {
           FS.nameTable[hash] = node.name_next;
@@ -2745,7 +2743,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
             current = current.name_next;
           }
         }
-      },lookupNode:function(parent, name) {
+      },lookupNode:(parent, name) => {
         var errCode = FS.mayLookup(parent);
         if (errCode) {
           throw new FS.ErrnoError(errCode, parent);
@@ -2759,46 +2757,46 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         }
         // if we failed to find it in the cache, call into the VFS
         return FS.lookup(parent, name);
-      },createNode:function(parent, name, mode, rdev) {
+      },createNode:(parent, name, mode, rdev) => {
         assert(typeof parent === 'object')
         var node = new FS.FSNode(parent, name, mode, rdev);
   
         FS.hashAddNode(node);
   
         return node;
-      },destroyNode:function(node) {
+      },destroyNode:(node) => {
         FS.hashRemoveNode(node);
-      },isRoot:function(node) {
+      },isRoot:(node) => {
         return node === node.parent;
-      },isMountpoint:function(node) {
+      },isMountpoint:(node) => {
         return !!node.mounted;
-      },isFile:function(mode) {
+      },isFile:(mode) => {
         return (mode & 61440) === 32768;
-      },isDir:function(mode) {
+      },isDir:(mode) => {
         return (mode & 61440) === 16384;
-      },isLink:function(mode) {
+      },isLink:(mode) => {
         return (mode & 61440) === 40960;
-      },isChrdev:function(mode) {
+      },isChrdev:(mode) => {
         return (mode & 61440) === 8192;
-      },isBlkdev:function(mode) {
+      },isBlkdev:(mode) => {
         return (mode & 61440) === 24576;
-      },isFIFO:function(mode) {
+      },isFIFO:(mode) => {
         return (mode & 61440) === 4096;
-      },isSocket:function(mode) {
+      },isSocket:(mode) => {
         return (mode & 49152) === 49152;
-      },flagModes:{"r":0,"r+":2,"w":577,"w+":578,"a":1089,"a+":1090},modeStringToFlags:function(str) {
+      },flagModes:{"r":0,"r+":2,"w":577,"w+":578,"a":1089,"a+":1090},modeStringToFlags:(str) => {
         var flags = FS.flagModes[str];
         if (typeof flags === 'undefined') {
           throw new Error('Unknown file open mode: ' + str);
         }
         return flags;
-      },flagsToPermissionString:function(flag) {
+      },flagsToPermissionString:(flag) => {
         var perms = ['r', 'w', 'rw'][flag & 3];
         if ((flag & 512)) {
           perms += 'w';
         }
         return perms;
-      },nodePermissions:function(node, perms) {
+      },nodePermissions:(node, perms) => {
         if (FS.ignorePermissions) {
           return 0;
         }
@@ -2811,19 +2809,19 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           return 2;
         }
         return 0;
-      },mayLookup:function(dir) {
+      },mayLookup:(dir) => {
         var errCode = FS.nodePermissions(dir, 'x');
         if (errCode) return errCode;
         if (!dir.node_ops.lookup) return 2;
         return 0;
-      },mayCreate:function(dir, name) {
+      },mayCreate:(dir, name) => {
         try {
           var node = FS.lookupNode(dir, name);
           return 20;
         } catch (e) {
         }
         return FS.nodePermissions(dir, 'wx');
-      },mayDelete:function(dir, name, isdir) {
+      },mayDelete:(dir, name, isdir) => {
         var node;
         try {
           node = FS.lookupNode(dir, name);
@@ -2847,7 +2845,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           }
         }
         return 0;
-      },mayOpen:function(node, flags) {
+      },mayOpen:(node, flags) => {
         if (!node) {
           return 44;
         }
@@ -2860,16 +2858,14 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           }
         }
         return FS.nodePermissions(node, FS.flagsToPermissionString(flags));
-      },MAX_OPEN_FDS:4096,nextfd:function(fd_start = 0, fd_end = FS.MAX_OPEN_FDS) {
+      },MAX_OPEN_FDS:4096,nextfd:(fd_start = 0, fd_end = FS.MAX_OPEN_FDS) => {
         for (var fd = fd_start; fd <= fd_end; fd++) {
           if (!FS.streams[fd]) {
             return fd;
           }
         }
         throw new FS.ErrnoError(33);
-      },getStream:function(fd) {
-        return FS.streams[fd];
-      },createStream:function(stream, fd_start, fd_end) {
+      },getStream:(fd) => FS.streams[fd],createStream:(stream, fd_start, fd_end) => {
         if (!FS.FSStream) {
           FS.FSStream = /** @constructor */ function(){};
           FS.FSStream.prototype = {
@@ -2898,9 +2894,9 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         stream.fd = fd;
         FS.streams[fd] = stream;
         return stream;
-      },closeStream:function(fd) {
+      },closeStream:(fd) => {
         FS.streams[fd] = null;
-      },chrdev_stream_ops:{open:function(stream) {
+      },chrdev_stream_ops:{open:(stream) => {
           var device = FS.getDevice(stream.node.rdev);
           // override node's stream ops with the device's
           stream.stream_ops = device.stream_ops;
@@ -2908,19 +2904,11 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           if (stream.stream_ops.open) {
             stream.stream_ops.open(stream);
           }
-        },llseek:function() {
+        },llseek:() => {
           throw new FS.ErrnoError(70);
-        }},major:function(dev) {
-        return ((dev) >> 8);
-      },minor:function(dev) {
-        return ((dev) & 0xff);
-      },makedev:function(ma, mi) {
-        return ((ma) << 8 | (mi));
-      },registerDevice:function(dev, ops) {
+        }},major:(dev) => ((dev) >> 8),minor:(dev) => ((dev) & 0xff),makedev:(ma, mi) => ((ma) << 8 | (mi)),registerDevice:(dev, ops) => {
         FS.devices[dev] = { stream_ops: ops };
-      },getDevice:function(dev) {
-        return FS.devices[dev];
-      },getMounts:function(mount) {
+      },getDevice:(dev) => FS.devices[dev],getMounts:(mount) => {
         var mounts = [];
         var check = [mount];
   
@@ -2933,7 +2921,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         }
   
         return mounts;
-      },syncfs:function(populate, callback) {
+      },syncfs:(populate, callback) => {
         if (typeof(populate) === 'function') {
           callback = populate;
           populate = false;
@@ -2968,13 +2956,13 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         };
   
         // sync all mounts
-        mounts.forEach(function (mount) {
+        mounts.forEach((mount) => {
           if (!mount.type.syncfs) {
             return done(null);
           }
           mount.type.syncfs(mount, populate, done);
         });
-      },mount:function(type, opts, mountpoint) {
+      },mount:(type, opts, mountpoint) => {
         if (typeof type === 'string') {
           // The filesystem was not included, and instead we have an error
           // message stored in the variable.
@@ -3026,7 +3014,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         }
   
         return mountRoot;
-      },unmount:function (mountpoint) {
+      },unmount:(mountpoint) => {
         var lookup = FS.lookupPath(mountpoint, { follow_mount: false });
   
         if (!FS.isMountpoint(lookup.node)) {
@@ -3038,7 +3026,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         var mount = node.mounted;
         var mounts = FS.getMounts(mount);
   
-        Object.keys(FS.nameTable).forEach(function (hash) {
+        Object.keys(FS.nameTable).forEach((hash) => {
           var current = FS.nameTable[hash];
   
           while (current) {
@@ -3059,9 +3047,9 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         var idx = node.mount.mounts.indexOf(mount);
         assert(idx !== -1);
         node.mount.mounts.splice(idx, 1);
-      },lookup:function(parent, name) {
+      },lookup:(parent, name) => {
         return parent.node_ops.lookup(parent, name);
-      },mknod:function(path, mode, dev) {
+      },mknod:(path, mode, dev) => {
         var lookup = FS.lookupPath(path, { parent: true });
         var parent = lookup.node;
         var name = PATH.basename(path);
@@ -3076,17 +3064,17 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           throw new FS.ErrnoError(63);
         }
         return parent.node_ops.mknod(parent, name, mode, dev);
-      },create:function(path, mode) {
+      },create:(path, mode) => {
         mode = mode !== undefined ? mode : 438 /* 0666 */;
         mode &= 4095;
         mode |= 32768;
         return FS.mknod(path, mode, 0);
-      },mkdir:function(path, mode) {
+      },mkdir:(path, mode) => {
         mode = mode !== undefined ? mode : 511 /* 0777 */;
         mode &= 511 | 512;
         mode |= 16384;
         return FS.mknod(path, mode, 0);
-      },mkdirTree:function(path, mode) {
+      },mkdirTree:(path, mode) => {
         var dirs = path.split('/');
         var d = '';
         for (var i = 0; i < dirs.length; ++i) {
@@ -3098,14 +3086,14 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
             if (e.errno != 20) throw e;
           }
         }
-      },mkdev:function(path, mode, dev) {
+      },mkdev:(path, mode, dev) => {
         if (typeof(dev) === 'undefined') {
           dev = mode;
           mode = 438 /* 0666 */;
         }
         mode |= 8192;
         return FS.mknod(path, mode, dev);
-      },symlink:function(oldpath, newpath) {
+      },symlink:(oldpath, newpath) => {
         if (!PATH_FS.resolve(oldpath)) {
           throw new FS.ErrnoError(44);
         }
@@ -3123,7 +3111,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           throw new FS.ErrnoError(63);
         }
         return parent.node_ops.symlink(parent, newname, oldpath);
-      },rename:function(old_path, new_path) {
+      },rename:(old_path, new_path) => {
         var old_dirname = PATH.dirname(old_path);
         var new_dirname = PATH.dirname(new_path);
         var old_name = PATH.basename(old_path);
@@ -3204,7 +3192,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           // changed its name)
           FS.hashAddNode(old_node);
         }
-      },rmdir:function(path) {
+      },rmdir:(path) => {
         var lookup = FS.lookupPath(path, { parent: true });
         var parent = lookup.node;
         var name = PATH.basename(path);
@@ -3221,14 +3209,14 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         }
         parent.node_ops.rmdir(parent, name);
         FS.destroyNode(node);
-      },readdir:function(path) {
+      },readdir:(path) => {
         var lookup = FS.lookupPath(path, { follow: true });
         var node = lookup.node;
         if (!node.node_ops.readdir) {
           throw new FS.ErrnoError(54);
         }
         return node.node_ops.readdir(node);
-      },unlink:function(path) {
+      },unlink:(path) => {
         var lookup = FS.lookupPath(path, { parent: true });
         var parent = lookup.node;
         if (!parent) {
@@ -3251,7 +3239,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         }
         parent.node_ops.unlink(parent, name);
         FS.destroyNode(node);
-      },readlink:function(path) {
+      },readlink:(path) => {
         var lookup = FS.lookupPath(path);
         var link = lookup.node;
         if (!link) {
@@ -3261,7 +3249,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           throw new FS.ErrnoError(28);
         }
         return PATH_FS.resolve(FS.getPath(link.parent), link.node_ops.readlink(link));
-      },stat:function(path, dontFollow) {
+      },stat:(path, dontFollow) => {
         var lookup = FS.lookupPath(path, { follow: !dontFollow });
         var node = lookup.node;
         if (!node) {
@@ -3271,9 +3259,9 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           throw new FS.ErrnoError(63);
         }
         return node.node_ops.getattr(node);
-      },lstat:function(path) {
+      },lstat:(path) => {
         return FS.stat(path, true);
-      },chmod:function(path, mode, dontFollow) {
+      },chmod:(path, mode, dontFollow) => {
         var node;
         if (typeof path === 'string') {
           var lookup = FS.lookupPath(path, { follow: !dontFollow });
@@ -3288,15 +3276,15 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           mode: (mode & 4095) | (node.mode & ~4095),
           timestamp: Date.now()
         });
-      },lchmod:function(path, mode) {
+      },lchmod:(path, mode) => {
         FS.chmod(path, mode, true);
-      },fchmod:function(fd, mode) {
+      },fchmod:(fd, mode) => {
         var stream = FS.getStream(fd);
         if (!stream) {
           throw new FS.ErrnoError(8);
         }
         FS.chmod(stream.node, mode);
-      },chown:function(path, uid, gid, dontFollow) {
+      },chown:(path, uid, gid, dontFollow) => {
         var node;
         if (typeof path === 'string') {
           var lookup = FS.lookupPath(path, { follow: !dontFollow });
@@ -3311,15 +3299,15 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           timestamp: Date.now()
           // we ignore the uid / gid for now
         });
-      },lchown:function(path, uid, gid) {
+      },lchown:(path, uid, gid) => {
         FS.chown(path, uid, gid, true);
-      },fchown:function(fd, uid, gid) {
+      },fchown:(fd, uid, gid) => {
         var stream = FS.getStream(fd);
         if (!stream) {
           throw new FS.ErrnoError(8);
         }
         FS.chown(stream.node, uid, gid);
-      },truncate:function(path, len) {
+      },truncate:(path, len) => {
         if (len < 0) {
           throw new FS.ErrnoError(28);
         }
@@ -3347,7 +3335,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           size: len,
           timestamp: Date.now()
         });
-      },ftruncate:function(fd, len) {
+      },ftruncate:(fd, len) => {
         var stream = FS.getStream(fd);
         if (!stream) {
           throw new FS.ErrnoError(8);
@@ -3356,13 +3344,13 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           throw new FS.ErrnoError(28);
         }
         FS.truncate(stream.node, len);
-      },utime:function(path, atime, mtime) {
+      },utime:(path, atime, mtime) => {
         var lookup = FS.lookupPath(path, { follow: true });
         var node = lookup.node;
         node.node_ops.setattr(node, {
           timestamp: Math.max(atime, mtime)
         });
-      },open:function(path, flags, mode, fd_start, fd_end) {
+      },open:(path, flags, mode, fd_start, fd_end) => {
         if (path === "") {
           throw new FS.ErrnoError(44);
         }
@@ -3432,13 +3420,10 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         var stream = FS.createStream({
           node: node,
           path: FS.getPath(node),  // we want the absolute path to the node
-          id: node.id,
           flags: flags,
-          mode: node.mode,
           seekable: true,
           position: 0,
           stream_ops: node.stream_ops,
-          node_ops: node.node_ops,
           // used by the file family libc calls (fopen, fwrite, ferror, etc.)
           ungotten: [],
           error: false
@@ -3454,7 +3439,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           }
         }
         return stream;
-      },close:function(stream) {
+      },close:(stream) => {
         if (FS.isClosed(stream)) {
           throw new FS.ErrnoError(8);
         }
@@ -3469,9 +3454,9 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           FS.closeStream(stream.fd);
         }
         stream.fd = null;
-      },isClosed:function(stream) {
+      },isClosed:(stream) => {
         return stream.fd === null;
-      },llseek:function(stream, offset, whence) {
+      },llseek:(stream, offset, whence) => {
         if (FS.isClosed(stream)) {
           throw new FS.ErrnoError(8);
         }
@@ -3484,7 +3469,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         stream.position = stream.stream_ops.llseek(stream, offset, whence);
         stream.ungotten = [];
         return stream.position;
-      },read:function(stream, buffer, offset, length, position) {
+      },read:(stream, buffer, offset, length, position) => {
         if (length < 0 || position < 0) {
           throw new FS.ErrnoError(28);
         }
@@ -3509,7 +3494,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         var bytesRead = stream.stream_ops.read(stream, buffer, offset, length, position);
         if (!seeking) stream.position += bytesRead;
         return bytesRead;
-      },write:function(stream, buffer, offset, length, position, canOwn) {
+      },write:(stream, buffer, offset, length, position, canOwn) => {
         if (length < 0 || position < 0) {
           throw new FS.ErrnoError(28);
         }
@@ -3538,7 +3523,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         var bytesWritten = stream.stream_ops.write(stream, buffer, offset, length, position, canOwn);
         if (!seeking) stream.position += bytesWritten;
         return bytesWritten;
-      },allocate:function(stream, offset, length) {
+      },allocate:(stream, offset, length) => {
         if (FS.isClosed(stream)) {
           throw new FS.ErrnoError(8);
         }
@@ -3555,7 +3540,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           throw new FS.ErrnoError(138);
         }
         stream.stream_ops.allocate(stream, offset, length);
-      },mmap:function(stream, address, length, position, prot, flags) {
+      },mmap:(stream, address, length, position, prot, flags) => {
         // User requests writing to file (prot & PROT_WRITE != 0).
         // Checking if we have permissions to write to the file unless
         // MAP_PRIVATE flag is set. According to POSIX spec it is possible
@@ -3574,19 +3559,17 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           throw new FS.ErrnoError(43);
         }
         return stream.stream_ops.mmap(stream, address, length, position, prot, flags);
-      },msync:function(stream, buffer, offset, length, mmapFlags) {
+      },msync:(stream, buffer, offset, length, mmapFlags) => {
         if (!stream || !stream.stream_ops.msync) {
           return 0;
         }
         return stream.stream_ops.msync(stream, buffer, offset, length, mmapFlags);
-      },munmap:function(stream) {
-        return 0;
-      },ioctl:function(stream, cmd, arg) {
+      },munmap:(stream) => 0,ioctl:(stream, cmd, arg) => {
         if (!stream.stream_ops.ioctl) {
           throw new FS.ErrnoError(59);
         }
         return stream.stream_ops.ioctl(stream, cmd, arg);
-      },readFile:function(path, opts = {}) {
+      },readFile:(path, opts = {}) => {
         opts.flags = opts.flags || 0;
         opts.encoding = opts.encoding || 'binary';
         if (opts.encoding !== 'utf8' && opts.encoding !== 'binary') {
@@ -3605,7 +3588,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         }
         FS.close(stream);
         return ret;
-      },writeFile:function(path, data, opts = {}) {
+      },writeFile:(path, data, opts = {}) => {
         opts.flags = opts.flags || 577;
         var stream = FS.open(path, opts.flags, opts.mode);
         if (typeof data === 'string') {
@@ -3618,9 +3601,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           throw new Error('Unsupported data type');
         }
         FS.close(stream);
-      },cwd:function() {
-        return FS.currentPath;
-      },chdir:function(path) {
+      },cwd:() => FS.currentPath,chdir:(path) => {
         var lookup = FS.lookupPath(path, { follow: true });
         if (lookup.node === null) {
           throw new FS.ErrnoError(44);
@@ -3633,17 +3614,17 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           throw new FS.ErrnoError(errCode);
         }
         FS.currentPath = lookup.path;
-      },createDefaultDirectories:function() {
+      },createDefaultDirectories:() => {
         FS.mkdir('/tmp');
         FS.mkdir('/home');
         FS.mkdir('/home/web_user');
-      },createDefaultDevices:function() {
+      },createDefaultDevices:() => {
         // create /dev
         FS.mkdir('/dev');
         // setup /dev/null
         FS.registerDevice(FS.makedev(1, 3), {
-          read: function() { return 0; },
-          write: function(stream, buffer, offset, length, pos) { return length; }
+          read: () => 0,
+          write: (stream, buffer, offset, length, pos) => length,
         });
         FS.mkdev('/dev/null', FS.makedev(1, 3));
         // setup /dev/tty and /dev/tty1
@@ -3661,24 +3642,24 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         // just create the tmp dirs that reside in it commonly
         FS.mkdir('/dev/shm');
         FS.mkdir('/dev/shm/tmp');
-      },createSpecialDirectories:function() {
+      },createSpecialDirectories:() => {
         // create /proc/self/fd which allows /proc/self/fd/6 => readlink gives the
         // name of the stream for fd 6 (see test_unistd_ttyname)
         FS.mkdir('/proc');
         var proc_self = FS.mkdir('/proc/self');
         FS.mkdir('/proc/self/fd');
         FS.mount({
-          mount: function() {
+          mount: () => {
             var node = FS.createNode(proc_self, 'fd', 16384 | 511 /* 0777 */, 73);
             node.node_ops = {
-              lookup: function(parent, name) {
+              lookup: (parent, name) => {
                 var fd = +name;
                 var stream = FS.getStream(fd);
                 if (!stream) throw new FS.ErrnoError(8);
                 var ret = {
                   parent: null,
                   mount: { mountpoint: 'fake' },
-                  node_ops: { readlink: function() { return stream.path } }
+                  node_ops: { readlink: () => stream.path },
                 };
                 ret.parent = ret; // make it look like a simple root node
                 return ret;
@@ -3687,7 +3668,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
             return node;
           }
         }, {}, '/proc/self/fd');
-      },createStandardStreams:function() {
+      },createStandardStreams:() => {
         // TODO deprecate the old functionality of a single
         // input / output callback and that utilizes FS.createDevice
         // and instead require a unique set of stream ops
@@ -3719,7 +3700,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         assert(stdin.fd === 0, 'invalid handle for stdin (' + stdin.fd + ')');
         assert(stdout.fd === 1, 'invalid handle for stdout (' + stdout.fd + ')');
         assert(stderr.fd === 2, 'invalid handle for stderr (' + stderr.fd + ')');
-      },ensureErrnoError:function() {
+      },ensureErrnoError:() => {
         if (FS.ErrnoError) return;
         FS.ErrnoError = /** @this{Object} */ function ErrnoError(errno, node) {
           this.node = node;
@@ -3746,11 +3727,11 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         FS.ErrnoError.prototype = new Error();
         FS.ErrnoError.prototype.constructor = FS.ErrnoError;
         // Some errors may happen quite a bit, to avoid overhead we reuse them (and suffer a lack of stack info)
-        [44].forEach(function(code) {
+        [44].forEach((code) => {
           FS.genericErrors[code] = new FS.ErrnoError(code);
           FS.genericErrors[code].stack = '<generic error, no stack>';
         });
-      },staticInit:function() {
+      },staticInit:() => {
         FS.ensureErrnoError();
   
         FS.nameTable = new Array(4096);
@@ -3764,7 +3745,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         FS.filesystems = {
           'MEMFS': MEMFS,
         };
-      },init:function(input, output, error) {
+      },init:(input, output, error) => {
         assert(!FS.init.initialized, 'FS.init was previously called. If you want to initialize later with custom parameters, remove any earlier calls (note that one is automatically added to the generated code)');
         FS.init.initialized = true;
   
@@ -3776,10 +3757,11 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         Module['stderr'] = error || Module['stderr'];
   
         FS.createStandardStreams();
-      },quit:function() {
+      },quit:() => {
         FS.init.initialized = false;
-        // force-flush all streams, so we get musl std streams printed out
-        _fflush(0);
+        // Call musl-internal function to close all stdio streams, so nothing is
+        // left in internal buffers.
+        ___stdio_exit();
         // close all of our streams
         for (var i = 0; i < FS.streams.length; i++) {
           var stream = FS.streams[i];
@@ -3788,19 +3770,19 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           }
           FS.close(stream);
         }
-      },getMode:function(canRead, canWrite) {
+      },getMode:(canRead, canWrite) => {
         var mode = 0;
         if (canRead) mode |= 292 | 73;
         if (canWrite) mode |= 146;
         return mode;
-      },findObject:function(path, dontResolveLastLink) {
+      },findObject:(path, dontResolveLastLink) => {
         var ret = FS.analyzePath(path, dontResolveLastLink);
         if (ret.exists) {
           return ret.object;
         } else {
           return null;
         }
-      },analyzePath:function(path, dontResolveLastLink) {
+      },analyzePath:(path, dontResolveLastLink) => {
         // operate from within the context of the symlink's target
         try {
           var lookup = FS.lookupPath(path, { follow: !dontResolveLastLink });
@@ -3827,7 +3809,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           ret.error = e.errno;
         };
         return ret;
-      },createPath:function(parent, path, canRead, canWrite) {
+      },createPath:(parent, path, canRead, canWrite) => {
         parent = typeof parent === 'string' ? parent : FS.getPath(parent);
         var parts = path.split('/').reverse();
         while (parts.length) {
@@ -3842,12 +3824,16 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           parent = current;
         }
         return current;
-      },createFile:function(parent, name, properties, canRead, canWrite) {
+      },createFile:(parent, name, properties, canRead, canWrite) => {
         var path = PATH.join2(typeof parent === 'string' ? parent : FS.getPath(parent), name);
         var mode = FS.getMode(canRead, canWrite);
         return FS.create(path, mode);
-      },createDataFile:function(parent, name, data, canRead, canWrite, canOwn) {
-        var path = name ? PATH.join2(typeof parent === 'string' ? parent : FS.getPath(parent), name) : parent;
+      },createDataFile:(parent, name, data, canRead, canWrite, canOwn) => {
+        var path = name;
+        if (parent) {
+          parent = typeof parent === 'string' ? parent : FS.getPath(parent);
+          path = name ? PATH.join2(parent, name) : parent;
+        }
         var mode = FS.getMode(canRead, canWrite);
         var node = FS.create(path, mode);
         if (data) {
@@ -3864,7 +3850,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           FS.chmod(node, mode);
         }
         return node;
-      },createDevice:function(parent, name, input, output) {
+      },createDevice:(parent, name, input, output) => {
         var path = PATH.join2(typeof parent === 'string' ? parent : FS.getPath(parent), name);
         var mode = FS.getMode(!!input, !!output);
         if (!FS.createDevice.major) FS.createDevice.major = 64;
@@ -3872,16 +3858,16 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         // Create a fake device that a set of stream ops to emulate
         // the old behavior.
         FS.registerDevice(dev, {
-          open: function(stream) {
+          open: (stream) => {
             stream.seekable = false;
           },
-          close: function(stream) {
+          close: (stream) => {
             // flush any pending line data
             if (output && output.buffer && output.buffer.length) {
               output(10);
             }
           },
-          read: function(stream, buffer, offset, length, pos /* ignored */) {
+          read: (stream, buffer, offset, length, pos /* ignored */) => {
             var bytesRead = 0;
             for (var i = 0; i < length; i++) {
               var result;
@@ -3902,7 +3888,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
             }
             return bytesRead;
           },
-          write: function(stream, buffer, offset, length, pos) {
+          write: (stream, buffer, offset, length, pos) => {
             for (var i = 0; i < length; i++) {
               try {
                 output(buffer[offset+i]);
@@ -3917,7 +3903,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           }
         });
         return FS.mkdev(path, mode, dev);
-      },forceLoadFile:function(obj) {
+      },forceLoadFile:(obj) => {
         if (obj.isDevice || obj.isFolder || obj.link || obj.contents) return true;
         if (typeof XMLHttpRequest !== 'undefined') {
           throw new Error("Lazy loading should have been performed (contents set) in createLazyFile, but it was not. Lazy loading only works in web workers. Use --embed-file or --preload-file in emcc on the main thread.");
@@ -3934,7 +3920,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         } else {
           throw new Error('Cannot load without read() or XMLHttpRequest.');
         }
-      },createLazyFile:function(parent, name, url, canRead, canWrite) {
+      },createLazyFile:(parent, name, url, canRead, canWrite) => {
         // Lazy chunked Uint8Array (implements get and length from Uint8Array). Actual getting is abstracted away for eventual reuse.
         /** @constructor */
         function LazyUint8Array() {
@@ -3968,7 +3954,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           if (!hasByteServing) chunkSize = datalength;
   
           // Function to get a range from the remote URL.
-          var doXHR = (function(from, to) {
+          var doXHR = (from, to) => {
             if (from > to) throw new Error("invalid range (" + from + ", " + to + ") or no bytes requested!");
             if (to > datalength-1) throw new Error("only " + datalength + " bytes available! programmer error!");
   
@@ -3990,9 +3976,9 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
             } else {
               return intArrayFromString(xhr.responseText || '', true);
             }
-          });
+          };
           var lazyArray = this;
-          lazyArray.setDataGetter(function(chunkNum) {
+          lazyArray.setDataGetter((chunkNum) => {
             var start = chunkNum * chunkSize;
             var end = (chunkNum+1) * chunkSize - 1; // including this byte
             end = Math.min(end, datalength-1); // if datalength-1 is selected, this is the last block
@@ -4061,7 +4047,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         // override each stream op with one that tries to force load the lazy file first
         var stream_ops = {};
         var keys = Object.keys(node.stream_ops);
-        keys.forEach(function(key) {
+        keys.forEach((key) => {
           var fn = node.stream_ops[key];
           stream_ops[key] = function forceLoadLazyFile() {
             FS.forceLoadFile(node);
@@ -4069,7 +4055,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           };
         });
         // use a custom read function
-        stream_ops.read = function stream_ops_read(stream, buffer, offset, length, position) {
+        stream_ops.read = (stream, buffer, offset, length, position) => {
           FS.forceLoadFile(node);
           var contents = stream.node.contents;
           if (position >= contents.length)
@@ -4089,8 +4075,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
         };
         node.stream_ops = stream_ops;
         return node;
-      },createPreloadedFile:function(parent, name, url, canRead, canWrite, onload, onerror, dontCreateFile, canOwn, preFinish) {
-        Browser.init(); // XXX perhaps this method should move onto Browser?
+      },createPreloadedFile:(parent, name, url, canRead, canWrite, onload, onerror, dontCreateFile, canOwn, preFinish) => {
         // TODO we should allow people to just pass in a complete filename instead
         // of parent and name being that we just join them anyways
         var fullname = name ? PATH_FS.resolve(PATH.join2(parent, name)) : parent;
@@ -4104,46 +4089,39 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
             if (onload) onload();
             removeRunDependency(dep);
           }
-          var handled = false;
-          Module['preloadPlugins'].forEach(function(plugin) {
-            if (handled) return;
-            if (plugin['canHandle'](fullname)) {
-              plugin['handle'](byteArray, fullname, finish, function() {
-                if (onerror) onerror();
-                removeRunDependency(dep);
-              });
-              handled = true;
-            }
-          });
-          if (!handled) finish(byteArray);
+          if (Browser.handledByPreloadPlugin(byteArray, fullname, finish, () => {
+            if (onerror) onerror();
+            removeRunDependency(dep);
+          })) {
+            return;
+          }
+          finish(byteArray);
         }
         addRunDependency(dep);
         if (typeof url == 'string') {
-          asyncLoad(url, function(byteArray) {
-            processData(byteArray);
-          }, onerror);
+          asyncLoad(url, (byteArray) => processData(byteArray), onerror);
         } else {
           processData(url);
         }
-      },indexedDB:function() {
+      },indexedDB:() => {
         return window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
-      },DB_NAME:function() {
+      },DB_NAME:() => {
         return 'EM_FS_' + window.location.pathname;
-      },DB_VERSION:20,DB_STORE_NAME:"FILE_DATA",saveFilesToDB:function(paths, onload, onerror) {
-        onload = onload || function(){};
-        onerror = onerror || function(){};
+      },DB_VERSION:20,DB_STORE_NAME:"FILE_DATA",saveFilesToDB:(paths, onload, onerror) => {
+        onload = onload || (() => {});
+        onerror = onerror || (() => {});
         var indexedDB = FS.indexedDB();
         try {
           var openRequest = indexedDB.open(FS.DB_NAME(), FS.DB_VERSION);
         } catch (e) {
           return onerror(e);
         }
-        openRequest.onupgradeneeded = function openRequest_onupgradeneeded() {
+        openRequest.onupgradeneeded = () => {
           out('creating db');
           var db = openRequest.result;
           db.createObjectStore(FS.DB_STORE_NAME);
         };
-        openRequest.onsuccess = function openRequest_onsuccess() {
+        openRequest.onsuccess = () => {
           var db = openRequest.result;
           var transaction = db.transaction([FS.DB_STORE_NAME], 'readwrite');
           var files = transaction.objectStore(FS.DB_STORE_NAME);
@@ -4151,17 +4129,17 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           function finish() {
             if (fail == 0) onload(); else onerror();
           }
-          paths.forEach(function(path) {
+          paths.forEach((path) => {
             var putRequest = files.put(FS.analyzePath(path).object.contents, path);
-            putRequest.onsuccess = function putRequest_onsuccess() { ok++; if (ok + fail == total) finish() };
-            putRequest.onerror = function putRequest_onerror() { fail++; if (ok + fail == total) finish() };
+            putRequest.onsuccess = () => { ok++; if (ok + fail == total) finish() };
+            putRequest.onerror = () => { fail++; if (ok + fail == total) finish() };
           });
           transaction.onerror = onerror;
         };
         openRequest.onerror = onerror;
-      },loadFilesFromDB:function(paths, onload, onerror) {
-        onload = onload || function(){};
-        onerror = onerror || function(){};
+      },loadFilesFromDB:(paths, onload, onerror) => {
+        onload = onload || (() => {});
+        onerror = onerror || (() => {});
         var indexedDB = FS.indexedDB();
         try {
           var openRequest = indexedDB.open(FS.DB_NAME(), FS.DB_VERSION);
@@ -4169,7 +4147,7 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           return onerror(e);
         }
         openRequest.onupgradeneeded = onerror; // no database to load from
-        openRequest.onsuccess = function openRequest_onsuccess() {
+        openRequest.onsuccess = () => {
           var db = openRequest.result;
           try {
             var transaction = db.transaction([FS.DB_STORE_NAME], 'readonly');
@@ -4182,9 +4160,9 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
           function finish() {
             if (fail == 0) onload(); else onerror();
           }
-          paths.forEach(function(path) {
+          paths.forEach((path) => {
             var getRequest = files.get(path);
-            getRequest.onsuccess = function getRequest_onsuccess() {
+            getRequest.onsuccess = () => {
               if (FS.analyzePath(path).exists) {
                 FS.unlink(path);
               }
@@ -4192,22 +4170,22 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
               ok++;
               if (ok + fail == total) finish();
             };
-            getRequest.onerror = function getRequest_onerror() { fail++; if (ok + fail == total) finish() };
+            getRequest.onerror = () => { fail++; if (ok + fail == total) finish() };
           });
           transaction.onerror = onerror;
         };
         openRequest.onerror = onerror;
-      },absolutePath:function() {
+      },absolutePath:() => {
         abort('FS.absolutePath has been removed; use PATH_FS.resolve instead');
-      },createFolder:function() {
+      },createFolder:() => {
         abort('FS.createFolder has been removed; use FS.mkdir instead');
-      },createLink:function() {
+      },createLink:() => {
         abort('FS.createLink has been removed; use FS.symlink instead');
-      },joinPath:function() {
+      },joinPath:() => {
         abort('FS.joinPath has been removed; use PATH.join instead');
-      },mmapAlloc:function() {
+      },mmapAlloc:() => {
         abort('FS.mmapAlloc has been replaced by the top level function mmapAlloc');
-      },standardizePath:function() {
+      },standardizePath:() => {
         abort('FS.standardizePath has been removed; use PATH.normalize instead');
       }};
   var SYSCALLS = {mappings:{},DEFAULT_POLLMASK:5,calculateAt:function(dirfd, path, allowEmpty) {
@@ -6714,6 +6692,19 @@ function GetCanvasWidth(){ return canvas.clientWidth; }
             }, false);
           }
         }
+      },handledByPreloadPlugin:function(byteArray, fullname, finish, onerror) {
+        // Ensure plugins are ready.
+        Browser.init();
+  
+        var handled = false;
+        Module['preloadPlugins'].forEach(function(plugin) {
+          if (handled) return;
+          if (plugin['canHandle'](fullname)) {
+            plugin['handle'](byteArray, fullname, finish, onerror);
+            handled = true;
+          }
+        });
+        return handled;
       },createContext:function(canvas, useWebGL, setInModule, webGLContextAttributes) {
         if (useWebGL && Module.ctx && canvas == Module.canvas) return Module.ctx; // no need to recreate GL context if it's already been created for this canvas.
   
@@ -9347,10 +9338,10 @@ var _malloc = Module["_malloc"] = createExportWrapper("malloc");
 var ___errno_location = Module["___errno_location"] = createExportWrapper("__errno_location");
 
 /** @type {function(...*):?} */
-var _fflush = Module["_fflush"] = createExportWrapper("fflush");
+var _main = Module["_main"] = createExportWrapper("main");
 
 /** @type {function(...*):?} */
-var _main = Module["_main"] = createExportWrapper("main");
+var ___stdio_exit = Module["___stdio_exit"] = createExportWrapper("__stdio_exit");
 
 /** @type {function(...*):?} */
 var ___dl_seterr = Module["___dl_seterr"] = createExportWrapper("__dl_seterr");
@@ -9763,7 +9754,7 @@ function checkUnflushedContent() {
     has = true;
   }
   try { // it doesn't matter if it fails
-    _fflush(0);
+    ___stdio_exit();
     // also flush in the JS FS layer
     ['stdout', 'stderr'].forEach(function(name) {
       var info = FS.analyzePath('/dev/' + name);
@@ -9787,7 +9778,11 @@ function checkUnflushedContent() {
 function exit(status, implicit) {
   EXITSTATUS = status;
 
-  checkUnflushedContent();
+  // Skip this check if the runtime is being kept alive deliberately.
+  // For example if `exit_with_live_runtime` is called.
+  if (!runtimeKeepaliveCounter) {
+    checkUnflushedContent();
+  }
 
   if (keepRuntimeAlive()) {
     // if exit() was called, we may warn the user if the runtime isn't actually being shut down

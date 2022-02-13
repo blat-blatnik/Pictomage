@@ -241,7 +241,6 @@ typedef struct Shard
 
 typedef struct Decal
 {
-	Texture *texture; // @TODO: This is unused right now.
 	Vector2 pos;
 	Vector2 size;
 	float rotation;
@@ -346,10 +345,6 @@ double scoreTime;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
 const Rectangle screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 const Rectangle screenRectTiles = { 0, 0, MAX_TILES_X, MAX_TILES_Y };
-// Color evenTileTint0; //@TODO: These are currently unused.
-// Color evenTileTint1;
-// Color oddTileTint0;
-// Color oddTileTint1;
 char roomName[MAX_ROOM_NAME];
 char nextRoomName[MAX_ROOM_NAME];
 int numTilesX = MAX_TILES_X;
@@ -785,7 +780,6 @@ Decal *SpawnDecal(Vector2 pos, Vector2 size, float angleRadians)
 	decal->pos = pos;
 	decal->size = size;
 	decal->rotation = angleRadians;
-	decal->texture = NULL;
 	return decal;
 }
 CaptureGhost *SpawnCaptureGhost(Vector2 pos, float radius, Vector2 target)
@@ -2505,7 +2499,6 @@ void DrawControls(float alpha, float fillAlpha)
 	DrawText("Move", 170, 770, 20, white);
 	DrawText("Aim / Shoot", 170, 840, 20, white);
 
-	//@TODO: Maybe we don't need these?
 	const int iconMove = 67; // RICON_TARGET_MOVE_FILL
 	const int iconSnap = 184; // RICON_PHOTO_CAMERA_FLASH
 	const int iconRestart = 72; // RICON_UNDO_FILL
@@ -2602,7 +2595,6 @@ void MainMenu_Draw(void)
 
 	if (time >= ringTime + shutterTime / 2)
 	{
-		//@TODO: Maybe remove these?
 		DrawCircle(570, 380, 60, ColorAlpha(SKYBLUE, 0.3f));
 		DrawCircle(475, 440, 25, ColorAlpha(BLUE, 0.3f));
 	}
@@ -4147,8 +4139,10 @@ void LevelEditor_Draw(void)
 
 void GameInit(void)
 {
-	//@TODO: Check if this can work. Sometimes it causes weird flickering when drawing circles.
-	//SetConfigFlags(FLAG_MSAA_4X_HINT);
+	// This causes weird visual artifacts when drawing circles, especially small ones.
+	// It used to be a bigger problem earlier in development, but right now it's not very noticeable.
+	// The only place where I can still see them on the player's vision cone.
+	SetConfigFlags(FLAG_MSAA_4X_HINT);
 
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pictomage");
 	SetExitKey(0);

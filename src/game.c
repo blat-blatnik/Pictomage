@@ -1358,14 +1358,14 @@ void UpdatePlayer(void)
 		player.isReleasingCapture = false;
 
 		Vector2 releaseDir = Vector2Subtract(mousePos, player.releasePos);
-		if (releaseDir.x == 0 || releaseDir.y == 0)
+		// If the player doesn't pick a release direction we just send it away from the player.
+		// We have a small tolerance for how much the mouse has to be moved.
+		if ((releaseDir.x == 0 && releaseDir.y == 0) || Vector2Length(releaseDir) < 0.5f)
 		{
+			releaseDir = Vector2Subtract(player.releasePos, player.pos);
 			// If we don't have a direction we just have to pick one, otherwise 
 			// everything will just hang in the air indefinitely and never despawn.
-			// First try to send everything away from the player, 
-			// if that doesn't work either just pick a random direction.
-			releaseDir = Vector2Subtract(player.releasePos, player.pos);
-			while (releaseDir.x == 0 || releaseDir.y == 0)
+			while (releaseDir.x == 0 && releaseDir.y == 0)
 			{
 				releaseDir.x = RandomFloat(&rng, -1, +1);
 				releaseDir.y = RandomFloat(&rng, -1, +1);
@@ -1815,7 +1815,7 @@ void UpdateExplosions(void)
 						float angleToTurret = Vec2Angle(toTurret);
 						for (int k = 0; k < debrisCount; ++k)
 						{
-							float speed = RandomFloat(&rng, 20, 30);
+							float speed = RandomFloat(&rng, 15, 25);
 							float angle = RandomNormal(&rng, angleToTurret, 1).x;
 							Vector2 dir = Vec2FromPolar(speed, angle);
 

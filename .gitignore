@@ -8,6 +8,7 @@
 *.idb
 *.ipdb
 *.iobj
+*.exp
 *.FileListAbsolute.txt
 *.vcxproj.user
 *.obj.enc

@@ -45,6 +45,7 @@ void TempReset(void);
 
 char *TempPrint(FORMAT_STRING format, ...);
 char *TempPrintv(FORMAT_STRING format, va_list args);
+char *TempReplace(const char *string, const char *target, const char *replacement);
 
 u64 HashBytes(const void *bytes, size_t size);
 void SwapMemory(void *a, void *b, size_t size);

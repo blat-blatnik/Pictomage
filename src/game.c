@@ -342,11 +342,12 @@ void DoScreenShake(void)
 // |/   Globals   \|
 // *---=========---*
 
-bool godMode = true; //@TODO: Disable this for release.
-bool devMode = true; //@TODO: Disable this for release.
+bool godMode = false; //@TODO: Disable this for release.
+bool devMode = false; //@TODO: Disable this for release.
 const char *devModeStartRoom = "room0";
 InputMode inputMode = INPUT_MODE_KEYBOARD_AND_MOUSE;
 double timeAtStartOfFrame;
+int64_t frameCounter;
 int deathCount;
 double scoreTime;
 const Vector2 screenCenter = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
@@ -1195,7 +1196,14 @@ Vector2 GetReleasePos(void)
 		float stickX = +GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X);
 		float stickY = -GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
 		Vector2 stickPos = Vec2(stickX, stickY);
-		Vector2 releasePos = Vector2Add(player.pos, Vector2Scale(stickPos, 8));
+		float len = Vector2Length(stickPos);
+		if (len > 1)
+		{
+			stickPos = Vector2Normalize(stickPos);
+			len = 1;
+		}
+		float mag = powf(len, 4);
+		Vector2 releasePos = Vector2Add(player.pos, Vector2Scale(stickPos, 9 * mag));
 		releasePos.x = Clamp(releasePos.x, 0, numTilesX);
 		releasePos.y = Clamp(releasePos.y, 0, numTilesY);
 		return releasePos;
@@ -1411,7 +1419,7 @@ void UpdatePlayer(void)
 
 		if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
 		{
-			Vector2 releaseDir = Vector2Subtract(mousePos, player.releasePos);
+			releaseDir = Vector2Subtract(mousePos, player.releasePos);
 			// If the player doesn't pick a release direction we just send it away from the player.
 			// We have a small tolerance for how much the mouse has to be moved.
 			if ((releaseDir.x == 0 && releaseDir.y == 0) || Vector2Length(releaseDir) < 0.5f)
@@ -1426,7 +1434,7 @@ void UpdatePlayer(void)
 				}
 			}
 
-			float releaseSpeed = Vector2Length(releaseDir);
+			releaseSpeed = Vector2Length(releaseDir);
 			releaseDir = Vector2Scale(releaseDir, 1 / releaseSpeed);
 		}
 		else if (inputMode == INPUT_MODE_CONTROLLER)
@@ -2500,7 +2508,21 @@ void DrawTriggerMessages(bool debug)
 			if (tm.leaveTime < tm.enterTime)
 				leaveTime = 0;
 			if (tm.isTriggered || (leaveTime >= 0 && leaveTime < 1))
-				DrawPopupMessage(enterTime, leaveTime, screenCenter.x, 200, tm.message);
+			{				
+				char *message = tm.message;
+				if (inputMode == INPUT_MODE_CONTROLLER)
+				{
+					//@HACK @HACK @HACK
+					// The text is fixed, but we want to show different controls depending on
+					// whether the player is using a controller or mouse & keyboard. This is
+					// the quickest solution I could think of that would work..
+					message = TempReplace(message, "WASD", "the Left Stick");
+					message = TempReplace(message, "Click", "Press RT");
+					message = TempReplace(message, "click", "RT");
+					message = TempReplace(message, "[R]", "(Y)");
+				}
+				DrawPopupMessage(enterTime, leaveTime, screenCenter.x, 200, message);
+			}
 		}
 	}
 }
@@ -2611,30 +2633,74 @@ void DrawMouse(float x, float y, Color color, Color fillColor)
 	DrawLineEx(Vec2(rect.x + rect.width / 2, rect.y), Vec2(rect.x + rect.width / 2, rect.y + 20), 2, color);
 	DrawRectangleRounded(Rect(rect.x + rect.width / 2 - 2, rect.y + 5, 4, 10), 0.3f, 8, color);
 }
+void DrawControllerStick(float x, float y, Color color, Color accent, const char *text)
+{
+	Vector2 center = Vec2(x, y);
+	DrawRing(center, 22, 24, 0, 360, 32, accent);
+	DrawRing(center, 18, 20, 0, 360, 32, accent);
+	DrawRing(center, 14, 16, 0, 360, 32, color);
+	DrawTextCentered(text, x, y, 16, color);
+}
+void DrawControllerRT(float x, float y, Color color)
+{
+	DrawLineEx(Vec2(x - 15, y - 15), Vec2(x - 15, y + 15), 2, color);
+	DrawLineEx(Vec2(x - 15, y + 15), Vec2(x + 25, y + 15), 2, color);
+	DrawLineBezierCubic(
+		Vec2(x - 15, y - 15),
+		Vec2(x + 25, y + 15),
+		Vec2(x - 5, y - 30),
+		Vec2(x + 15, y - 15),
+		2, color);
+	DrawTextCentered("RT", x, y, 16, color);
+}
+void DrawControllerStart(float x, float y, Color color)
+{
+	DrawRectangleRoundedLines(Rect(x - 15, y - 11, 30, 22), 0.9f, 16, 2, color);
+	DrawLineEx(Vec2(x - 9, y - 5), Vec2(x + 9, y - 5), 1.5f, color);
+	DrawLineEx(Vec2(x - 9, y - 0), Vec2(x + 9, y - 0), 1.5f, color);
+	DrawLineEx(Vec2(x - 9, y + 5), Vec2(x + 9, y + 5), 1.5f, color);
+}
+void DrawControllerButton(float x, float y, Color color, Color accent, const char *text)
+{
+	DrawRing(Vec2(x, y), 15, 18, 0, 360, 32, accent);
+	DrawRing(Vec2(x, y), 10, 13, 0, 360, 32, accent);
+	DrawRing(Vec2(x, y), 13, 15, 0, 360, 32, color);
+	DrawTextCentered(text, x, y, 16, color);
+}
 void DrawControls(float alpha, float fillAlpha)
 {
 	const Color white = ColorAlpha(WHITE, alpha);
 	const Color gray = ColorAlpha(GRAY, alpha * fillAlpha);
+	const Color darkGray = ColorAlpha(DARKGRAY, alpha * fillAlpha);
 
-	Rectangle rW = Rect(100 + 00.00f, 750 + 00.00f, 25, 25);
-	Rectangle rA = Rect(100 - 28.00f, 750 + 28.00f, 25, 25);
-	Rectangle rS = Rect(100 + 00.00f, 750 + 28.00f, 25, 25);
-	Rectangle rD = Rect(100 + 28.00f, 750 + 28.00f, 25, 25);
-	DrawRectangleLinesEx(rW, 2, white);
-	DrawRectangleLinesEx(rA, 2, white);
-	DrawRectangleLinesEx(rS, 2, white);
-	DrawRectangleLinesEx(rD, 2, white);
-	Vector2 cW = RectangleCenter(rW);
-	Vector2 cA = RectangleCenter(rA);
-	Vector2 cS = RectangleCenter(rS);
-	Vector2 cD = RectangleCenter(rD);
-	DrawTextCentered("W", cW.x, cW.y, 12, white);
-	DrawTextCentered("A", cA.x, cA.y, 12, white);
-	DrawTextCentered("S", cS.x, cS.y, 12, white);
-	DrawTextCentered("D", cD.x, cD.y, 12, white);
-
-	DrawMouse(100 - 28.00f, 830 + 00.00f, white, BLANK);
-	DrawMouse(100 + 24.00f, 830 + 00.00f, white, gray);
+	if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
+	{
+		Rectangle rW = Rect(100 + 00.00f, 750 + 00.00f, 25, 25);
+		Rectangle rA = Rect(100 - 28.00f, 750 + 28.00f, 25, 25);
+		Rectangle rS = Rect(100 + 00.00f, 750 + 28.00f, 25, 25);
+		Rectangle rD = Rect(100 + 28.00f, 750 + 28.00f, 25, 25);
+		DrawRectangleLinesEx(rW, 2, white);
+		DrawRectangleLinesEx(rA, 2, white);
+		DrawRectangleLinesEx(rS, 2, white);
+		DrawRectangleLinesEx(rD, 2, white);
+		Vector2 cW = RectangleCenter(rW);
+		Vector2 cA = RectangleCenter(rA);
+		Vector2 cS = RectangleCenter(rS);
+		Vector2 cD = RectangleCenter(rD);
+		DrawTextCentered("W", cW.x, cW.y, 12, white);
+		DrawTextCentered("A", cA.x, cA.y, 12, white);
+		DrawTextCentered("S", cS.x, cS.y, 12, white);
+		DrawTextCentered("D", cD.x, cD.y, 12, white);
+	
+		DrawMouse(100 - 28.00f, 830 + 00.00f, white, BLANK);
+		DrawMouse(100 + 24.00f, 830 + 00.00f, white, gray);
+	}
+	else if (inputMode == INPUT_MODE_CONTROLLER)
+	{
+		DrawControllerStick(120, 777, white, darkGray, "L");
+		DrawControllerStick(70, 850, white, darkGray, "R");
+		DrawControllerRT(125, 850, white);
+	}
 
 	DrawText("Move", 170, 770, 20, white);
 	DrawText("Aim / Shoot", 170, 840, 20, white);
@@ -2650,11 +2716,20 @@ void DrawControls(float alpha, float fillAlpha)
 
 	Rectangle rR = Rect(750 + 00.00f, 765 + 00.00f, 25, 25);
 	Rectangle rT = Rect(750 + 00.00f, 765 + 70.00f, 25, 25);
-	DrawRectangleLinesEx(rR, 2, white);
-	DrawRectangleLinesEx(rT, 2, white);
 	Vector2 cR = RectangleCenter(rR);
 	Vector2 cT = RectangleCenter(rT);
-	DrawTextCentered("R", cR.x, cR.y, 12, white);
+
+	if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
+	{
+		DrawRectangleLinesEx(rR, 2, white);
+		DrawTextCentered("R", cR.x, cR.y, 12, white);
+	}
+	else if (inputMode == INPUT_MODE_CONTROLLER)
+	{
+		DrawControllerButton(cR.x, cR.y, white, darkGray, "Y");
+	}
+
+	DrawRectangleLinesEx(rT, 2, white);
 	DrawTextCentered("`", cT.x, cT.y, 12, white);
 
 	DrawTextRightAligned("Restart", 730, 770, 20, white);
@@ -2753,7 +2828,10 @@ void MainMenu_Draw(void)
 	{
 		DrawTextCentered("Pictomage", screenCenter.x, screenCenter.y - 100, 50, WHITE);
 		float timeCos = (1 + cosf(10 * GetTime())) / 2;
-		DrawTextCentered("press any key", screenCenter.x, screenCenter.y + 100, 40, Grayscale(Lerp(0.5f, 1.0f, timeCos)));
+
+		const char *centerText = inputMode == INPUT_MODE_CONTROLLER ?
+			"press any button" : "press any key";
+		DrawTextCentered(centerText, screenCenter.x, screenCenter.y + 100, 40, Grayscale(Lerp(0.5f, 1.0f, timeCos)));
 		
 		DrawTriangle(Vec2(325, 340), Vec2(325, 360), Vec2(265, 380), WHITE);
 		DrawTriangle(Vec2(575, 340), Vec2(575, 360), Vec2(635, 380), WHITE);
@@ -2967,14 +3045,6 @@ void Playing_Draw(void)
 	{
 		DrawTriggerMessages(false);
 		DrawScoreTime();
-		//float time = 2 * fmod(GetTime(), 1);
-		//float t = fabsf(time - 1);
-		//DrawShutter(t);
-		//DrawShutter(1);
-		//DrawDebugText("%.2f", GetTime());
-		//DrawFPS(100, 100);
-		//Vector2 mp = ScreenToTile(GetMousePosition());
-		//DrawDebugText("[%.1f %.1f] [%.1f %.1f]", mp.x, mp.y, cameraPos.x, cameraPos.y);
 	}
 }
 
@@ -3303,9 +3373,18 @@ void GameOver_Draw(void)
 	DrawTextCentered("YOU DIED", screenCenter.x, screenCenter.y + 102, 40, RED);
 
 	Rectangle rR = Rect(360, 660, 40, 40);
-	DrawRectangleLinesEx(rR, 4, GRAY);
 	Vector2 cR = RectangleCenter(rR);
-	DrawTextCentered("R", cR.x, cR.y, 28, GRAY);
+	if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
+	{
+		DrawRectangleLinesEx(rR, 4, GRAY);
+		DrawTextCentered("R", cR.x, cR.y, 28, GRAY);
+	}
+	else if (inputMode == INPUT_MODE_CONTROLLER)
+	{
+		DrawRing(cR, 24, 28, 0, 360, 64, Grayscale(0.2f));
+		DrawRing(cR, 20, 24, 0, 360, 64, GRAY);
+		DrawTextCentered("Y", cR.x, cR.y, 32, GRAY);
+	}
 	DrawText("Restart", 420, 665, 28, GRAY);
 }
 
@@ -3380,6 +3459,7 @@ GameState Credits_Update(void)
 		IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) ||
 		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT) ||
 		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT) ||
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) ||
 		false)
 	{
 		if (creditsTime > CREDITS_LENGTH + 1)
@@ -3449,7 +3529,11 @@ void Credits_Draw(void)
 
 	if (creditsClickedCount == 1 || creditsTime >= CREDITS_LENGTH + 1)
 	{
-		DrawMouse(100 - 28.00f, 830 + 00.00f, WHITE, GRAY);
+		if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
+			DrawMouse(100 - 28.00f, 830 + 00.00f, WHITE, GRAY);
+		else if (inputMode == INPUT_MODE_CONTROLLER)
+			DrawControllerStart(100 - 12.00f, 830 + 20.00f, WHITE);
+
 		if (creditsTime >= CREDITS_LENGTH + 1)
 		{
 			float scoreAlpha = Clamp((creditsTime - CREDITS_LENGTH - 1) / 2, 0, 1);
@@ -4342,7 +4426,17 @@ void GameInit(void)
 }
 void GameLoopOneIteration(void)
 {
+	++frameCounter;
 	TempReset();
+
+	// For some reason IsGamepadAvailable returns false until the second frame...
+	if (frameCounter == 2)
+	{
+		if (IsGamepadAvailable(0))
+			inputMode = INPUT_MODE_CONTROLLER;
+		else
+			inputMode = INPUT_MODE_KEYBOARD_AND_MOUSE;
+	}
 
 	timeAtStartOfFrame = GetTime();
 	if (IsGamepadAvailable(0))

@@ -23,6 +23,46 @@ void TempReset(void)
 {
 	BiStackResetAll(&TempStorageAllocator);
 }
+char *TempReplace(const char *string, const char *target, const char *replacement)
+{
+	size_t lenS = strlen(string);
+	size_t lenT = strlen(target);
+	size_t lenR = strlen(replacement);
+	size_t resultLen = lenS;
+	
+	const char *start = string;
+	while (true)
+	{
+		const char *match = strstr(start, target);
+		if (!match)
+			break;
+
+		resultLen -= lenT;
+		resultLen += lenR;
+		start = match + lenT;
+	}
+
+	char *result = TempAlloc(resultLen + 1);
+	char *cursor = result;
+	start = string;
+	while (true)
+	{
+		const char *match = strstr(start, target);
+		if (!match)
+		{
+			memcpy(cursor, start, strlen(start));
+			result[resultLen] = 0;
+			return result;
+		}
+
+		size_t toCopy = (size_t)(match - start);
+		memcpy(cursor, start, toCopy);
+		cursor += toCopy;
+		memcpy(cursor, replacement, lenR);
+		cursor += lenR;
+		start = match + lenT;
+	}
+}
 
 char *TempPrint(FORMAT_STRING format, ...)
 {

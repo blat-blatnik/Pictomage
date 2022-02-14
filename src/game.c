@@ -101,6 +101,12 @@ typedef enum EditorSelectionKind
 	EDITOR_SELECTION_KIND_TRIGGER_MESSAGE,
 } EditorSelectionKind;
 
+typedef enum InputMode
+{
+	INPUT_MODE_KEYBOARD_AND_MOUSE,
+	INPUT_MODE_CONTROLLER,
+} InputMode;
+
 typedef struct Player
 {
 	Vector2 pos;
@@ -336,9 +342,10 @@ void DoScreenShake(void)
 // |/   Globals   \|
 // *---=========---*
 
-bool godMode = false; //@TODO: Disable this for release.
-bool devMode = false; //@TODO: Disable this for release.
+bool godMode = true; //@TODO: Disable this for release.
+bool devMode = true; //@TODO: Disable this for release.
 const char *devModeStartRoom = "room0";
+InputMode inputMode = INPUT_MODE_KEYBOARD_AND_MOUSE;
 double timeAtStartOfFrame;
 int deathCount;
 double scoreTime;
@@ -1179,30 +1186,58 @@ void CopyGameToRoom(Room *room)
 // |/   Update   \|
 // *---========---*
 
+Vector2 GetReleasePos(void)
+{
+	if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
+		return ScreenToTile(GetMousePosition());
+	else if (inputMode == INPUT_MODE_CONTROLLER)
+	{
+		float stickX = +GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X);
+		float stickY = -GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
+		Vector2 stickPos = Vec2(stickX, stickY);
+		Vector2 releasePos = Vector2Add(player.pos, Vector2Scale(stickPos, 8));
+		releasePos.x = Clamp(releasePos.x, 0, numTilesX);
+		releasePos.y = Clamp(releasePos.y, 0, numTilesY);
+		return releasePos;
+	}
+	return Vector2Zero();
+}
+
 void UpdatePlayer(void)
 {
 	Vector2 mousePos = ScreenToTile(GetMousePosition());
 
 	Vector2 playerMove = Vec2Broadcast(0);
-	if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
+	playerMove.x += GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X);
+	playerMove.y -= GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y); // Y-axis is flipped..
+	if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_UP))
 		playerMove.y += 1;
-	if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
+	if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN))
 		playerMove.y -= 1;
-	if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
+	if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT))
 		playerMove.x -= 1;
-	if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
+	if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT))
 		playerMove.x += 1;
-
+	
 	if (playerMove.x != 0 || playerMove.y != 0)
 	{
-		playerMove = Vector2Normalize(playerMove);
+		if (Vector2LengthSqr(playerMove) > 1)
+			playerMove = Vector2Normalize(playerMove);
 		player.vel = Vector2Scale(playerMove, PLAYER_SPEED);
 		player.pos = ResolveCollisionsCircleRoom(player.pos, PLAYER_RADIUS, player.vel);
 		for (int i = 0; i < numTurrets; ++i)
 			player.pos = ResolveCollisionCircles(player.pos, PLAYER_RADIUS, turrets[i].pos, TURRET_RADIUS);
 	}
 
-	player.lookAngle = AngleBetween(player.pos, mousePos);
+	if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
+		player.lookAngle = AngleBetween(player.pos, mousePos);
+	else if (inputMode == INPUT_MODE_CONTROLLER)
+	{
+		float rx = +GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X);
+		float ry = -GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
+		if (Vector2LengthSqr(Vec2(rx, ry)) > 0.2f)
+			player.lookAngle = atan2f(ry, rx);
+	}
 
 	if (player.captureFrame > 0)
 	{
@@ -1239,7 +1274,14 @@ void UpdatePlayer(void)
 		}
 	}
 	
-	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+	bool actionButtonPressed =
+		IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1) ||
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_2) ||
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1) ||
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_2) ||
+		false;
+	if (actionButtonPressed)
 	{
 		bool hasCapture = NumCapturedEnemies() > 0;
 		if (!hasCapture && player.captureFrame == 0)
@@ -1330,7 +1372,7 @@ void UpdatePlayer(void)
 			PlaySound(ejectSound);
 			player.releaseFrame = 1;
 			player.isReleasingCapture = true;
-			player.releasePos = mousePos;
+			player.releasePos = GetReleasePos();
 
 			for (int i = 0; i < numCapturedBullets; ++i)
 			{
@@ -1353,28 +1395,64 @@ void UpdatePlayer(void)
 		}
 	}
 
-	if (player.isReleasingCapture && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+	bool actionButtonReleased =
+		IsMouseButtonReleased(MOUSE_BUTTON_LEFT) ||
+		IsGamepadButtonReleased(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1) ||
+		IsGamepadButtonReleased(0, GAMEPAD_BUTTON_LEFT_TRIGGER_2) ||
+		IsGamepadButtonReleased(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1) ||
+		IsGamepadButtonReleased(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_2) ||
+		false;
+	if (player.isReleasingCapture && actionButtonReleased)
 	{
 		player.isReleasingCapture = false;
 
-		Vector2 releaseDir = Vector2Subtract(mousePos, player.releasePos);
-		// If the player doesn't pick a release direction we just send it away from the player.
-		// We have a small tolerance for how much the mouse has to be moved.
-		if ((releaseDir.x == 0 && releaseDir.y == 0) || Vector2Length(releaseDir) < 0.5f)
+		Vector2 releaseDir = Vec2(1, 0);
+		float releaseSpeed = 1;
+
+		if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
 		{
-			releaseDir = Vector2Subtract(player.releasePos, player.pos);
-			// If we don't have a direction we just have to pick one, otherwise 
-			// everything will just hang in the air indefinitely and never despawn.
-			while (releaseDir.x == 0 && releaseDir.y == 0)
+			Vector2 releaseDir = Vector2Subtract(mousePos, player.releasePos);
+			// If the player doesn't pick a release direction we just send it away from the player.
+			// We have a small tolerance for how much the mouse has to be moved.
+			if ((releaseDir.x == 0 && releaseDir.y == 0) || Vector2Length(releaseDir) < 0.5f)
 			{
-				releaseDir.x = RandomFloat(&rng, -1, +1);
-				releaseDir.y = RandomFloat(&rng, -1, +1);
+				releaseDir = Vector2Subtract(player.releasePos, player.pos);
+				// If we don't have a direction we just have to pick one, otherwise 
+				// everything will just hang in the air indefinitely and never despawn.
+				while (releaseDir.x == 0 && releaseDir.y == 0)
+				{
+					releaseDir.x = RandomFloat(&rng, -1, +1);
+					releaseDir.y = RandomFloat(&rng, -1, +1);
+				}
+			}
+
+			float releaseSpeed = Vector2Length(releaseDir);
+			releaseDir = Vector2Scale(releaseDir, 1 / releaseSpeed);
+		}
+		else if (inputMode == INPUT_MODE_CONTROLLER)
+		{
+			float stickX = +GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X);
+			float stickY = -GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
+			Vector2 stickPos = Vec2(stickX, stickY);
+			float stickMag = Vector2Length(stickPos);
+			if (stickMag < 0.2f)
+			{
+				releaseDir = Vector2Subtract(player.releasePos, player.pos);
+				// If we don't have a direction we just have to pick one, otherwise 
+				// everything will just hang in the air indefinitely and never despawn.
+				while (releaseDir.x == 0 && releaseDir.y == 0)
+				{
+					releaseDir.x = RandomFloat(&rng, -1, +1);
+					releaseDir.y = RandomFloat(&rng, -1, +1);
+				}
+			}
+			else
+			{
+				releaseSpeed = 5 * stickMag;
+				releaseDir = Vector2Scale(stickPos, 1 / stickMag);
 			}
 		}
-
-		float releaseSpeed = Vector2Length(releaseDir);
-		releaseDir = Vector2Scale(releaseDir, 1 / releaseSpeed);
-
+		
 		Vector2 releaseVel = Vector2Scale(releaseDir, fmaxf(5 * releaseSpeed, 30));
 		for (int i = 0; i < numCapturedBullets; ++i)
 		{
@@ -2116,6 +2194,33 @@ void DrawPlayerRelease(void)
 	const Color trailColor0 = ColorAlpha(BLUE, 0);
 	const Color trailColor1 = ColorAlpha(BLUE, 0.3f);
 
+	if (!player.isReleasingCapture && inputMode == INPUT_MODE_CONTROLLER)
+	{
+		int numCaptures = NumCapturedEnemies();
+		if (numCaptures > 0)
+		{
+			Vector2 releasePos = GetReleasePos();
+			for (int i = 0; i < numCapturedBullets; ++i)
+			{
+				Bullet b = capturedBullets[i];
+				Vector2 pos = Vector2Add(b.pos, releasePos);
+				DrawCircleV(pos, BULLET_RADIUS, trailColor1);
+			}
+			for (int i = 0; i < numCapturedTurrets; ++i)
+			{
+				Turret t = capturedTurrets[i];
+				Vector2 pos = Vector2Add(t.pos, releasePos);
+				DrawCircleV(pos, TURRET_RADIUS, trailColor1);
+			}
+			for (int i = 0; i < numCapturedBombs; ++i)
+			{
+				Bomb b = capturedBombs[i];
+				Vector2 pos = Vector2Add(b.pos, releasePos);
+				DrawCircleV(pos, BOMB_RADIUS, trailColor1);
+			}
+		}
+	}
+
 	for (int i = 0; i < numCaptureGhosts; ++i)
 	{
 		CaptureGhost ghost = captureGhosts[i];
@@ -2175,10 +2280,28 @@ void DrawPlayerRelease(void)
 		}
 	}
 
-	Vector2 mousePos = ScreenToTile(GetMousePosition());
-	Vector2 arrowDir = Vector2Normalize(Vector2Subtract(mousePos, player.releasePos));
-	Vector2 arrowPos0 = Vector2Add(player.releasePos, Vector2Scale(arrowDir, BULLET_RADIUS + PixelsToTiles(10)));
-	Vector2 arrowPos1 = mousePos;
+	Vector2 arrowPos0 = Vec2(0, 0);
+	Vector2 arrowPos1 = Vec2(1, 0);
+	Vector2 arrowDir = Vec2(1, 0);
+	if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
+	{
+		Vector2 mousePos = ScreenToTile(GetMousePosition());
+		arrowDir = Vector2Normalize(Vector2Subtract(mousePos, player.releasePos));
+		arrowPos0 = Vector2Add(player.releasePos, Vector2Scale(arrowDir, BULLET_RADIUS + PixelsToTiles(10)));
+		arrowPos1 = mousePos;
+	}
+	else
+	{
+		Vector2 stickPos = {
+			+GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X),
+			-GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y)
+		};
+		float stickMag = Vector2Length(stickPos);
+		arrowDir = Vector2Normalize(stickPos);
+		arrowPos0 = Vector2Add(player.releasePos, Vector2Scale(arrowDir, BULLET_RADIUS + PixelsToTiles(10)));
+		arrowPos1 = Vector2Add(arrowPos0, Vector2Scale(arrowDir, 6 * stickMag));
+	}
+	
 	float arrowLength = Vector2Distance(arrowPos0, arrowPos1);
 	float arrowWidth0 = PixelsToTiles(5);
 	float arrowWidth1 = Clamp(0.2f * arrowLength, PixelsToTiles(5), PixelsToTiles(30));
@@ -2572,12 +2695,22 @@ GameState MainMenu_Update(void)
 		return GAME_STATE_FADE_IN;
 	}
 
-	bool anyKeyPressed =
-		IsKeyPressed(KEY_SPACE) ||
-		IsKeyPressed(KEY_ENTER) ||
-		IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
-		IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) ||
-		false;
+	bool anyKeyPressed = false;
+	if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
+	{
+		anyKeyPressed =
+			IsKeyPressed(KEY_SPACE) ||
+			IsKeyPressed(KEY_ENTER) ||
+			IsMouseButtonPressed(KEY_R) ||
+			IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
+			IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) ||
+			false;
+	}
+	else
+	{
+		for (GamepadButton button = 0; button <= GAMEPAD_BUTTON_RIGHT_THUMB; ++button)
+			anyKeyPressed |= IsGamepadButtonPressed(0, button);
+	}
 
 	if (anyKeyPressed)
 	{
@@ -2773,9 +2906,9 @@ GameState Playing_Update(void)
 {
 	if (IsKeyPressed(KEY_GRAVE))
 		return GAME_STATE_LEVEL_EDITOR;
-	if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER))
+	if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT))
 		return GAME_STATE_PAUSED;
-	if (IsKeyPressed(KEY_R))
+	if (IsKeyPressed(KEY_R) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
 		return GAME_STATE_RESTARTING;
 
 	scoreTime += DELTA_TIME;
@@ -3072,7 +3205,7 @@ GameState Paused_Update(void)
 {
 	if (IsKeyPressed(KEY_GRAVE))
 		return GAME_STATE_LEVEL_EDITOR;
-	if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE))
+	if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT))
 		return GAME_STATE_PLAYING;
 
 	return GAME_STATE_PAUSED;
@@ -3102,7 +3235,16 @@ GameState GameOver_Update(void)
 {
 	if (IsKeyPressed(KEY_GRAVE))
 		return GAME_STATE_LEVEL_EDITOR;
-	if (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER))
+	if (IsKeyPressed(KEY_R) || 
+		IsKeyPressed(KEY_SPACE) || 
+		IsKeyPressed(KEY_ENTER) || 
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP) || 
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || 
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT) || 
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT) ||
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT) ||
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT) ||
+		false)
 		return GAME_STATE_RESTARTING;
 
 	UpdateBullets();
@@ -3234,7 +3376,11 @@ GameState Credits_Update(void)
 {
 	creditsTime += DELTA_TIME;
 
-	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || 
+		IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) ||
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT) ||
+		IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT) ||
+		false)
 	{
 		if (creditsTime > CREDITS_LENGTH + 1)
 		{
@@ -4176,6 +4322,11 @@ void GameInit(void)
 	LoadAllTextures();
 	LoadAllSounds();
 
+	if (IsGamepadAvailable(0))
+		inputMode = INPUT_MODE_CONTROLLER;
+	else
+		inputMode = INPUT_MODE_KEYBOARD_AND_MOUSE;
+
 	if (devMode)
 	{
 		gameState = GAME_STATE_PLAYING;
@@ -4194,6 +4345,38 @@ void GameLoopOneIteration(void)
 	TempReset();
 
 	timeAtStartOfFrame = GetTime();
+	if (IsGamepadAvailable(0))
+	{
+		for (GamepadButton button = 0; button <= GAMEPAD_BUTTON_RIGHT_THUMB; ++button)
+			if (IsGamepadButtonPressed(0, button))
+				inputMode = INPUT_MODE_CONTROLLER;
+	}
+
+	for (MouseButton button = 0; button <= MOUSE_BUTTON_LEFT; ++button)
+		if (IsMouseButtonPressed(button))
+			inputMode = INPUT_MODE_KEYBOARD_AND_MOUSE;
+
+	if (inputMode == INPUT_MODE_CONTROLLER)
+		HideCursor();
+	else if (inputMode == INPUT_MODE_KEYBOARD_AND_MOUSE)
+		ShowCursor();
+
+	if (IsKeyPressed(KEY_W) ||
+		IsKeyPressed(KEY_S) ||
+		IsKeyPressed(KEY_A) ||
+		IsKeyPressed(KEY_D) ||
+		IsKeyPressed(KEY_SPACE) ||
+		IsKeyPressed(KEY_R) ||
+		IsKeyPressed(KEY_ESCAPE) ||
+		IsKeyPressed(KEY_ENTER) ||
+		IsKeyPressed(KEY_UP) ||
+		IsKeyPressed(KEY_DOWN) ||
+		IsKeyPressed(KEY_LEFT) ||
+		IsKeyPressed(KEY_RIGHT) ||
+		IsKeyPressed(KEY_GRAVE))
+	{
+		inputMode = INPUT_MODE_KEYBOARD_AND_MOUSE;
+	}
 
 	// Do update and draw in 2 completely separate steps because state could change in the update function.
 	GameState oldState = gameState;

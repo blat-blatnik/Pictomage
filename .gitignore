@@ -12,4 +12,5 @@
 *.FileListAbsolute.txt
 *.vcxproj.user
 *.obj.enc
+*.aps
 Pictomage.lib

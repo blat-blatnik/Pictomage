@@ -122,7 +122,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="resource.h" />
+    <ClInclude Include="src\resource.h" />
     <ClInclude Include="src\basic.h" />
     <ClInclude Include="src\lib\raygui.h" />
     <ClInclude Include="src\lib\raylib.h" />
@@ -274,7 +274,7 @@
     <Image Include="screenshots\title.png" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Pictomage.rc" />
+    <ResourceCompile Include="src\Pictomage.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

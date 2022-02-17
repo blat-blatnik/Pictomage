@@ -11,6 +11,7 @@
 *.exp
 *.FileListAbsolute.txt
 *.vcxproj.user
+*.filters
 *.obj.enc
 *.aps
 *.res

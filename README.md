@@ -26,4 +26,27 @@ This all assumes you are using Windows 10. You will need the Emscripten SDK:
 
 1. You need to download and install [Visual Studio 2022](https://visualstudio.microsoft.com/vs/).
 2. When you need to select which components to install, make sure `Desktop development with C++` is ticked.
-3. Open up [`Pictomage.sln`](./Pictomage.sln) in Visual Studio and click the run button at the top. The output goes into [`bin/x64/`](./bin/x64/)
+3. Open up [`Pictomage.sln`](./Pictomage.sln) in Visual Studio and click the run button at the top. The output goes into [`bin/windows/`](./bin/windows/)
+
+## How to build (Mac)
+
+Open a terminal at the root of the project, and compile the code with clang:
+
+```bash
+$ clang -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL src/*.c -L./lib -lraylib_mac_x64 -o Pictomage -target x86_64-apple-macos10.12
+```
+
+This will produce an x64 executable, `Pictomage`, that you can run. If you want to compile for arm64 (Apple M1), run the following instead:
+
+```bash
+$ clang -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL src/*.c -L./lib -lraylib_mac_arm64 -o Pictomage -target arm64-apple-macos11
+```
+
+The [`macbuild.sh`](./macbuild.sh) script will compile the code for both targets, package it into a universal binary, make an app bundle, as well as a DMG installer. Run it like this:
+
+```bash
+$ chmod +x macbuild.sh
+$ ./macbuild.sh
+```
+
+The output will be in [`bin/mac/`](./bin/mac).

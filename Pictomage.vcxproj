@@ -46,15 +46,15 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>C:\WhereverYourLibFileIs;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)bin\win_$(Platform)\</OutDir>
-    <IntDir>bin\win_$(Platform)\</IntDir>
+    <LibraryPath>$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)bin\windows\</OutDir>
+    <IntDir>bin\windows\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>C:\WhereverYourLibFileIs;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)bin\win_$(Platform)\</OutDir>
-    <IntDir>bin\win_$(Platform)\</IntDir>
+    <LibraryPath>$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)bin\windows\</OutDir>
+    <IntDir>bin\windows\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -132,7 +132,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
+    <None Include="Info.plist" />
     <None Include="LICENSE" />
+    <None Include="macbuild.sh" />
+    <None Include="Pictomage.aps" />
+    <None Include="Pictomage.icns" />
     <None Include="README.md" />
     <None Include="res\room0.bin" />
     <None Include="res\room1.bin" />

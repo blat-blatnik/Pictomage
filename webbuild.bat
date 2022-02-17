@@ -24,5 +24,8 @@ if %size% geq 33554432 (
 	echo .data is larger than 32MB!
 )
 
+rem # Copy the favicon
+copy /y "Pictomage.ico" "bin/web/favicon.ico"
+
 pause
 rem # Run with: $ emrun bin/web/index.html

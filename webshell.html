@@ -1,56 +1,56 @@
 <!doctype html>
 <html lang="en-us">
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    
-    <title>Pictomage</title>
-    
-    <meta name="title" content="Pictomage">
-    <meta name="description" content="Top-down puzzle shooter game">
-    <meta name="keywords" content="videogame, game, html5, programming, C, raylib">
-    <meta name="viewport" content="width=device-width">
-    
-    <meta property="og:title" content="Pictomage">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image" content="https://github.com/blat-blatnik/Pictomage/blob/main/screenshots/title.png">
-    <meta property="og:url" content="https://blatnik.itch.io/pictomage">
-    <meta property="og:description" content="Top-down puzzle shooter game">
+	<meta charset="utf-8">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	
+	<title>Pictomage</title>
+	
+	<meta name="title" content="Pictomage">
+	<meta name="description" content="Top-down puzzle shooter game">
+	<meta name="keywords" content="videogame, game, html5, programming, C, raylib">
+	<meta name="viewport" content="width=device-width">
+	
+	<meta property="og:title" content="Pictomage">
+	<meta property="og:image:type" content="image/png">
+	<meta property="og:image" content="https://github.com/blat-blatnik/Pictomage/blob/main/screenshots/title.png">
+	<meta property="og:url" content="https://blatnik.itch.io/pictomage">
+	<meta property="og:description" content="Top-down puzzle shooter game">
 
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="Pictomage">
-    <meta name="twitter:image" content="https://github.com/blat-blatnik/Pictomage/blob/main/screenshots/title.png">
-    <meta name="twitter:url" content="https://blatnik.itch.io/pictomage">
-    <meta name="twitter:description" content="Top-down puzzle shooter game">
-    
-    <style>
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Pictomage">
+	<meta name="twitter:image" content="https://github.com/blat-blatnik/Pictomage/blob/main/screenshots/title.png">
+	<meta name="twitter:url" content="https://blatnik.itch.io/pictomage">
+	<meta name="twitter:description" content="Top-down puzzle shooter game">
+	
+	<style>
 		body { margin: 0; border: 0; }
-        canvas.emscripten { margin: 0; border: 0; background-color: black; }
-    </style>
-    </head>
-    <body>
-        <canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas>
-        <p id="output" />
-        <script>
-            var Module = {
-                print: (function() {
-                    var element = document.getElementById('output');
-                    if (element) element.value = ''; // clear browser cache
-                    return function(text) {
-                        if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-                        console.log(text);
-                        if (element) {
-                          element.value += text + "\n";
-                          element.scrollTop = element.scrollHeight; // focus on bottom
-                        }
-                    };
-                })(),            
-                canvas: (function() {
-                    var canvas = document.getElementById('canvas');
-                    return canvas;
-                })()
-            };
-        </script>
-        {{{ SCRIPT }}}
-    </body>
+		canvas.emscripten { margin: 0; border: 0; background-color: black; }
+	</style>
+	</head>
+	<body>
+		<canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas>
+		<p id="output" />
+		<script>
+			var Module = {
+				print: (function() {
+					var element = document.getElementById('output');
+					if (element) element.value = ''; // clear browser cache
+					return function(text) {
+						if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+						console.log(text);
+						if (element) {
+						  element.value += text + "\n";
+						  element.scrollTop = element.scrollHeight; // focus on bottom
+						}
+					};
+				})(),            
+				canvas: (function() {
+					var canvas = document.getElementById('canvas');
+					return canvas;
+				})()
+			};
+		</script>
+		{{{ SCRIPT }}}
+	</body>
 </html>

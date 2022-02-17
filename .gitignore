@@ -13,4 +13,5 @@
 *.vcxproj.user
 *.obj.enc
 *.aps
+*.res
 Pictomage.lib

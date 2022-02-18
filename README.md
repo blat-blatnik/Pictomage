@@ -1,10 +1,17 @@
 # Pictomage
 
-A top-down 2D puzzle-shooter game. Made in 1 week for the [Raylib 5K gamejam](https://itch.io/jam/raylib-5k-gamejam). Play it from your browser on [itch.io](https://blatnik.itch.io/pictomage)!
+A top-down 2D puzzle-shooter game. Made in 1 week for the [Raylib 5K gamejam](https://itch.io/jam/raylib-5k-gamejam). Play it from your browser on [itch.io](https://blatnik.itch.io/pictomage), or download a native binary from the [Releases](https://github.com/blat-blatnik/Pictomage/releases) page.
 
 <p align="center">
   <img src="./screenshots/5.png" alt="Screenshot" width="500"/>
 </p>
+
+## System requirements
+
+- WASM capable web browser (for the browser version).
+- 1 GHz CPU.
+- 256 MB of RAM.
+- OpenGL 3.3 / DirectX 10 capable GPU.
 
 ## How to build (Web)
 
@@ -50,3 +57,27 @@ $ ./macbuild.sh
 ```
 
 The output will be in [`bin/mac/`](./bin/mac).
+
+## Credits
+
+The coding and level design was done by Blat Blatnik. The art was made by Olga Ważny. Many thanks to all the friends that playtested the game!
+
+### Sound effects
+
+| name          | filename             | original author                            | source |
+|---------------|----------------------|--------------------------------------------|--------|
+| Explosion     | `explosion.wav`      | EFlexMusic (boyermanproductionz@gmail.com) | [freesound.org](https://freesound.org/people/EFlexMusic/sounds/388528/)
+| Glass shatter | `shatter.wav`        | Profispiesser                              | [freesound.org](https://freesound.org/people/Profispiesser/sounds/583065/)
+| Camera flash  | `snap2.wav`          | HughGuiney (@LordPancreas)                 | [freesound.org](https://freesound.org/people/HughGuiney/sounds/352832/)
+| Release       | `eject.wav`          | Iridiuss                                   | [freesound.org](https://freesound.org/people/Iridiuss/sounds/519414/)
+| Turret hit    | `turret-destroy.wav` | TROLlox_78                                 | [freesound.org](https://freesound.org/people/TROLlox_78/sounds/274119/)
+| Turret shot   | `long-shot.wav`      | morganpurkis                               | [freesound.org](https://freesound.org/people/morganpurkis/sounds/388194/)
+| Bullet hit    | `bullet-wall.wav`    | FilmmakersManual                           | [freesound.org](https://freesound.org/people/FilmmakersManual/sounds/522402/)
+| Ear ringing   | `ringing1.wav`       | ArrowheadProductions                       | [freesound.org](https://freesound.org/people/ArrowheadProductions/sounds/547974/)
+| Teleport 1    | `teleport.wav`       | steaq                                      | [freesound.org](https://freesound.org/people/steaq/sounds/560124/)
+| Teleport 2    | `teleport.wav`       | krzysiunet                                 | [freesound.org](https://freesound.org/people/krzysiunet/sounds/345835/)
+| Teleport 3    | `teleport.wav`       | DWOBoyle                                   | [freesound.org](https://freesound.org/people/DWOBoyle/sounds/474180/)
+
+### Libraries
+
+The game was made with [Raylib](https://www.raylib.com/). Raylib was made by Ray (@raysan5) and many open source contributors.

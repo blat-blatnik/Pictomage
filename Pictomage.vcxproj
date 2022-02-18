@@ -181,7 +181,6 @@
     <Media Include="res\turret-destroy.wav" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="CREDITS.md" />
     <Text Include="room-file-format.md" />
   </ItemGroup>
   <ItemGroup>

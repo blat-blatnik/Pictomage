@@ -28,8 +28,8 @@ This all assumes you are using Windows 10. You will need the Emscripten SDK:
 7. Press `Ok` to close all the open windows.
 8. To make sure everything worked, open up a new command prompt, and run `emsdk`. It should say `Missing command; Type 'emsdk help'..`
 8. In the same command prompt, run `emsdk update` followed by `emsdk install latest`. 
-9. You can now just run [`webbuild.bat`](./webbuild.bat) inside this project to build the game. The output goes into [`bin/web/`](./bin/web/).
-10. Run [`webrun.bat`](./webrun.bat) to run the game in your browser.
+9. You can now just run [`build_web.bat`](./build_web.bat) inside this project to build the game. The output goes into [`bin/web/`](./bin/web/).
+10. Run [`run_web.bat`](./run_web.bat) to run the game in your browser.
 
 ### Windows (Visual Studio)
 
@@ -45,7 +45,7 @@ Open a command line at the root of the project, and compile the code like this:
 $ gcc -L./lib src/*.c -lraylib_windows_x64 -lwinmm -lgdi32 -o Pictomage.exe
 ```
 
-Alternatively, you can run [`winbuild.bat`](./winbuild.bat), which will compile the code, and also embed the icon into the executable. 
+Alternatively, you can run [`build_windows.bat`](./build_windows.bat), which will compile the code, and also embed the icon into the executable. 
 
 ### Mac (clang)
 
@@ -61,7 +61,7 @@ This will produce an x64 executable, `Pictomage`, that you can run. If you want 
 $ clang -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL src/*.c -L./lib -lraylib_mac_arm64 -o Pictomage -target arm64-apple-macos11
 ```
 
-The [`macbuild.sh`](./macbuild.sh) script will compile the code for both targets, package it into a universal binary, make an app bundle, as well as a DMG installer. Run it like this:
+The [`build_mac.sh`](./build_mac.sh) script will compile the code for both targets, package it into a universal binary, make an app bundle, as well as a DMG installer. Run it like this:
 
 ```bash
 $ chmod +x macbuild.sh

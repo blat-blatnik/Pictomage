@@ -134,7 +134,7 @@
     <None Include=".gitignore" />
     <None Include="Info.plist" />
     <None Include="LICENSE" />
-    <None Include="macbuild.sh" />
+    <None Include="build_mac.sh" />
     <None Include="Pictomage.aps" />
     <None Include="Pictomage.icns" />
     <None Include="README.md" />
@@ -160,10 +160,10 @@
     <None Include="res\tutorial5.bin" />
     <None Include="res\tutorial6.bin" />
     <None Include="res\tutorial7.bin" />
-    <None Include="webbuild.bat" />
-    <None Include="webrun.bat" />
+    <None Include="build_web.bat" />
+    <None Include="run_web.bat" />
     <None Include="webshell.html" />
-    <None Include="winbuild.bat" />
+    <None Include="build_windows.bat" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="debug.natvis" />

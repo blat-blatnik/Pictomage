@@ -163,6 +163,7 @@
     <None Include="webbuild.bat" />
     <None Include="webrun.bat" />
     <None Include="webshell.html" />
+    <None Include="winbuild.bat" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="debug.natvis" />

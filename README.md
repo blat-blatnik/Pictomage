@@ -9,11 +9,13 @@ A top-down 2D puzzle-shooter game. Made in 1 week for the [Raylib 5K gamejam](ht
 ## System requirements
 
 - WASM capable web browser (for the browser version).
-- 1 GHz CPU.
+- 1 GHz 64-bit CPU.
 - 256 MB of RAM.
 - OpenGL 3.3 / DirectX 10 capable GPU.
 
-## How to build (Web)
+## How to build
+
+### Web (emscripten)
 
 This all assumes you are using Windows 10. You will need the Emscripten SDK:
 
@@ -29,13 +31,23 @@ This all assumes you are using Windows 10. You will need the Emscripten SDK:
 9. You can now just run [`webbuild.bat`](./webbuild.bat) inside this project to build the game. The output goes into [`bin/web/`](./bin/web/).
 10. Run [`webrun.bat`](./webrun.bat) to run the game in your browser.
 
-## How to build (Windows - Visual Studio)
+### Windows (Visual Studio)
 
 1. You need to download and install [Visual Studio 2022](https://visualstudio.microsoft.com/vs/).
 2. When you need to select which components to install, make sure `Desktop development with C++` is ticked.
 3. Open up [`Pictomage.sln`](./Pictomage.sln) in Visual Studio and click the run button at the top. The output goes into [`bin/windows/`](./bin/windows/)
 
-## How to build (Mac)
+### Windows (MinGW)
+
+Open a command line at the root of the project, and compile the code like this:
+
+```bash
+$ gcc -L./lib src/*.c -lraylib_windows_x64 -lwinmm -lgdi32 -o Pictomage.exe
+```
+
+Alternatively, you can run [`winbuild.bat`](./winbuild.bat), which will compile the code, and also embed the icon into the executable. 
+
+### Mac (clang)
 
 Open a terminal at the root of the project, and compile the code with clang:
 

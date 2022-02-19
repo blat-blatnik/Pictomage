@@ -20,7 +20,6 @@ Vector2   bombPos[numBombs]                  // The position of each bomb.
 uint8_t   bombVariants[numBombs]             // Unused. Bomb-variant codes for each bomb, but is always 0.
 uint8_t   numGlassBoxes                      // Number of glass boxes in the room.
 Rectangle glassBoxRects[numGlassBoxes]       // The bounding boxes of every glass box.
-float     glassBoxRotations[numGlassBoxes]   // Unused. Glass box angle in radians, but is always 0.
 uint8_t   numTriggerMessages                 // Number of trigger messages in the room.
 Rectangle triggerMessageRects[numTriggerMessages]  // Activation areas for every trigger message.
 bool      triggerMessageOnce[numTriggerMessages]   // Unused. For each trigger message, whether it will only trigger once.

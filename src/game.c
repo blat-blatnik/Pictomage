@@ -2456,8 +2456,8 @@ void DrawShutter(float t, Color innerColor, Color outerColor, float edgeThicknes
 
 		Vector2 v[3] = {
 			screenCenter,
-			Vector2Add(screenCenter, Vec2(size * cos(angle1), size * sin(angle1))),
-			Vector2Add(screenCenter, Vec2(size * cos(angle2), size * sin(angle2))),
+			Vector2Add(screenCenter, Vec2(size * cosf(angle1), size * sinf(angle1))),
+			Vector2Add(screenCenter, Vec2(size * cosf(angle2), size * sinf(angle2))),
 		};
 
 		Vector2 direction = Vector2Normalize(Vector2Subtract(v[2], v[1]));

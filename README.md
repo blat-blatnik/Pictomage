@@ -70,6 +70,14 @@ $ ./macbuild.sh
 
 The output will be in [`bin/mac/`](./bin/mac).
 
+### Linux (X11, GCC)
+
+Open a terminal at the root of the project, and compile the code like this:
+
+```bash
+$ gcc -Wno-unused-result -L./lib src/*.c -lraylib_linux_x64 -lm -ldl -lpthread -lGL -lX11 -o Pictomage
+```
+
 ## Credits
 
 The coding and level design was done by Blat Blatnik. The art was made by Olga Ważny. Many thanks to all the friends that playtested the game!

@@ -15,7 +15,7 @@ A top-down 2D puzzle-shooter game. Made in 1 week for the [Raylib 5K gamejam](ht
 
 ## How to build
 
-### Web (emscripten)
+### Web (Emscripten)
 
 This all assumes you are using Windows 10. You will need the Emscripten SDK:
 
